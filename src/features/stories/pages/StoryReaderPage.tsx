@@ -311,10 +311,10 @@ export const StoryReaderPage: React.FC = () => {
               <div className="text-6xl">{story.image || "📚"}</div>
               <div className="flex-1">
                 <h1 className="text-3xl font-bold mb-2">
-                  {story.title?.arabic || story.titleArabic || story.title}
+                  {story.titleArabic || story.title}
                 </h1>
                 <p className="text-blue-100 text-lg">
-                  {story.title?.english || story.title}
+                  {story.title}
                 </p>
                 {story.descriptionArabic && (
                   <p className="text-blue-200 mt-3 text-sm">

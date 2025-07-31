@@ -1,7 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* Arabic Font Support */
 @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&display=swap");
 
@@ -10,6 +6,10 @@
 
 /* Poppins Font for English Text */
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Root Variables */
 :root {
@@ -36,8 +36,8 @@
 }
 
 html {
-  font-family: "Cairo", "Noto Sans Arabic", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, sans-serif;
+  font-family: "Cairo", "Noto Sans Arabic", "Poppins", "Inter", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   scroll-behavior: smooth;
 }
 
@@ -48,16 +48,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
   direction: rtl;
   text-align: right;
-  font-family: "Cairo", sans-serif;
+  font-family: "Cairo", "Noto Sans Arabic", "Poppins", "Inter", sans-serif;
+  font-weight: 400;
 }
 
 /* Font Classes for Project-wide Use */
 .font-arabic {
-  font-family: "Cairo", sans-serif;
+  font-family: "Cairo", "Noto Sans Arabic", sans-serif;
 }
 
 .font-english {
-  font-family: "Poppins", sans-serif;
+  font-family: "Poppins", "Inter", sans-serif;
 }
 
 /* RTL Support */

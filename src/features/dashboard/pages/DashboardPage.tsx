@@ -4,11 +4,17 @@ import {
   getProgress,
   getStreak,
   addStreak,
+  resetStreak,
+  initializeStreak,
   getLearnedWords,
+  getDailyStory,
+  generateDailyStory,
 } from "@/core/utils/api";
 import { FaBookOpen, FaFire, FaStar, FaChartLine } from "react-icons/fa";
 import { HiSparkles } from "react-icons/hi";
 import { useNavigate } from "react-router-dom";
+import type { DailyStory } from "@/core/types";
+import { DailyStoryExam } from "../../daily-words/components/DailyStoryExam";
 
 // Types
 interface Progress {
@@ -59,6 +65,7 @@ const ErrorDisplay: React.FC<{ error: string; onRetry: () => void }> = ({
 const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
   streakDates,
 }) => {
+  console.log("WeeklyStreakDisplay render:", { streakDates });
   const weekDayNames = [
     "السبت",
     "الأحد",
@@ -90,6 +97,10 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
     d.setDate(currentWeekStart.getDate() + i);
     weekDays.push(d);
   }
+  console.log(
+    "Current week days:",
+    weekDays.map((d) => d.toISOString().split("T")[0])
+  );
 
   // Helper functions
   const isStreakDay = (date: Date) => {
@@ -124,6 +135,7 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
 
   // If no streaks at all
   if (!streakDates.length) {
+    console.log("No streak dates found, showing empty state");
     return (
       <div className="flex flex-col items-center justify-center py-4">
         <span className="text-gray-400 text-sm mb-2">
@@ -139,9 +151,17 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
 
   // Sort streak dates to ensure they're in chronological order
   const sortedStreakDates = [...streakDates].sort();
+  console.log("WeeklyStreakDisplay sorted dates:", {
+    sortedStreakDates,
+    weekDays: weekDays.map((d) => d.toISOString().split("T")[0]),
+  });
 
   return (
     <div className="w-full max-w-xl mx-auto">
+      {(() => {
+        console.log("Rendering streak calendar with dates:", streakDates);
+        return null;
+      })()}
       <div className="text-center text-xs text-gray-500 dark:text-gray-400 mt-2 mb-2">
         أسبوعك الحالي
       </div>
@@ -156,6 +176,13 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
           const isStreak = isStreakDay(d);
           const todayHighlight = isToday(d);
           const isPastDay = isPast(d);
+
+          console.log("Day check:", {
+            dateStr,
+            isStreak,
+            todayHighlight,
+            isPastDay,
+          });
 
           return (
             <div
@@ -218,9 +245,17 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
 
 const WelcomeModal: React.FC<{
   onAddStreak: () => void;
+  onInitializeStreak: () => void;
   addingStreak: boolean;
   streakDates: string[];
-}> = ({ onAddStreak, addingStreak, streakDates }) => {
+  hasExistingStreak: boolean;
+}> = ({
+  onAddStreak,
+  onInitializeStreak,
+  addingStreak,
+  streakDates,
+  hasExistingStreak,
+}) => {
   // استخدام التاريخ المحلي بدلاً من UTC
   const now = new Date();
   const today =
@@ -247,6 +282,10 @@ const WelcomeModal: React.FC<{
         </p>
 
         <WeeklyStreakDisplay streakDates={streakDates} />
+        {(() => {
+          console.log("WelcomeModal streakDates:", streakDates);
+          return null;
+        })()}
 
         <div className="mt-6 sm:mt-8">
           {isAlreadyCompleted ? (
@@ -254,26 +293,63 @@ const WelcomeModal: React.FC<{
               ✔️ لقد سجلت يومك بالفعل اليوم!
             </div>
           ) : (
-            <button
-              onClick={onAddStreak}
-              disabled={addingStreak}
-              className="w-full px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:transform-none font-semibold text-base sm:text-lg"
-            >
-              {addingStreak ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  جاري الإضافة...
+            <div className="space-y-3">
+              {!hasExistingStreak && (
+                <div className="text-orange-600 dark:text-orange-400 text-sm mb-2">
+                  🆕 مرحباً بك! سنقوم بإنشاء أول سلسلة نجاح لك
                 </div>
-              ) : (
-                "🚀 ابدأ رحلتك الآن"
               )}
-            </button>
+              <button
+                onClick={hasExistingStreak ? onAddStreak : onInitializeStreak}
+                disabled={addingStreak}
+                className="w-full px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:transform-none font-semibold text-base sm:text-lg"
+              >
+                {addingStreak ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    {hasExistingStreak ? "جاري الإضافة..." : "جاري الإنشاء..."}
+                  </div>
+                ) : hasExistingStreak ? (
+                  "🚀 ابدأ رحلتك الآن"
+                ) : (
+                  "🎯 إنشاء أول سلسلة نجاح"
+                )}
+              </button>
+            </div>
           )}
         </div>
       </div>
     </div>
   );
 };
+
+/*
+ * التحديثات المضافة:
+ *
+ * 1. إضافة دالة checkAndLoadDailyStory() للتحقق من وجود القصة اليومية قبل التوجيه
+ * 2. إضافة دالة generateNewDailyStory() لتوليد قصة جديدة مع رسائل loading مناسبة
+ * 3. إضافة loading modal للقصة مع رسائل تقدم مختلفة
+ * 4. تعديل handleAddStreak() لتوجيه المستخدم للقصة فقط عند إضافة الستريك لأول مرة
+ * 5. إزالة التوجيه التلقائي للقصة من useEffect
+ * 6. إضافة localStorage للتحقق من عرض القصة في نفس اليوم
+ * 7. إضافة timeout لمنع infinite loop (10 ثانية للقصة، 5 ثانية للكلمات، 60 ثانية للـ AI)
+ * 8. منع المحاولات المتكررة للقصة والستريك
+ *
+ * الرسائل المتوقعة:
+ * - "جاري التحقق من القصة اليومية..."
+ * - "جاري تحميل القصة اليومية..."
+ * - "جاري توليد قصة جديدة..."
+ * - "جاري إنشاء القصة من كلماتك..."
+ * - "جاري ترجمة القصة..."
+ * - "تقريباً انتهينا..."
+ * - "تم تحميل القصة بنجاح!"
+ * - "تم إنشاء القصة بنجاح!"
+ *
+ * رسائل الخطأ:
+ * - "انتهت مهلة الطلب. يرجى المحاولة مرة أخرى."
+ * - "انتهت مهلة جلب الكلمات. يرجى المحاولة مرة أخرى."
+ * - "انتهت مهلة إنشاء القصة. يرجى المحاولة مرة أخرى."
+ */
 
 const StatCard: React.FC<{
   title: string;
@@ -389,8 +465,21 @@ const Modal: React.FC<{
 };
 
 export const DashboardPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  console.log("Dashboard Auth State:", {
+    user: user
+      ? {
+          name: user.name,
+          role: user.role || "USER", // Default to USER if role is undefined
+          id: user.id,
+          fullUser: user,
+        }
+      : null,
+    isAuthenticated,
+    authLoading,
+  });
 
   // State
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -404,103 +493,449 @@ export const DashboardPage: React.FC = () => {
   const [streakDates, setStreakDates] = useState<string[]>([]);
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [streakAddedToday, setStreakAddedToday] = useState(false);
+  const [dailyStory, setDailyStory] = useState<DailyStory | null>(null);
+  const [showDailyStory, setShowDailyStory] = useState(false);
+  const [showDailyStoryExam, setShowDailyStoryExam] = useState(false);
+  const [dailyStoryCompleted, setDailyStoryCompleted] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [isProcessingStreak, setIsProcessingStreak] = useState(false);
+
+  // New states for story loading
+  const [isLoadingStory, setIsLoadingStory] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const [storyLoadingError, setStoryLoadingError] = useState<string | null>(
+    null
+  );
+
+  // دالة مساعدة لتحويل التاريخ من UTC إلى المحلي
+  const convertUTCToLocalDate = (utcDateString: string): string => {
+    const utcDate = new Date(utcDateString);
+    const localDate = new Date(
+      utcDate.getTime() + utcDate.getTimezoneOffset() * 60000
+    );
+    return localDate.toISOString().split("T")[0];
+  };
 
   // Functions
+  const fetchDailyStory = async () => {
+    try {
+      const response = await getDailyStory();
+      if (response.success && response.data) {
+        setDailyStory(response.data as unknown as DailyStory);
+      }
+    } catch (error) {
+      console.error("Error fetching daily story:", error);
+    }
+  };
+
+  // New function to check if story exists and handle loading
+  const checkAndLoadDailyStory = async () => {
+    console.log("checkAndLoadDailyStory called");
+    const now = new Date();
+    const today =
+      now.getFullYear() +
+      "-" +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(now.getDate()).padStart(2, "0");
+
+    const lastStoryDate = localStorage.getItem("lastStoryShownDate");
+
+    // إذا تم عرض القصة اليوم، لا نحتاج لتحميلها مرة أخرى
+    // هذا يضمن أن المستخدم لا يتم توجيهه للقصة إلا مرة واحدة في اليوم
+    if (lastStoryDate === today) {
+      console.log("Story already shown today, skipping...");
+      setDailyStoryCompleted(true);
+      return;
+    }
+
+    // منع المحاولات المتكررة
+    if (isLoadingStory) {
+      console.log("Story is already being loaded, skipping...");
+      return;
+    }
+
+    console.log("About to start loading story...");
+
+    console.log("Setting isLoadingStory to true");
+    setIsLoadingStory(true);
+    setStoryLoadingError(null);
+    setLoadingMessage("جاري التحقق من القصة اليومية...");
+    console.log("Setting loading message: جاري التحقق من القصة اليومية...");
+
+    try {
+      // محاولة الحصول على القصة الموجودة مع timeout أطول
+      // إذا فشل الـ API، ننتقل مباشرة لتوليد قصة جديدة
+      let response;
+      try {
+        response = (await Promise.race([
+          getDailyStory(),
+          new Promise(
+            (_, reject) => setTimeout(() => reject(new Error("Timeout")), 60000) // 60 ثانية timeout
+          ),
+        ])) as any;
+      } catch (apiError) {
+        console.log(
+          "API call failed, proceeding to generate new story:",
+          apiError
+        );
+        // إذا فشل الـ API، ننتقل لتوليد قصة جديدة
+        console.log("Calling generateNewDailyStory...");
+        await generateNewDailyStory();
+        return;
+      }
+
+      if (response.success && response.data) {
+        console.log("Daily story exists, loading...");
+        setLoadingMessage("جاري تحميل القصة اليومية...");
+        console.log("Setting loading message: جاري تحميل القصة اليومية...");
+
+        // تأخير قصير لمحاكاة التحميل
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        setDailyStory(response.data as unknown as DailyStory);
+        setLoadingMessage("تم تحميل القصة بنجاح!");
+        console.log("Setting loading message: تم تحميل القصة بنجاح!");
+        console.log("Story loaded successfully, navigating...");
+
+        // تأخير قصير لإظهار رسالة النجاح
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // توجيه المستخدم إلى القصة
+        navigate("/story-reader", {
+          state: {
+            story: response.data,
+            fromDashboard: true,
+          },
+        });
+
+        // تسجيل أن القصة تم عرضها اليوم
+        localStorage.setItem("lastStoryShownDate", today);
+        setDailyStoryCompleted(true);
+      } else {
+        // القصة غير موجودة، نحتاج لتوليدها
+        console.log("Daily story doesn't exist, generating...");
+        await generateNewDailyStory();
+      }
+    } catch (error: any) {
+      console.error("Error checking daily story:", error);
+      if (error.message === "Timeout") {
+        setStoryLoadingError("انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.");
+      } else {
+        setStoryLoadingError("حدث خطأ في تحميل القصة. يرجى المحاولة مرة أخرى.");
+      }
+    } finally {
+      console.log("Setting isLoadingStory to false");
+      setIsLoadingStory(false);
+      setLoadingMessage("");
+    }
+    console.log("checkAndLoadDailyStory finished");
+  };
+
+  // Function to generate new daily story with loading messages
+  const generateNewDailyStory = async () => {
+    console.log("generateNewDailyStory called");
+    try {
+      console.log("Setting loading message: جاري توليد قصة جديدة...");
+      setLoadingMessage("جاري توليد قصة جديدة...");
+
+      // اجلب الكلمات المتعلمة مع timeout
+      const learnedRes = (await Promise.race([
+        getLearnedWords(),
+        new Promise(
+          (_, reject) =>
+            setTimeout(() => reject(new Error("WordsTimeout")), 5000) // 5 ثانية timeout
+        ),
+      ])) as any;
+      const publicWords = Array.isArray((learnedRes.data as any)?.public)
+        ? (
+            (learnedRes.data as any).public as {
+              word: string;
+            }[]
+          ).map((w) => w.word)
+        : [];
+      const privateWords = Array.isArray((learnedRes.data as any)?.private)
+        ? (
+            (learnedRes.data as any).private as {
+              word: string;
+            }[]
+          ).map((w) => w.word)
+        : [];
+
+      setLoadingMessage("جاري إنشاء القصة من كلماتك...");
+      console.log("Setting loading message: جاري إنشاء القصة من كلماتك...");
+      console.log("About to generate story with timeout...");
+
+      // توليد القصة الجديدة مع timeout أطول
+      const storyResponse = (await Promise.race([
+        generateDailyStory({
+          publicWords,
+          privateWords,
+          userName: user?.name || "الطالب",
+          level: String(user?.level || "L1"),
+        }),
+        new Promise(
+          (_, reject) =>
+            setTimeout(() => reject(new Error("StoryGenerationTimeout")), 90000) // 90 ثانية timeout للـ AI
+        ),
+      ])) as any;
+
+      console.log("Story generation completed:", storyResponse);
+
+      if (storyResponse.success && storyResponse.data) {
+        setLoadingMessage("جاري ترجمة القصة...");
+        console.log("Setting loading message: جاري ترجمة القصة...");
+        console.log("Starting translation simulation...");
+
+        // تأخير لمحاكاة الترجمة
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        setLoadingMessage("تقريباً انتهينا...");
+        console.log("Setting loading message: تقريباً انتهينا...");
+        console.log("Almost done...");
+
+        // تأخير قصير
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        setDailyStory(storyResponse.data as unknown as DailyStory);
+        setLoadingMessage("تم إنشاء القصة بنجاح!");
+        console.log("Setting loading message: تم إنشاء القصة بنجاح!");
+        console.log("Story created successfully!");
+
+        // تأخير قصير لإظهار رسالة النجاح
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // توجيه المستخدم إلى القصة
+        console.log("Navigating to story reader...");
+        navigate("/story-reader", {
+          state: {
+            story: storyResponse.data,
+            fromDashboard: true,
+          },
+        });
+
+        // تسجيل أن القصة تم عرضها اليوم
+        const now = new Date();
+        const today =
+          now.getFullYear() +
+          "-" +
+          String(now.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(now.getDate()).padStart(2, "0");
+        localStorage.setItem("lastStoryShownDate", today);
+        setDailyStoryCompleted(true);
+      } else {
+        throw new Error("Failed to generate story");
+      }
+    } catch (error: any) {
+      console.error("Error generating daily story:", error);
+      if (error.message === "WordsTimeout") {
+        setStoryLoadingError("انتهت مهلة جلب الكلمات. يرجى المحاولة مرة أخرى.");
+      } else if (error.message === "StoryGenerationTimeout") {
+        setStoryLoadingError("انتهت مهلة إنشاء القصة. يرجى المحاولة مرة أخرى.");
+      } else {
+        setStoryLoadingError("حدث خطأ في إنشاء القصة. يرجى المحاولة مرة أخرى.");
+      }
+    }
+    console.log("generateNewDailyStory finished");
+  };
+
   const fetchDashboardData = async () => {
     setLoading(true);
     setError(null);
     try {
+      console.log("Fetching dashboard data...");
+
+      // Add a small delay to ensure auth is ready
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       const [progressRes, streakRes, learnedRes] = await Promise.all([
         getProgress(),
         getStreak(),
         getLearnedWords(),
       ]);
 
+      console.log("API Responses:", {
+        progressRes: {
+          success: progressRes.success,
+          data: progressRes.data,
+          error: progressRes.error,
+        },
+        streakRes: {
+          success: streakRes.success,
+          data: streakRes.data,
+          error: streakRes.error,
+        },
+        learnedRes: {
+          success: learnedRes.success,
+          data: learnedRes.data,
+          error: learnedRes.error,
+        },
+      });
+
+      // Handle progress data
       if (progressRes.success && progressRes.data) {
-        setProgress(progressRes.data as unknown as Progress);
+        console.log("Setting progress:", progressRes.data);
+        const progressData = progressRes.data as any;
+        const progress: Progress = {
+          completedLessons:
+            progressData.completedStories || progressData.completedLessons || 0,
+          totalLessons:
+            progressData.totalStories || progressData.totalLessons || 1,
+          progressPercent:
+            progressData.progress || progressData.progressPercent || 0,
+        };
+        console.log("Converted progress:", progress);
+        setProgress(progress);
+      } else {
+        console.log("Progress response failed:", progressRes);
+        // Set default progress if API fails
+        setProgress({
+          completedLessons: 0,
+          totalLessons: 1,
+          progressPercent: 0,
+        });
       }
 
+      // Handle streak data
       if (streakRes.success && streakRes.data) {
-        const data = streakRes.data as unknown as StreakData;
-        if (typeof data.streak === "number") {
-          setStreak(data.streak);
-          setLastStreakDate(data.lastDate || null);
+        const data = streakRes.data as any;
+        console.log("Streak data from API:", data);
 
-          // Use streakDays from API if available
-          if (data.streakDays && Array.isArray(data.streakDays)) {
-            setStreakDates(data.streakDays);
-          } else if (data.lastDate && data.streak > 0) {
-            // Fallback: Create streak dates based on streak count and last date
+        const streakValue = data.currentStreak || data.streak || 0;
+        const lastDate = data.lastDate || null;
+
+        console.log("Setting streak values:", { streakValue, lastDate });
+        setStreak(streakValue);
+        setLastStreakDate(lastDate);
+
+        // Handle streak dates
+        console.log("Processing streak dates:", {
+          streakDays: data.streakDays,
+          isArray: Array.isArray(data.streakDays),
+          lastDate: data.lastDate,
+          streakValue,
+        });
+
+        if (data.streakDays && Array.isArray(data.streakDays)) {
+          console.log("Using streakDays from API:", data.streakDays);
+          setStreakDates(data.streakDays);
+        } else if (data.lastDate && streakValue > 0) {
+          // Fallback: Create streak dates based on streak count and last date
+          const lastDate = new Date(data.lastDate);
+          const streakDates: string[] = [];
+
+          // Generate dates for the streak - start from the last date and go backwards
+          for (let i = 0; i < streakValue; i++) {
+            const date = new Date(lastDate);
+            date.setDate(lastDate.getDate() - i);
+            streakDates.push(date.toISOString().split("T")[0]);
+          }
+
+          setStreakDates(streakDates);
+        } else {
+          // If no streak data, try to create from last date only
+          if (data.lastDate) {
             const lastDate = new Date(data.lastDate);
-            const streakDates: string[] = [];
+            const today = new Date();
+            const todayStr = today.toISOString().split("T")[0];
+            const lastDateStr = lastDate.toISOString().split("T")[0];
 
-            // Generate dates for the streak - start from the last date and go backwards
-            for (let i = 0; i < data.streak; i++) {
-              const date = new Date(lastDate);
-              date.setDate(lastDate.getDate() - i);
-              streakDates.push(date.toISOString().split("T")[0]);
-            }
-
-            setStreakDates(streakDates);
-          } else {
-            // If no streak data, try to create from last date only
-            if (data.lastDate) {
-              const lastDate = new Date(data.lastDate);
-              const today = new Date();
-              const todayStr = today.toISOString().split("T")[0];
-              const lastDateStr = lastDate.toISOString().split("T")[0];
-
-              // If last date is today or yesterday, consider it as a streak
-              if (
-                lastDateStr === todayStr ||
-                lastDateStr ===
-                  new Date(today.getTime() - 24 * 60 * 60 * 1000)
-                    .toISOString()
-                    .split("T")[0]
-              ) {
-                setStreakDates([lastDateStr]);
-              } else {
-                setStreakDates([]);
-              }
+            // If last date is today or yesterday, consider it as a streak
+            if (
+              lastDateStr === todayStr ||
+              lastDateStr ===
+                new Date(today.getTime() - 24 * 60 * 60 * 1000)
+                  .toISOString()
+                  .split("T")[0]
+            ) {
+              setStreakDates([lastDateStr]);
             } else {
               setStreakDates([]);
             }
+          } else {
+            setStreakDates([]);
           }
+        }
 
-          // تحقق من أن آخر تاريخ في الستريك هو اليوم الحالي
-          const now = new Date();
-          const today =
-            now.getFullYear() +
-            "-" +
-            String(now.getMonth() + 1).padStart(2, "0") +
-            "-" +
-            String(now.getDate()).padStart(2, "0");
-          if (data.lastDate) {
-            const lastDateStr = new Date(data.lastDate)
-              .toISOString()
-              .split("T")[0];
-            if (lastDateStr === today) {
-              setStreakAddedToday(true);
-            } else {
-              setStreakAddedToday(false);
+        // Check if streak was added today
+        const now = new Date();
+        const today =
+          now.getFullYear() +
+          "-" +
+          String(now.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(now.getDate()).padStart(2, "0");
+        if (data.lastDate) {
+          // تحويل التاريخ من UTC إلى المحلي
+          const lastDateStr = convertUTCToLocalDate(data.lastDate);
+          console.log("Date comparison:", {
+            today,
+            lastDateStr,
+            originalLastDate: data.lastDate,
+            isToday: lastDateStr === today,
+          });
+          if (lastDateStr === today) {
+            setStreakAddedToday(true);
+
+            // إضافة اليوم الحالي إلى streakDates إذا تم إضافته في قاعدة البيانات
+            if (!streakDates.includes(today)) {
+              console.log("Adding today to streakDates from database check");
+              const updatedStreakDates = [...streakDates, today].sort();
+              setStreakDates(updatedStreakDates);
             }
+          } else {
+            setStreakAddedToday(false);
           }
+        }
+      } else {
+        console.log("Streak response failed:", streakRes);
+        // Set default streak values if API fails
+        setStreak(0);
+        setStreakDates([]);
+        setStreakAddedToday(false);
+
+        // إذا كان المستخدم جديد وليس لديه ستريك، اعرض الـ welcome modal
+        if (user && isAuthenticated && !authLoading) {
+          console.log("New user detected, will show welcome modal");
+          setShowWelcome(true);
         }
       }
 
-      if (
-        learnedRes &&
-        learnedRes.data &&
-        Array.isArray((learnedRes.data as any).public) &&
-        Array.isArray((learnedRes.data as any).private)
-      ) {
-        setWordsCount(
-          (learnedRes.data as any).public.length +
-            (learnedRes.data as any).private.length
-        );
+      // Handle learned words data
+      console.log("Learned words response:", learnedRes);
+      if (learnedRes && learnedRes.success && learnedRes.data) {
+        const learnedData = learnedRes.data as any;
+        let totalWords = 0;
+
+        if (learnedData.public && Array.isArray(learnedData.public)) {
+          totalWords += learnedData.public.length;
+        }
+        if (learnedData.private && Array.isArray(learnedData.private)) {
+          totalWords += learnedData.private.length;
+        }
+
+        console.log("Setting words count:", { totalWords });
+        setWordsCount(totalWords);
+      } else {
+        console.log("Learned words data is invalid:", learnedRes);
+        setWordsCount(0);
       }
+
+      console.log("Dashboard data fetch completed successfully");
     } catch (err) {
+      console.error("Dashboard fetch error:", err);
       setError("حدث خطأ أثناء جلب البيانات");
+
+      // Set default values on error
+      setProgress({
+        completedLessons: 0,
+        totalLessons: 1,
+        progressPercent: 0,
+      });
+      setStreak(0);
+      setWordsCount(0);
+      setStreakDates([]);
     } finally {
       setLoading(false);
     }
@@ -508,32 +943,176 @@ export const DashboardPage: React.FC = () => {
 
   const handleAddStreak = async () => {
     console.log("handleAddStreak called");
-    setAddingStreak(true);
-    try {
-      // استخدام التاريخ المحلي بدلاً من UTC
-      const now = new Date();
-      const today =
-        now.getFullYear() +
-        "-" +
-        String(now.getMonth() + 1).padStart(2, "0") +
-        "-" +
-        String(now.getDate()).padStart(2, "0");
-      console.log("Adding streak for date:", today);
-      await addStreak({ streak: streak + 1, lastDate: today });
+    console.log("handleAddStreak state:", {
+      isProcessingStreak,
+      addingStreak,
+      streakAddedToday,
+      user: !!user,
+      isAuthenticated,
+    });
+
+    if (isProcessingStreak || addingStreak) {
+      console.log("Streak is already being processed, skipping...");
+      return;
+    }
+
+    // استخدام التاريخ المحلي
+    const now = new Date();
+    const today =
+      now.getFullYear() +
+      "-" +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(now.getDate()).padStart(2, "0");
+
+    // تحقق من localStorage أولاً
+    const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
+    const lastAutoAddedDate = localStorage.getItem("lastAutoStreakDate");
+
+    if (lastAddedDate === today || lastAutoAddedDate === today) {
+      console.log("Streak already added today (localStorage), skipping...");
       setStreakAddedToday(true);
+      return;
+    }
+
+    setAddingStreak(true);
+    setIsProcessingStreak(true);
+    try {
+      console.log("Adding streak for date:", today);
+
+      // إضافة الستريك محلياً أولاً
+      if (!streakDates.includes(today)) {
+        console.log("Adding today to streakDates locally");
+        const updatedStreakDates = [...streakDates, today].sort();
+        setStreakDates(updatedStreakDates);
+      }
+
+      // تسجيل في localStorage
       localStorage.setItem("lastStreakAddedDate", today);
+      localStorage.setItem("lastAutoStreakDate", today);
+
+      setStreakAddedToday(true);
       setShowWelcome(false);
-      fetchDashboardData();
+
+      // محاولة إضافة الستريك للـ API
+      try {
+        const streakResponse = await addStreak({
+          action: "add",
+          date: today,
+        });
+        console.log("Streak API response:", streakResponse);
+
+        if (streakResponse.success) {
+          console.log("Streak added successfully to database");
+          // تحديث lastStreakDate
+          setLastStreakDate(new Date().toISOString());
+        } else {
+          console.error(
+            "Failed to add streak to database:",
+            streakResponse.error
+          );
+        }
+      } catch (apiError) {
+        console.error("Error adding streak to API:", apiError);
+        // الستريك تم إضافته محلياً، نستمر
+      }
+
+      // إظهار رسالة نجاح
+      setShowSuccessMessage(true);
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 3000);
+
+      // تحقق من القصة اليومية وتوجيه المستخدم
+      console.log("Calling checkAndLoadDailyStory from handleAddStreak");
+      await checkAndLoadDailyStory();
     } catch (err) {
       console.error("Error adding streak:", err);
+      // الستريك تم إضافته محلياً، نستمر
     } finally {
       setAddingStreak(false);
+      setIsProcessingStreak(false);
+    }
+  };
+
+  // دالة جديدة لمعالجة المستخدمين الجدد الذين ليس لديهم ستريك
+  const handleInitializeStreak = async () => {
+    console.log("handleInitializeStreak called");
+
+    if (isProcessingStreak || addingStreak) {
+      console.log("Streak is already being processed, skipping...");
+      return;
+    }
+
+    setAddingStreak(true);
+    setIsProcessingStreak(true);
+
+    try {
+      console.log("Initializing streak for new user...");
+
+      // محاولة إنشاء ستريك جديد
+      const initResponse = await initializeStreak();
+      console.log("Initialize streak response:", initResponse);
+
+      if (initResponse.success) {
+        console.log("Streak initialized successfully");
+
+        // إضافة اليوم الحالي محلياً
+        const now = new Date();
+        const today =
+          now.getFullYear() +
+          "-" +
+          String(now.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(now.getDate()).padStart(2, "0");
+
+        if (!streakDates.includes(today)) {
+          const updatedStreakDates = [...streakDates, today].sort();
+          setStreakDates(updatedStreakDates);
+        }
+
+        // تسجيل في localStorage
+        localStorage.setItem("lastStreakAddedDate", today);
+        localStorage.setItem("lastAutoStreakDate", today);
+
+        setStreakAddedToday(true);
+        setShowWelcome(false);
+
+        // إظهار رسالة نجاح
+        setShowSuccessMessage(true);
+        setTimeout(() => {
+          setShowSuccessMessage(false);
+        }, 3000);
+
+        // تحقق من القصة اليومية
+        await checkAndLoadDailyStory();
+      } else {
+        console.error("Failed to initialize streak:", initResponse.error);
+        // محاولة إعادة تعيين الستريك
+        const resetResponse = await resetStreak();
+        if (resetResponse.success) {
+          console.log("Streak reset successfully, trying to add again...");
+          await handleAddStreak();
+        }
+      }
+    } catch (err) {
+      console.error("Error initializing streak:", err);
+    } finally {
+      setAddingStreak(false);
+      setIsProcessingStreak(false);
     }
   };
 
   // Effects
   useEffect(() => {
-    fetchDashboardData();
+    console.log("Dashboard useEffect triggered - fetching data");
+
+    // Only fetch data if user is authenticated and not loading
+    if (isAuthenticated && !authLoading && user) {
+      fetchDashboardData();
+      fetchDailyStory();
+    }
+
     // إعادة تعيين streakAddedToday عند بداية يوم جديد
     const now = new Date();
     const today =
@@ -543,13 +1122,33 @@ export const DashboardPage: React.FC = () => {
       "-" +
       String(now.getDate()).padStart(2, "0");
     const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
-    if (lastAddedDate !== today) {
-      setStreakAddedToday(false);
-      localStorage.setItem("lastStreakAddedDate", today);
-    } else {
+    const lastAutoAddedDate = localStorage.getItem("lastAutoStreakDate");
+
+    // تحقق من أن الستريك تم إضافته اليوم
+    const alreadyAddedToday =
+      lastAddedDate === today || lastAutoAddedDate === today;
+
+    if (alreadyAddedToday) {
       setStreakAddedToday(true);
+
+      // إضافة اليوم الحالي إلى streakDates إذا تم إضافته محلياً
+      if (!streakDates.includes(today)) {
+        console.log("Adding today to streakDates from localStorage check");
+        const updatedStreakDates = [...streakDates, today].sort();
+        setStreakDates(updatedStreakDates);
+      }
+    } else {
+      setStreakAddedToday(false);
+
+      // إذا كان المستخدم جديد وليس لديه ستريك، اعرض الـ welcome modal
+      if (user && isAuthenticated && streak === 0) {
+        console.log(
+          "New user detected in first useEffect, showing welcome modal"
+        );
+        setShowWelcome(true);
+      }
     }
-  }, []);
+  }, [isAuthenticated, authLoading, user]);
 
   useEffect(() => {
     if (lastStreakDate) {
@@ -560,9 +1159,130 @@ export const DashboardPage: React.FC = () => {
         String(now.getMonth() + 1).padStart(2, "0") +
         "-" +
         String(now.getDate()).padStart(2, "0");
-      setShowWelcome(lastStreakDate !== today);
+      const lastStreakDateLocal = convertUTCToLocalDate(lastStreakDate);
+      setShowWelcome(lastStreakDateLocal !== today);
     }
   }, [lastStreakDate]);
+
+  // إضافة الستريك تلقائياً عند دخول المستخدم (فقط مرة واحدة في اليوم)
+  useEffect(() => {
+    // استخدام التاريخ المحلي بدلاً من UTC
+    const now = new Date();
+    const today =
+      now.getFullYear() +
+      "-" +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(now.getDate()).padStart(2, "0");
+
+    // تحقق من localStorage أولاً
+    const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
+    const lastAutoAddedDate = localStorage.getItem("lastAutoStreakDate");
+    const alreadyAddedTodayLocal =
+      lastAddedDate === today || lastAutoAddedDate === today;
+
+    // تحقق من آخر تاريخ streak من الـ backend
+    const lastStreakDateStr = lastStreakDate
+      ? convertUTCToLocalDate(lastStreakDate)
+      : null;
+
+    console.log("Auto streak conditions check:", {
+      user: !!user,
+      loading,
+      authLoading,
+      isAuthenticated,
+      alreadyAddedTodayLocal,
+      isProcessingStreak,
+      lastStreakDateStr,
+      today,
+      willSendPost: !!(
+        user &&
+        !loading &&
+        !authLoading &&
+        isAuthenticated &&
+        !alreadyAddedTodayLocal &&
+        !isProcessingStreak
+      ),
+    });
+
+    // إضافة الستريك إذا لم يتم إضافته اليوم بعد
+    if (
+      user &&
+      !loading &&
+      !authLoading &&
+      isAuthenticated &&
+      !alreadyAddedTodayLocal &&
+      !isProcessingStreak
+    ) {
+      console.log("Adding streak automatically...");
+
+      // تحقق من الستريك الحالي
+      if (streak === 0) {
+        console.log("User has no streak, initializing...");
+        handleInitializeStreak();
+      } else {
+        console.log("User has existing streak, adding...");
+        handleAddStreak();
+      }
+    } else if (alreadyAddedTodayLocal) {
+      console.log("Streak already added today (localStorage)");
+      setStreakAddedToday(true);
+      // تحديث streakDates إذا لم يكن اليوم موجود
+      if (!streakDates.includes(today)) {
+        console.log("Adding today to streakDates from localStorage check");
+        const updatedStreakDates = [...streakDates, today].sort();
+        setStreakDates(updatedStreakDates);
+      }
+    } else if (streak === 0 && user && isAuthenticated) {
+      // إذا كان المستخدم جديد وليس لديه ستريك، اعرض الـ welcome modal
+      console.log("New user with no streak, showing welcome modal");
+      setShowWelcome(true);
+    }
+  }, [user, loading, isProcessingStreak, authLoading, isAuthenticated]); // إزالة lastStreakDate و streakDates و streakAddedToday من dependencies لمنع infinite loop
+
+  // عرض القصة اليومية والامتحان تلقائياً عند بداية يوم جديد
+  useEffect(() => {
+    const now = new Date();
+    const today =
+      now.getFullYear() +
+      "-" +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(now.getDate()).padStart(2, "0");
+
+    const lastStoryDate = localStorage.getItem("lastDailyStoryDate");
+
+    if (
+      user &&
+      !loading &&
+      dailyStory &&
+      lastStoryDate !== today &&
+      !dailyStoryCompleted
+    ) {
+      console.log(
+        "Daily story available for today, but not showing automatically..."
+      );
+      // لا نعرض القصة تلقائياً، فقط نترك المستخدم يختار متى يريد قراءتها
+    }
+  }, [user, dailyStory, loading, dailyStoryCompleted]);
+
+  // منع إظهار القصة في كل مرة يتم فيها refresh
+  useEffect(() => {
+    const now = new Date();
+    const today =
+      now.getFullYear() +
+      "-" +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(now.getDate()).padStart(2, "0");
+
+    const lastStoryShown = localStorage.getItem("lastStoryShownDate");
+
+    // إذا تم عرض القصة اليوم، لا تعرضها مرة أخرى
+    if (lastStoryShown === today) {
+      setDailyStoryCompleted(true);
+    }
+  }, []);
 
   useEffect(() => {
     const now = new Date();
@@ -575,59 +1295,50 @@ export const DashboardPage: React.FC = () => {
     if (streakDates.includes(today)) {
       setShowWelcome(false);
     }
-  }, [streakDates]);
 
-  useEffect(() => {
-    // استخدام التاريخ المحلي بدلاً من UTC
-    const now = new Date();
-    const today =
-      now.getFullYear() +
-      "-" +
-      String(now.getMonth() + 1).padStart(2, "0") +
-      "-" +
-      String(now.getDate()).padStart(2, "0");
-
-    // تحقق من أن المستخدم موجود وأن اليوم الحالي ليس في الستريك
-    // وأن آخر تاريخ في الستريك ليس اليوم الحالي وأنه لم يتم إضافة الستريك اليوم بعد
-    // وأن البيانات قد تم تحميلها (loading = false)
-    const lastStreakDateStr = lastStreakDate
-      ? new Date(lastStreakDate).toISOString().split("T")[0]
-      : null;
-
-    console.log("Streak Check:", {
-      user: !!user,
-      userHasId: user?.id,
-      loading,
-      today,
-      localDate: now.toLocaleDateString(),
-      streakDates,
-      lastStreakDateStr,
-      streakAddedToday,
-      shouldAdd:
-        user &&
-        user.id &&
-        !loading &&
-        !streakDates.includes(today) &&
-        lastStreakDateStr !== today &&
-        !streakAddedToday,
-    });
-
-    if (
-      user &&
-      user.id &&
-      !loading &&
-      !streakDates.includes(today) &&
-      lastStreakDateStr !== today &&
-      !streakAddedToday
-    ) {
-      console.log("Adding streak automatically...");
-      // تأخير قليل لضمان أن جميع البيانات قد تم تحميلها
-      setTimeout(() => {
-        handleAddStreak();
-      }, 1000);
+    // إذا كان المستخدم جديد وليس لديه ستريك، اعرض الـ welcome modal
+    if (user && isAuthenticated && streak === 0 && !showWelcome) {
+      console.log(
+        "New user detected in streakDates useEffect, showing welcome modal"
+      );
+      setShowWelcome(true);
     }
-  }, [user, streakDates, lastStreakDate, streakAddedToday, loading]);
+  }, [streakDates, user, isAuthenticated, streak, showWelcome]);
 
+  console.log("Dashboard render state:", {
+    loading,
+    error,
+    isLoadingStory,
+    loadingMessage,
+    storyLoadingError,
+    progress: progress
+      ? {
+          completedLessons: progress.completedLessons,
+          totalLessons: progress.totalLessons,
+          progressPercent: progress.progressPercent,
+        }
+      : null,
+    streak,
+    wordsCount,
+    showWelcome,
+    streakAddedToday,
+    isProcessingStreak,
+    user: user
+      ? {
+          name: user.name || "الطالب",
+          role: user.role || "USER",
+          id: user.id,
+          fullUser: user,
+        }
+      : null,
+  });
+
+  console.log(
+    "Dashboard render - isLoadingStory:",
+    isLoadingStory,
+    "loadingMessage:",
+    loadingMessage
+  );
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 transition-colors duration-300">
       {/* Streak Calendar Modal */}
@@ -635,16 +1346,107 @@ export const DashboardPage: React.FC = () => {
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
           سلسلة الأيام الأسبوعية
         </h2>
+        {(() => {
+          console.log("Modal streakDates:", streakDates);
+          return null;
+        })()}
         <WeeklyStreakDisplay streakDates={streakDates} />
       </Modal>
-      {/* Welcome Modal */}
-      {showWelcome && !user && !streakAddedToday && (
-        <WelcomeModal
-          onAddStreak={handleAddStreak}
-          addingStreak={addingStreak}
-          streakDates={streakDates}
+
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full text-center border border-gray-100 dark:border-gray-700 transform animate-pulse">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+              <span className="text-white text-3xl">🎉</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white">
+              مبروك! 🎉
+            </h2>
+            <p className="mb-6 sm:mb-8 text-gray-700 dark:text-gray-300 text-base sm:text-lg leading-relaxed">
+              تم إضافة يومك بنجاح! سيتم توجيهك إلى قراءة قصة اليوم...
+            </p>
+            <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center animate-bounce">
+              <span className="text-white text-2xl">📚</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Story Loading Modal */}
+      {isLoadingStory && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full text-center border border-gray-100 dark:border-gray-700">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+            </div>
+
+            <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white">
+              {storyLoadingError ? "حدث خطأ" : "جاري تحميل القصة"}
+            </h2>
+
+            {storyLoadingError ? (
+              <div className="text-red-600 dark:text-red-400 mb-4 text-sm sm:text-base">
+                {storyLoadingError}
+              </div>
+            ) : (
+              <div className="text-gray-700 dark:text-gray-300 mb-4 text-sm sm:text-base">
+                {loadingMessage}
+              </div>
+            )}
+
+            {storyLoadingError ? (
+              <button
+                onClick={() => {
+                  setStoryLoadingError(null);
+                  checkAndLoadDailyStory();
+                }}
+                className="px-6 sm:px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-sm sm:text-base"
+              >
+                🔄 إعادة المحاولة
+              </button>
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
+                <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+                <div
+                  className="w-2 h-2 bg-current rounded-full animate-bounce"
+                  style={{ animationDelay: "0.1s" }}
+                ></div>
+                <div
+                  className="w-2 h-2 bg-current rounded-full animate-bounce"
+                  style={{ animationDelay: "0.2s" }}
+                ></div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Daily Story Exam Modal */}
+      {showDailyStoryExam && dailyStory && (
+        <DailyStoryExam
+          onComplete={() => {
+            setDailyStoryCompleted(true);
+            setShowDailyStoryExam(false);
+          }}
+          onClose={() => setShowDailyStoryExam(false)}
         />
       )}
+
+      {/* Welcome Modal */}
+      {showWelcome &&
+        user &&
+        !streakAddedToday &&
+        !addingStreak &&
+        !isProcessingStreak && (
+          <WelcomeModal
+            onAddStreak={handleAddStreak}
+            onInitializeStreak={handleInitializeStreak}
+            addingStreak={addingStreak}
+            streakDates={streakDates}
+            hasExistingStreak={streak > 0}
+          />
+        )}
 
       <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Header Section */}
@@ -666,11 +1468,26 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Content */}
-        {loading ? (
+        {(() => {
+          console.log("Render condition check:", {
+            loading,
+            error,
+            authLoading,
+            userRole: user?.role || "USER",
+            userExists: !!user,
+            isAuthenticated,
+            willShowContent:
+              !loading && !error && !authLoading && !!user && isAuthenticated,
+          });
+          return null;
+        })()}
+        {authLoading ? (
+          <LoadingSpinner />
+        ) : loading ? (
           <LoadingSpinner />
         ) : error ? (
           <ErrorDisplay error={error} onRetry={fetchDashboardData} />
-        ) : user?.role === "USER" ? (
+        ) : user && isAuthenticated ? (
           <>
             {/* Statistics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12">
@@ -710,7 +1527,13 @@ export const DashboardPage: React.FC = () => {
               <div
                 role="button"
                 tabIndex={0}
-                onClick={() => setShowStreakModal(true)}
+                onClick={() => {
+                  console.log(
+                    "Streak card clicked, current streakDates:",
+                    streakDates
+                  );
+                  setShowStreakModal(true);
+                }}
                 onKeyDown={(e) =>
                   (e.key === "Enter" || e.key === " ") &&
                   setShowStreakModal(true)
@@ -736,14 +1559,10 @@ export const DashboardPage: React.FC = () => {
                     {streak > 7 ? "إنجاز رائع! 🎉" : "استمر في التعلم"}
                   </p>
                   <div className="text-center mt-2">
-                    {!streakAddedToday && (
-                      <button
-                        onClick={handleAddStreak}
-                        disabled={addingStreak}
-                        className="px-3 py-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs rounded-full hover:shadow-lg transition-all duration-300 disabled:opacity-50"
-                      >
-                        {addingStreak ? "جاري..." : "إضافة اليوم"}
-                      </button>
+                    {streakAddedToday && (
+                      <span className="text-green-600 dark:text-green-400 text-xs font-medium">
+                        ✅ تم إضافة اليوم
+                      </span>
                     )}
                   </div>
                 </StatCard>
@@ -808,46 +1627,34 @@ export const DashboardPage: React.FC = () => {
                 <ActionButton
                   title="قصة اليوم"
                   description="اقرأ قصة مخصصة بكلماتك"
-                  icon="📖"
+                  icon="📚"
                   gradientFrom="from-indigo-500/10"
                   gradientTo="to-blue-500/10"
                   hoverBorder="hover:border-indigo-200 dark:hover:border-indigo-600"
                   onClick={async () => {
-                    // اجلب الكلمات المتعلمة
-                    const learnedRes = await getLearnedWords();
-                    const publicWords = Array.isArray(
-                      (learnedRes.data as any)?.public
-                    )
-                      ? (
-                          (learnedRes.data as any).public as { word: string }[]
-                        ).map((w) => w.word)
-                      : [];
-                    const privateWords = Array.isArray(
-                      (learnedRes.data as any)?.private
-                    )
-                      ? (
-                          (learnedRes.data as any).private as { word: string }[]
-                        ).map((w) => w.word)
-                      : [];
-                    // أرسلهم إلى صفحة القصص مع state
-                    navigate("/stories", {
-                      state: {
-                        publicWords,
-                        privateWords,
-                        userName: user?.name,
-                        level: user?.level,
-                      },
-                    });
+                    // تحقق من القصة اليومية وتوجيه المستخدم
+                    await checkAndLoadDailyStory();
                   }}
                 />
 
                 <ActionButton
-                  title="التمارين الذكية"
-                  description="اختبر مهاراتك وطور قدراتك"
-                  icon="🏆"
+                  title="المحادثة مع الذكاء الاصطناعي"
+                  description="تحدث مع المساعد الذكي"
+                  icon="🤖"
+                  gradientFrom="from-indigo-500/10"
+                  gradientTo="to-blue-500/10"
+                  hoverBorder="hover:border-indigo-200 dark:hover:border-indigo-600"
+                  onClick={() => navigate("/chat-with-ai")}
+                />
+
+                <ActionButton
+                  title="الإشعارات"
+                  description="استعرض إشعاراتك الأخيرة"
+                  icon="🔔"
                   gradientFrom="from-yellow-500/10"
                   gradientTo="to-orange-500/10"
                   hoverBorder="hover:border-yellow-200 dark:hover:border-yellow-600"
+                  onClick={() => navigate("/notifications")}
                 />
 
                 <ActionButton
@@ -861,7 +1668,22 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
           </>
-        ) : null}
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 sm:py-20">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mb-4 sm:mb-6">
+              <span className="text-red-600 text-2xl sm:text-3xl">⚠️</span>
+            </div>
+            <div className="text-center text-red-600 dark:text-red-400 mb-4 sm:mb-6 text-lg font-medium">
+              يرجى تسجيل الدخول للوصول إلى لوحة التحكم
+            </div>
+            <button
+              onClick={() => navigate("/login")}
+              className="px-6 sm:px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-sm sm:text-base"
+            >
+              تسجيل الدخول
+            </button>
+          </div>
+        )}
 
         {/* Motivational Quote */}
         <div className="text-center mt-12 sm:mt-16">

@@ -1,4 +1,4 @@
-import { API_CONFIG, DEFAULT_HEADERS, ENDPOINTS } from '../config/api';
+import { API_ENDPOINTS, getApiUrl, getDynamicApiUrl } from '../config/api';
 import { STORAGE_KEYS } from '../constants/app';
 import type {
     AuthResponse,
@@ -20,6 +20,11 @@ import type {
     AchievementType,
     AchievementActivityResponse,
     UserAchievementsResponse,
+    DailyStory,
+    DailyStoryWord,
+    WordStatusUpdate,
+    CanProceedResponse,
+    DailyStoryComplete,
 } from '../types';
 
 // API Client Class
@@ -28,8 +33,9 @@ class ApiClient {
     private timeout: number;
 
     constructor() {
-        this.baseURL = API_CONFIG.BASE_URL;
-        this.timeout = API_CONFIG.TIMEOUT;
+        // For Vite, we'll use a simple fallback approach
+        this.baseURL = 'http://localhost:3000';
+        this.timeout = 10000;
     }
 
     // Get auth token from storage
@@ -39,7 +45,10 @@ class ApiClient {
 
     // Create request headers
     private createHeaders(customHeaders?: Record<string, string>): HeadersInit {
-        const headers: Record<string, string> = { ...DEFAULT_HEADERS };
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        };
 
         const token = this.getAuthToken();
         if (token) {
@@ -95,7 +104,8 @@ class ApiClient {
         endpoint: string,
         options: RequestInit = {}
     ): Promise<ApiResponse<T>> {
-        const url = `${this.baseURL}${endpoint}`;
+        const url = getApiUrl(endpoint);
+        console.log(`API Request: ${options.method || 'GET'} ${url}`);
 
         const config: RequestInit = {
             ...options,
@@ -207,83 +217,137 @@ export const apiClient = new ApiClient();
 
 // --- AUTH ---
 export const login = (data: { phone: string; password: string }) =>
-    apiClient.post<AuthResponse>('/auth/login', data);
+    apiClient.post<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, data);
 
 export const register = (data: { name: string; phone: string; password: string; role: string; trainerId?: string; level?: string }) =>
-    apiClient.post<RegisterResponse>('/auth/register', data);
+    apiClient.post<RegisterResponse>(API_ENDPOINTS.AUTH.REGISTER, data);
+
+export const getProfile = () =>
+    apiClient.get<AuthResponse>(API_ENDPOINTS.AUTH.PROFILE);
+
+export const updateProfile = (data: any) =>
+    apiClient.put<AuthResponse>(API_ENDPOINTS.AUTH.UPDATE_PROFILE, data);
+
+export const createDefaultUsers = () =>
+    apiClient.post<ApiResponse>(API_ENDPOINTS.AUTH.CREATE_DEFAULT_USERS, {});
 
 // --- WORDS ---
 export const addWord = (data: { word: string; meaning: string }) =>
-    apiClient.post<ApiResponse<Word>>('/words', data);
+    apiClient.post<ApiResponse<Word>>(API_ENDPOINTS.WORDS.ADD, data);
 
 export const getAllWords = () =>
-    apiClient.get<ApiResponse<{ public: Word[]; private: Word[] }>>('/words/all');
+    apiClient.get<ApiResponse<{ public: Word[]; private: Word[] }>>(API_ENDPOINTS.WORDS.ALL);
 
 export const getPrivateWords = () =>
-    apiClient.get<ApiResponse<{ private: Word[] }>>('/words/private');
+    apiClient.get<ApiResponse<{ private: Word[] }>>(API_ENDPOINTS.WORDS.PRIVATE);
 
 export const reviewWord = (id: string, data: { score: number; feedback: string }) =>
-    apiClient.post<ApiResponse<Review>>(`/words/${id}/review`, data);
+    apiClient.post<ApiResponse<Review>>(API_ENDPOINTS.WORDS.REVIEW(id), data);
 
 export const getDailyWords = () =>
     apiClient.get<{ words: any[] }>('/words/daily');
 
 export const learnWord = (word: string) =>
-    apiClient.post(`/words/${word}/learn`);
+    apiClient.post(API_ENDPOINTS.WORDS.LEARN(word));
 
 export const getLearnedWords = () =>
-    apiClient.get<{ words: any[] }>('/words/learned');
+    apiClient.get<{ words: any[] }>(API_ENDPOINTS.WORDS.LEARNED);
 
-// --- STORIES ---
-export const getStories = (params?: { level?: string; page?: number; limit?: number }) => {
-    const queryParams = new URLSearchParams();
-    if (params?.level) queryParams.append("level", params.level);
-    if (params?.page) queryParams.append("page", params.page.toString());
-    if (params?.limit) queryParams.append("limit", params.limit.toString());
+// --- DAILY STORIES ---
+export const getDailyStory = () =>
+    apiClient.get<ApiResponse<DailyStory>>(API_ENDPOINTS.DAILY_STORIES.GET);
 
-    const url = `/stories${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
-    return apiClient.get<PaginatedResponse<Story>>(url);
-};
+export const generateDailyStory = (data: { publicWords: string[]; privateWords: string[]; userName: string; level: string }) =>
+    apiClient.post<ApiResponse<DailyStory>>(API_ENDPOINTS.DAILY_STORIES.GENERATE, data);
 
-export const getPopularStories = () =>
-    apiClient.get<ApiResponse<Story[]>>('/stories/popular');
+export const updateWordStatus = (data: WordStatusUpdate) =>
+    apiClient.post<ApiResponse>(API_ENDPOINTS.DAILY_STORIES.UPDATE_WORD_STATUS, data);
 
-export const getStoryById = (storyId: string) =>
-    apiClient.get<ApiResponse<Story>>(`/stories/${storyId}`);
+export const completeDailyStory = (data: DailyStoryComplete) =>
+    apiClient.post<ApiResponse<any>>(API_ENDPOINTS.DAILY_STORIES.COMPLETE, data);
 
-export const addStory = (data: { title: string; content: string; level: string }) =>
-    apiClient.post<ApiResponse<Story>>('/stories', data);
+export const canProceedToNextStep = () =>
+    apiClient.get<ApiResponse<CanProceedResponse>>(API_ENDPOINTS.DAILY_STORIES.CAN_PROCEED);
+
+
+
+// Exam related functions
+export const submitDailyExam = (data: {
+    storyId: string;
+    answers: Record<string, string>;
+    score: number;
+    level: string;
+    points: number
+}) =>
+    apiClient.post<ApiResponse<any>>(API_ENDPOINTS.DAILY_STORIES.COMPLETE, data);
 
 // --- LESSONS (Trainer) ---
 export const addLesson = (data: { title: string; content: string }) =>
-    apiClient.post<ApiResponse<Lesson>>('/trainer/lessons', data);
+    apiClient.post<ApiResponse<Lesson>>(API_ENDPOINTS.TRAINER.LESSONS.CREATE, data);
 
 export const getLessons = () =>
-    apiClient.get<ApiResponse<Lesson[]>>('/trainer/lessons');
+    apiClient.get<ApiResponse<Lesson[]>>(API_ENDPOINTS.TRAINER.LESSONS.LIST);
+
+export const updateLesson = (lessonId: string, data: any) =>
+    apiClient.put<ApiResponse<Lesson>>(API_ENDPOINTS.TRAINER.LESSONS.UPDATE(lessonId), data);
+
+export const deleteLesson = (lessonId: string) =>
+    apiClient.delete<ApiResponse>(API_ENDPOINTS.TRAINER.LESSONS.DELETE(lessonId));
+
+// --- STUDENTS (Trainer) ---
+export const getStudents = () =>
+    apiClient.get<ApiResponse<any[]>>(API_ENDPOINTS.TRAINER.STUDENTS.LIST);
+
+export const getStudent = (studentId: string) =>
+    apiClient.get<ApiResponse<any>>(API_ENDPOINTS.TRAINER.STUDENTS.GET(studentId));
+
+// --- ADMIN ---
+export const getAdminStats = () =>
+    apiClient.get<ApiResponse<any>>(API_ENDPOINTS.ADMIN.STATS);
+
+export const getAdminUsers = () =>
+    apiClient.get<ApiResponse<any[]>>(API_ENDPOINTS.ADMIN.USERS.LIST);
+
+export const changeUserRole = (userId: string, role: string) =>
+    apiClient.put<ApiResponse>(API_ENDPOINTS.ADMIN.USERS.CHANGE_ROLE(userId), { role });
+
+export const deleteUser = (userId: string) =>
+    apiClient.delete<ApiResponse>(API_ENDPOINTS.ADMIN.USERS.DELETE(userId));
+
+export const getAdminTrainers = () =>
+    apiClient.get<ApiResponse<any[]>>(API_ENDPOINTS.ADMIN.TRAINERS.LIST);
 
 // --- NOTIFICATIONS ---
 export const getNotifications = () =>
-    apiClient.get<ApiResponse<Notification[]>>('/notifications');
+    apiClient.get<ApiResponse<Notification[]>>(API_ENDPOINTS.NOTIFICATIONS.LIST);
 
-export const addNotification = (data: { userId: string; title: string; message: string }) =>
-    apiClient.post<ApiResponse>('/notifications', data);
+export const getUnreadNotificationsCount = () =>
+    apiClient.get<ApiResponse<{ count: number }>>(API_ENDPOINTS.NOTIFICATIONS.UNREAD_COUNT);
 
-// --- ATTENDANCE ---
-export const addAttendance = (data: { note?: string; type: string }) =>
-    apiClient.post<ApiResponse<Attendance>>('/attendance', data);
+export const markNotificationAsRead = (id: string) =>
+    apiClient.put<ApiResponse>(API_ENDPOINTS.NOTIFICATIONS.MARK_AS_READ(id), {});
 
-export const getAttendance = () =>
-    apiClient.get<ApiResponse<Attendance[]>>('/attendance');
+export const markAllNotificationsAsRead = () =>
+    apiClient.put<ApiResponse>(API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_READ, {});
+
+export const deleteNotification = (id: string) =>
+    apiClient.delete<ApiResponse>(API_ENDPOINTS.NOTIFICATIONS.DELETE(id));
+
+export const getNotificationStats = () =>
+    apiClient.get<ApiResponse<any>>(API_ENDPOINTS.NOTIFICATIONS.STATS);
+
+export const sendNotification = (data: any) =>
+    apiClient.post<ApiResponse>(API_ENDPOINTS.NOTIFICATIONS.SEND, data);
 
 // --- CHAT ---
 export const sendChatMessage = (data: { message: string; type: string; language: string; context?: string }) =>
-    apiClient.post<ApiResponse<{ messageId: string; response: string; timestamp: string }>>('/chat/send', data);
+    apiClient.post<ApiResponse<{ messageId: string; response: string; timestamp: string }>>(API_ENDPOINTS.CHAT.SEND, data);
 
 export const getChatHistory = (params?: { page?: number; limit?: number }) =>
-    apiClient.get<ApiResponse<{ messages: ChatMessage[]; total: number; page: number; limit: number }>>('/chat/history', params);
+    apiClient.get<ApiResponse<{ messages: ChatMessage[]; total: number; page: number; limit: number }>>(API_ENDPOINTS.CHAT.HISTORY, params);
 
 export const getChatRemainingRequests = () =>
-    apiClient.get<ApiResponse<{ remaining: number }>>('/chat/remaining-requests');
+    apiClient.get<ApiResponse<{ remaining: number }>>(API_ENDPOINTS.CHAT.REMAINING_REQUESTS);
 
 // --- AI ---
 export const generateStoryFromWords = (data: { words: string[]; level: string; language?: string }) =>
@@ -294,108 +358,118 @@ export const generateStoryFromWords = (data: { words: string[]; level: string; l
         level: string;
         language: string;
         isExisting: boolean;
-    }>>('/ai/generate/story-from-words', data);
+    }>>(API_ENDPOINTS.AI.GENERATE_STORY_FROM_WORDS, data);
+
+export const generateStory = (data: { words: string[]; level: string }) =>
+    apiClient.post<ApiResponse<{ story: string; translation: string }>>(API_ENDPOINTS.AI.GENERATE_STORY, data);
 
 export const getAIRemainingRequests = () =>
-    apiClient.get<ApiResponse<{ storyRequests: number; chatRequests: number }>>('/ai/remaining-requests');
-
-export const generateWordsByTopic = (data: { topic: string; level: string }) =>
-    apiClient.post<ApiResponse<string[]>>('/ai/generate-words', data);
-
-export const generateSimpleStory = (data: { words: string[]; level: string }) =>
-    apiClient.post<ApiResponse<{ story: string; translation: string }>>('/ai/generate-story', data);
-
-// --- DAILY STORIES ---
-export const getDailyStory = (data: { publicWords: string[]; privateWords: string[]; level: string }) =>
-    apiClient.post<ApiResponse<Story>>('/stories/daily', data);
-
-export const generateDailyStory = (data: { publicWords: string[]; privateWords: string[]; userName: string; level: string }) =>
-    apiClient.post<ApiResponse<Story>>('/stories/daily/generate', data);
-
-export const completeDailyStory = (data: { storyId: string; level: string; points: number }) =>
-    apiClient.post<ApiResponse<any>>('/stories/daily/complete', data);
-
-// --- REVIEWS ---
-export const getReviews = () =>
-    apiClient.get<ApiResponse<Review[]>>('/reviews');
+    apiClient.get<ApiResponse<{ storyRequests: number; chatRequests: number }>>(API_ENDPOINTS.AI.REMAINING_REQUESTS);
 
 // --- ACTIVITIES ---
-// Progress
-export const addProgress = (data: { completedLessons: number; totalLessons: number; progressPercent: number }) =>
-    apiClient.post<ApiResponse<any>>('/activities/progress', data);
+export const addWordsLearned = (data: { count: number; period: string }) =>
+    apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.WORDS_LEARNED, data);
+
+export const getWordsLearned = (period: string = 'month') =>
+    apiClient.get<ApiResponse<{ count: number; period: string }>>(API_ENDPOINTS.ACTIVITIES.WORDS_LEARNED, { period });
+
+export const addStreak = (data?: { action: string; date?: string }) => {
+    const requestData = data || { action: 'add', date: new Date().toISOString().split('T')[0] };
+    console.log("addStreak API call:", {
+        endpoint: API_ENDPOINTS.ACTIVITIES.STREAK_ADD,
+        data: requestData
+    });
+    return apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.STREAK_ADD, requestData);
+};
+
+// إضافة دوال جديدة للستريك
+export const resetStreak = () => {
+    console.log("resetStreak API call");
+    return apiClient.post<ApiResponse<any>>('/activities/streak/reset', {});
+};
+
+export const initializeStreak = () => {
+    console.log("initializeStreak API call");
+    return apiClient.post<ApiResponse<any>>('/activities/streak/initialize', {});
+};
+
+export const getStreak = () =>
+    apiClient.get<ApiResponse<{ streak: number; lastDate: string }>>(API_ENDPOINTS.ACTIVITIES.STREAK);
+
+export const updateStreak = (data: { streak: number; lastDate: string }) =>
+    apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.STREAK_UPDATE, data);
+
+export const logActivity = (data: any) =>
+    apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.LOG, data);
+
+export const getActivityLog = () =>
+    apiClient.get<ApiResponse<any[]>>(API_ENDPOINTS.ACTIVITIES.GET_LOG);
 
 export const getProgress = () =>
-    apiClient.get<ApiResponse<{ completedLessons: number; totalLessons: number; progressPercent: number }>>('/activities/progress');
+    apiClient.get<ApiResponse<{ completedLessons: number; totalLessons: number; progressPercent: number }>>(API_ENDPOINTS.ACTIVITIES.PROGRESS);
+
+export const addProgress = (data: { completedLessons: number; totalLessons: number; progressPercent: number }) =>
+    apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.PROGRESS, data);
 
 // --- ACHIEVEMENTS ---
 // Student Achievements
 export const getMyAchievements = (params?: { userId?: string }) =>
-    apiClient.get<ApiResponse<UserAchievementsResponse>>(ENDPOINTS.ACHIEVEMENTS.MY, params);
+    apiClient.get<ApiResponse<UserAchievementsResponse>>(API_ENDPOINTS.ACHIEVEMENTS.MY, params);
 
 export const getMyAchievementProgress = (params?: { userId?: string }) =>
-    apiClient.get<ApiResponse<AchievementProgress>>(ENDPOINTS.ACHIEVEMENTS.MY_PROGRESS, params);
+    apiClient.get<ApiResponse<AchievementProgress>>(API_ENDPOINTS.ACHIEVEMENTS.MY_PROGRESS, params);
 
 export const getMyRecentAchievements = (params?: { userId?: string; limit?: number }) =>
-    apiClient.get<ApiResponse<UserAchievement[]>>(ENDPOINTS.ACHIEVEMENTS.MY_RECENT, params);
+    apiClient.get<ApiResponse<UserAchievement[]>>(API_ENDPOINTS.ACHIEVEMENTS.MY_RECENT, params);
 
 export const getLeaderboard = (params?: { limit?: number }) =>
-    apiClient.get<ApiResponse<LeaderboardEntry[]>>(ENDPOINTS.ACHIEVEMENTS.LEADERBOARD, params);
+    apiClient.get<ApiResponse<LeaderboardEntry[]>>(API_ENDPOINTS.ACHIEVEMENTS.LEADERBOARD, params);
 
 // Activity Registration
 export const completeStory = (data: { userId: string; storyId: string; level: string; points: number }) =>
-    apiClient.post<AchievementActivityResponse>(ENDPOINTS.ACHIEVEMENTS.COMPLETE_STORY, data);
+    apiClient.post<AchievementActivityResponse>(API_ENDPOINTS.ACHIEVEMENTS.COMPLETE_STORY, data);
 
 export const completeDailyWords = (data: { userId: string; date: string; count: number }) =>
-    apiClient.post<AchievementActivityResponse>(ENDPOINTS.ACHIEVEMENTS.COMPLETE_DAILY_WORDS, data);
+    apiClient.post<AchievementActivityResponse>(API_ENDPOINTS.ACHIEVEMENTS.COMPLETE_DAILY_WORDS, data);
 
 export const addPrivateWordsAchievement = (data: { userId: string; count: number }) =>
-    apiClient.post<AchievementActivityResponse>(ENDPOINTS.ACHIEVEMENTS.ADD_PRIVATE_WORDS, data);
+    apiClient.post<AchievementActivityResponse>(API_ENDPOINTS.ACHIEVEMENTS.ADD_PRIVATE_WORDS, data);
 
 export const learnWordsAchievement = (data: { userId: string; count: number; type: string }) =>
-    apiClient.post<AchievementActivityResponse>(ENDPOINTS.ACHIEVEMENTS.LEARN_WORDS, data);
+    apiClient.post<AchievementActivityResponse>(API_ENDPOINTS.ACHIEVEMENTS.LEARN_WORDS, data);
 
 export const studyStreakAchievement = (data: { userId: string; streakDays: number }) =>
-    apiClient.post<AchievementActivityResponse>(ENDPOINTS.ACHIEVEMENTS.STUDY_STREAK, data);
+    apiClient.post<AchievementActivityResponse>(API_ENDPOINTS.ACHIEVEMENTS.STUDY_STREAK, data);
 
 // Admin Management
 export const getAllAchievements = () =>
-    apiClient.get<ApiResponse<Achievement[]>>(ENDPOINTS.ACHIEVEMENTS.ALL);
+    apiClient.get<ApiResponse<Achievement[]>>(API_ENDPOINTS.ACHIEVEMENTS.ALL);
 
 export const getAchievementStats = () =>
-    apiClient.get<ApiResponse<AchievementStats>>(ENDPOINTS.ACHIEVEMENTS.STATS);
+    apiClient.get<ApiResponse<AchievementStats>>(API_ENDPOINTS.ACHIEVEMENTS.STATS);
 
 export const addAchievement = (data: Partial<Achievement>) =>
-    apiClient.post<ApiResponse<Achievement>>(ENDPOINTS.ACHIEVEMENTS.ADD, data);
+    apiClient.post<ApiResponse<Achievement>>(API_ENDPOINTS.ACHIEVEMENTS.ADD, data);
 
 export const updateAchievement = (id: string, data: Partial<Achievement>) =>
-    apiClient.put<ApiResponse<Achievement>>(ENDPOINTS.ACHIEVEMENTS.UPDATE(id), data);
+    apiClient.put<ApiResponse<Achievement>>(API_ENDPOINTS.ACHIEVEMENTS.UPDATE(id), data);
 
 export const deleteAchievement = (id: string) =>
-    apiClient.delete<ApiResponse>(ENDPOINTS.ACHIEVEMENTS.DELETE(id));
+    apiClient.delete<ApiResponse>(API_ENDPOINTS.ACHIEVEMENTS.DELETE(id));
 
 // Types and Management
 export const getAchievementTypes = () =>
-    apiClient.get<ApiResponse<AchievementType[]>>(ENDPOINTS.ACHIEVEMENTS.TYPES);
+    apiClient.get<ApiResponse<AchievementType[]>>(API_ENDPOINTS.ACHIEVEMENTS.TYPES);
 
 export const getUserAchievements = (userId: string) =>
-    apiClient.get<ApiResponse<UserAchievement[]>>(ENDPOINTS.ACHIEVEMENTS.USER_ACHIEVEMENTS(userId));
+    apiClient.get<ApiResponse<UserAchievement[]>>(API_ENDPOINTS.ACHIEVEMENTS.USER_ACHIEVEMENTS(userId));
 
 export const resetUserAchievements = (userId: string) =>
-    apiClient.post<ApiResponse>(ENDPOINTS.ACHIEVEMENTS.RESET_USER(userId), {});
+    apiClient.post<ApiResponse>(API_ENDPOINTS.ACHIEVEMENTS.RESET_USER(userId), {});
 
-// Words Learned
-export const addWordsLearned = (data: { count: number; period: string }) =>
-    apiClient.post<ApiResponse<any>>('/activities/words-learned', data);
-
-export const getWordsLearned = (period: string = 'month') =>
-    apiClient.get<ApiResponse<{ count: number; period: string }>>('/activities/words-learned', { period });
-
-// --- ACHIEVEMENTS ---
-export const addStreak = (data: { streak: number; lastDate: string }) =>
-    apiClient.post<ApiResponse<any>>('/activities/streak', data);
-
-export const getStreak = () =>
-    apiClient.get<ApiResponse<{ streak: number; lastDate: string }>>('/activities/streak');
+// --- HEALTH CHECK ---
+export const healthCheck = () =>
+    apiClient.get<ApiResponse<{ status: string; timestamp: string }>>(API_ENDPOINTS.HEALTH.CHECK);
 
 // Utility functions
 export const buildEndpoint = (template: string, params: Record<string, string>): string => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../../core/providers/AuthProvider";
+import { RiArrowRightLine, RiArrowLeftLine } from "react-icons/ri";
 import {
   getDailyWords,
   learnWord,
@@ -27,6 +28,10 @@ export const DailyWordsPage: React.FC = () => {
   const [learnedWords, setLearnedWords] = useState<any[] | null>(null);
   const [privateWords, setPrivateWords] = useState<any[] | null>(null);
   const [loadingTab, setLoadingTab] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState<{
+    learned?: number;
+    private?: number;
+  }>({});
 
   const [dailyWordsBlocked, setDailyWordsBlocked] = useState(false);
   const [unknownWords, setUnknownWords] = useState<any[]>([]);
@@ -115,8 +120,20 @@ export const DailyWordsPage: React.FC = () => {
     fetchWords();
   }, [dailyWordsBlocked]);
 
-  // جلب الكلمات المتعلمة عند الحاجة
+  // جلب الكلمات المتعلمة عند الحاجة - مع cache
   const fetchLearnedWords = async () => {
+    const now = Date.now();
+    const cacheTime = 5 * 60 * 1000; // 5 دقائق cache
+
+    // التحقق من cache
+    if (
+      learnedWords &&
+      lastFetchTime.learned &&
+      now - lastFetchTime.learned < cacheTime
+    ) {
+      return; // استخدام البيانات المخزنة
+    }
+
     setLoadingTab(true);
     const res = await getLearnedWords();
     console.log("LearnedWords API result:", res);
@@ -145,11 +162,24 @@ export const DailyWordsPage: React.FC = () => {
     } else {
       setLearnedWords([]);
     }
+    setLastFetchTime((prev) => ({ ...prev, learned: now }));
     setLoadingTab(false);
   };
 
-  // جلب كلمات الطالب الخاصة عند الحاجة
+  // جلب كلمات الطالب الخاصة عند الحاجة - مع cache
   const fetchPrivateWords = async () => {
+    const now = Date.now();
+    const cacheTime = 5 * 60 * 1000; // 5 دقائق cache
+
+    // التحقق من cache
+    if (
+      privateWords &&
+      lastFetchTime.private &&
+      now - lastFetchTime.private < cacheTime
+    ) {
+      return; // استخدام البيانات المخزنة
+    }
+
     setLoadingTab(true);
     const res = await getPrivateWords();
     if (res.success && Array.isArray(res.data)) {
@@ -157,16 +187,37 @@ export const DailyWordsPage: React.FC = () => {
     } else {
       setPrivateWords([]);
     }
+    setLastFetchTime((prev) => ({ ...prev, private: now }));
     setLoadingTab(false);
   };
 
-  // عند تغيير التبويب
+  // عند تغيير التبويب - مع cache للبيانات
   useEffect(() => {
-    if (tab === "learned" && learnedWords === null) fetchLearnedWords();
-    if (tab === "private" && privateWords === null) fetchPrivateWords();
-    // لا شيء عند daily
-    // eslint-disable-next-line
-  }, [tab]);
+    const now = Date.now();
+    const cacheTime = 5 * 60 * 1000; // 5 دقائق cache
+
+    if (tab === "learned" && !loadingTab) {
+      const shouldFetch =
+        !learnedWords ||
+        !lastFetchTime.learned ||
+        now - lastFetchTime.learned >= cacheTime;
+
+      if (shouldFetch) {
+        fetchLearnedWords();
+      }
+    }
+
+    if (tab === "private" && !loadingTab) {
+      const shouldFetch =
+        !privateWords ||
+        !lastFetchTime.private ||
+        now - lastFetchTime.private >= cacheTime;
+
+      if (shouldFetch) {
+        fetchPrivateWords();
+      }
+    }
+  }, [tab, loadingTab]);
 
   const currentWord = words[currentWordIndex];
   const learnedCount = words.filter((word) => word.isLearned).length;
@@ -184,6 +235,13 @@ export const DailyWordsPage: React.FC = () => {
       setShowAnswer(false);
     }
   };
+
+  // إعادة تعيين currentWordIndex عند تغيير الكلمات
+  useEffect(() => {
+    if (words.length > 0 && currentWordIndex >= words.length) {
+      setCurrentWordIndex(0);
+    }
+  }, [words.length, currentWordIndex]);
 
   // إغلاق المودال عند الضغط خارجها
   const handleModalBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -222,7 +280,20 @@ export const DailyWordsPage: React.FC = () => {
       setNewWord("");
       setNewMeaning("");
       setShowModal(false);
-      await fetchLearnedWords();
+
+      // تحديث البيانات المحلية بدلاً من إعادة جلبها
+      const newWordData = {
+        id: Date.now(),
+        word: newWord.trim(),
+        meaning: newMeaning.trim(),
+        english: newWord.trim(),
+        arabic: newMeaning.trim(),
+      };
+
+      setPrivateWords((prev) =>
+        prev ? [...prev, newWordData] : [newWordData]
+      );
+      setLastFetchTime((prev) => ({ ...prev, private: Date.now() }));
     } catch (error) {
       // يمكن إضافة رسالة خطأ هنا إذا لزم الأمر
     }
@@ -356,6 +427,7 @@ export const DailyWordsPage: React.FC = () => {
                 </span>
                 <span>أضف كلمة خاصة</span>
               </button>
+             
             </div>
           </div>
         </div>
@@ -520,10 +592,10 @@ export const DailyWordsPage: React.FC = () => {
                         التقدم اليومي
                       </h2>
                     </div>
-                    <div className="text-center mb-4">
-                      <div className="relative inline-flex items-center justify-center w-24 h-24 mb-3">
+                    <div className="text-center mb-6">
+                      <div className="relative inline-flex items-center justify-center w-32 h-32 mb-4">
                         <svg
-                          className="w-24 h-24 transform -rotate-90"
+                          className="w-32 h-32 transform -rotate-90"
                           viewBox="0 0 120 120"
                         >
                           <circle
@@ -531,44 +603,61 @@ export const DailyWordsPage: React.FC = () => {
                             cy="60"
                             r="50"
                             fill="none"
-                            stroke="rgba(156, 163, 175, 0.3)"
-                            strokeWidth="6"
+                            stroke="rgba(156, 163, 175, 0.2)"
+                            strokeWidth="8"
                           />
                           <circle
                             cx="60"
                             cy="60"
                             r="50"
                             fill="none"
-                            stroke="#3B82F6"
-                            strokeWidth="6"
+                            stroke="url(#gradient)"
+                            strokeWidth="8"
                             strokeLinecap="round"
                             strokeDasharray={`${
                               (learnedCount / words.length) * 314
                             } 314`}
                             style={{
-                              transition: "stroke-dasharray 0.5s ease",
+                              transition: "stroke-dasharray 0.8s ease",
                             }}
                           />
+                          <defs>
+                            <linearGradient
+                              id="gradient"
+                              x1="0%"
+                              y1="0%"
+                              x2="100%"
+                              y2="100%"
+                            >
+                              <stop offset="0%" stopColor="#3B82F6" />
+                              <stop offset="100%" stopColor="#6366F1" />
+                            </linearGradient>
+                          </defs>
                         </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                             {Math.round((learnedCount / words.length) * 100)}%
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            مكتمل
                           </span>
                         </div>
                       </div>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm">
-                        <span className="font-bold text-blue-600 dark:text-blue-400">
-                          {learnedCount}
-                        </span>{" "}
-                        من{" "}
-                        <span className="font-bold text-gray-800 dark:text-white">
-                          {words.length}
-                        </span>{" "}
-                        كلمة
-                      </p>
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-700">
+                        <p className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
+                          <span className="font-bold text-blue-600 dark:text-blue-400 text-lg">
+                            {learnedCount}
+                          </span>{" "}
+                          من{" "}
+                          <span className="font-bold text-gray-800 dark:text-white text-lg">
+                            {words.length}
+                          </span>{" "}
+                          كلمة
+                        </p>
+                      </div>
                     </div>
                     {/* Enhanced word indicators */}
-                    <div className="grid grid-cols-5 gap-1">
+                    <div className="grid grid-cols-5 gap-2">
                       {words.map((word, index) => (
                         <button
                           key={
@@ -578,14 +667,16 @@ export const DailyWordsPage: React.FC = () => {
                             setCurrentWordIndex(index);
                             setShowAnswer(false);
                           }}
-                          className={`w-full h-8 rounded-lg transition-all duration-300 text-xs font-bold border ${
+                          className={`w-full h-10 rounded-xl transition-all duration-300 text-sm font-bold border-2 shadow-md transform hover:scale-105 ${
                             index === currentWordIndex
-                              ? "bg-blue-600 text-white border-blue-500 shadow-md"
+                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-lg scale-110"
                               : word.isLearned
-                              ? "bg-green-600 text-white border-green-500"
-                              : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
+                              ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-green-500 shadow-lg"
+                              : "bg-white/80 dark:bg-gray-700/80 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
                           }`}
-                          title={`كلمة ${index + 1}`}
+                          title={`كلمة ${index + 1}${
+                            word.isLearned ? " - متعلمة" : ""
+                          }`}
                         >
                           {index + 1}
                         </button>
@@ -599,36 +690,104 @@ export const DailyWordsPage: React.FC = () => {
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       إحصائيات سريعة
                     </h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                        <span className="text-gray-600 dark:text-gray-300 text-sm">
-                          الكلمات المتعلمة
-                        </span>
-                        <span className="text-green-600 dark:text-green-400 font-bold">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700 shadow-md">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                            <svg
+                              className="w-5 h-5 text-white"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          </div>
+                          <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
+                            الكلمات المتعلمة
+                          </span>
+                        </div>
+                        <span className="text-green-600 dark:text-green-400 font-bold text-lg">
                           {learnedCount}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                        <span className="text-gray-600 dark:text-gray-300 text-sm">
-                          الكلمات المتبقية
+                      <div className="flex justify-between items-center p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl border border-orange-200 dark:border-orange-700 shadow-md">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                            <svg
+                              className="w-5 h-5 text-white"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                          </div>
+                          <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
+                            الكلمات المتبقية
+                          </span>
+                        </div>
+                        <span className="text-orange-600 dark:text-orange-400 font-bold text-lg">
+                          {words.length - learnedCount}
                         </span>
-                        <span className="text-orange-600 dark:text-orange-400 font-bold">
+                      </div>
+                      <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700 shadow-md">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                            <svg
+                              className="w-5 h-5 text-white"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                              />
+                            </svg>
+                          </div>
+                          <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
+                            إجمالي الكلمات
+                          </span>
+                        </div>
+                        <span className="text-blue-600 dark:text-blue-400 font-bold text-lg">
                           {words.length}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                        <span className="text-gray-600 dark:text-gray-300 text-sm">
-                          إجمالي الكلمات
-                        </span>
-                        <span className="text-blue-600 dark:text-blue-400 font-bold">
-                          {words.length}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                        <span className="text-gray-600 dark:text-gray-300 text-sm">
-                          الكلمات المجهولة
-                        </span>
-                        <span className="text-purple-600 dark:text-purple-400 font-bold">
+                      <div className="flex justify-between items-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl border border-purple-200 dark:border-purple-700 shadow-md">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                            <svg
+                              className="w-5 h-5 text-white"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                          </div>
+                          <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
+                            الكلمات المجهولة
+                          </span>
+                        </div>
+                        <span className="text-purple-600 dark:text-purple-400 font-bold text-lg">
                           {unknownWords.length}
                         </span>
                       </div>
@@ -646,60 +805,59 @@ export const DailyWordsPage: React.FC = () => {
                           <button
                             onClick={prevWord}
                             disabled={currentWordIndex === 0}
-                            className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg flex items-center justify-center shadow-md transition-all duration-300 disabled:cursor-not-allowed"
+                            className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
                           >
-                            <svg
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M15 19l-7-7 7-7"
-                              />
-                            </svg>
+                            <RiArrowRightLine className="w-6 h-6" />
                           </button>
 
-                          <div className="text-center">
-                            <h2 className="text-3xl lg:text-4xl font-bold text-gray-800 dark:text-white mb-2">
-                              {currentWord.word}
-                            </h2>
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                onClick={() => speakWord(currentWord.word)}
-                                className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center justify-center shadow-md transition-all duration-300"
-                                title="نطق الكلمة"
-                              >
-                                <svg
-                                  className="w-5 h-5"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
+                          <div className="text-center flex-1">
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700 shadow-lg">
+                              <h2 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">
+                                {currentWord.word}
+                              </h2>
+                              <div className="flex items-center justify-center gap-3">
+                                <button
+                                  onClick={() => speakWord(currentWord.word)}
+                                  className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 transform hover:scale-110"
+                                  title="نطق الكلمة"
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                                  />
-                                </svg>
-                              </button>
-                              <span className="text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-lg">
-                                {currentWordIndex + 1} من {words.length}
-                              </span>
+                                  <svg
+                                    className="w-6 h-6"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                                    />
+                                  </svg>
+                                </button>
+                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white/80 dark:bg-gray-800/80 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 shadow-md">
+                                  {currentWordIndex + 1} من {words.length}
+                                </span>
+                              </div>
                             </div>
                           </div>
 
                           <button
                             onClick={nextWord}
                             disabled={currentWordIndex === words.length - 1}
-                            className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg flex items-center justify-center shadow-md transition-all duration-300 disabled:cursor-not-allowed"
+                            className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                          >
+                            <RiArrowLeftLine className="w-6 h-6" />
+                          </button>
+                        </div>
+
+                        {!showAnswer ? (
+                          <button
+                            onClick={() => setShowAnswer(true)}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-2xl shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-3 mx-auto"
                           >
                             <svg
-                              className="w-5 h-5"
+                              className="w-6 h-6"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -708,31 +866,37 @@ export const DailyWordsPage: React.FC = () => {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 strokeWidth={2}
-                                d="M9 5l7 7-7 7"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                               />
                             </svg>
-                          </button>
-                        </div>
-
-                        {!showAnswer ? (
-                          <button
-                            onClick={() => setShowAnswer(true)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300"
-                          >
                             عرض المعنى ✨
                           </button>
                         ) : (
-                          <div className="space-y-4">
-                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-700">
-                              <h3 className="text-xl font-bold text-blue-800 dark:text-blue-200 mb-2 flex items-center justify-center gap-2">
-                                <span>💡</span>
+                          <div className="space-y-6">
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700 shadow-lg">
+                              <h3 className="text-2xl font-bold text-blue-800 dark:text-blue-200 mb-4 flex items-center justify-center gap-3">
+                                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                                  <svg
+                                    className="w-5 h-5 text-white"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                  </svg>
+                                </div>
                                 المعنى
                               </h3>
-                              <p className="text-lg text-gray-700 dark:text-gray-200 font-medium">
+                              <p className="text-xl text-gray-700 dark:text-gray-200 font-semibold text-center leading-relaxed">
                                 {currentWord.meaning}
                               </p>
                             </div>
-                            <div className="flex gap-3 justify-center">
+                            <div className="flex gap-4 justify-center">
                               <button
                                 onClick={async () => {
                                   await learnWord(
@@ -780,8 +944,21 @@ export const DailyWordsPage: React.FC = () => {
                                   }
                                   setShowAnswer(false);
                                 }}
-                                className="px-4 py-2 rounded-lg font-semibold transition-all duration-300 bg-green-600 hover:bg-green-700 text-white shadow-md"
+                                className="px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-xl transform hover:scale-105 flex items-center gap-2"
                               >
+                                <svg
+                                  className="w-6 h-6"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
                                 أعرفها
                               </button>
                               <button
@@ -828,8 +1005,21 @@ export const DailyWordsPage: React.FC = () => {
                                   }
                                   setShowAnswer(false);
                                 }}
-                                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-semibold transition-all duration-300 border border-gray-300 dark:border-gray-600"
+                                className="px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white shadow-xl transform hover:scale-105 flex items-center gap-2"
                               >
+                                <svg
+                                  className="w-6 h-6"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
                                 لا أعرفها
                               </button>
                             </div>
@@ -905,10 +1095,10 @@ export const DailyWordsPage: React.FC = () => {
                             />
                           </svg>
                         </div>
-                        <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-green-200 to-emerald-200 bg-clip-text text-transparent mb-2 relative z-10">
+                        <h3 className="text-2xl font-bold text-black mb-2 relative z-10">
                           {word.english || word.word}
                         </h3>
-                        <p className="text-gray-200 text-lg mb-4 relative z-10">
+                        <p className="text-black text-lg mb-4 relative z-10">
                           {word.meaning || word.arabic}
                         </p>
                         <button
@@ -1020,10 +1210,10 @@ export const DailyWordsPage: React.FC = () => {
                             />
                           </svg>
                         </div>
-                        <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent mb-2 relative z-10">
+                        <h3 className="text-2xl font-bold text-black mb-2 relative z-10">
                           {word.english || word.word}
                         </h3>
-                        <p className="text-gray-200 text-lg mb-4 relative z-10">
+                        <p className="text-black text-lg mb-4 relative z-10">
                           {word.meaning || word.arabic}
                         </p>
                         <button

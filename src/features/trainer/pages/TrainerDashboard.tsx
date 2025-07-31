@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { apiClient } from "../../../core/utils/api";
-import { ENDPOINTS } from "../../../core/config/api";
+import { API_ENDPOINTS } from "../../../core/config/api";
 
 export const TrainerDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -11,11 +11,9 @@ export const TrainerDashboard: React.FC = () => {
   useEffect(() => {
     const fetchTrainerDashboard = async () => {
       setLoading(true);
-      const statsRes = await apiClient.get<any>(ENDPOINTS.TRAINER.DASHBOARD);
       const studentsRes = await apiClient.get<any[]>(
-        ENDPOINTS.TRAINER.STUDENTS
+        API_ENDPOINTS.TRAINER.STUDENTS.LIST
       );
-      if (statsRes.success && statsRes.data) setStats(statsRes.data);
       if (studentsRes.success && studentsRes.data)
         setStudents(studentsRes.data);
       setLoading(false);

@@ -72,6 +72,49 @@ export interface Story {
     createdAt: string;
 }
 
+// Daily Story Types
+export interface DailyStoryWord {
+    word: string;
+    meaning: string;
+    sentence: string;
+    sentenceAr: string;
+    color: 'blue' | 'green' | 'yellow' | 'red';
+    status: 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN' | 'LEARNED';
+    type: 'daily' | 'known' | 'partially_known' | 'unknown';
+    isDailyWord: boolean;
+}
+
+export interface DailyStory {
+    id: string;
+    userId: string;
+    title: string;
+    content: string;
+    translation: string;
+    words: DailyStoryWord[];
+    date: string;
+    isCompleted: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface WordStatusUpdate {
+    word: string;
+    status: 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN' | 'LEARNED';
+}
+
+export interface CanProceedResponse {
+    canProceed: boolean;
+    message: string;
+    dailyWordsCompleted: number;
+    totalDailyWords: number;
+}
+
+export interface DailyStoryComplete {
+    storyId: string;
+    level: string;
+    points: number;
+}
+
 // Theme Types
 export interface ThemeContextType {
     isDarkMode: boolean;

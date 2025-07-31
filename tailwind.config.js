@@ -25,8 +25,20 @@ export default {
         },
       },
       fontFamily: {
-        arabic: ["Amiri", "serif"],
-        english: ["Inter", "sans-serif"],
+        // Arabic fonts
+        arabic: ["Cairo", "Noto Sans Arabic", "sans-serif"],
+        "arabic-bold": ["Cairo", "Noto Sans Arabic", "sans-serif"],
+        "arabic-light": ["Cairo", "Noto Sans Arabic", "sans-serif"],
+
+        // English fonts
+        english: ["Poppins", "Inter", "sans-serif"],
+        "english-bold": ["Poppins", "Inter", "sans-serif"],
+        "english-light": ["Poppins", "Inter", "sans-serif"],
+
+        // Default fonts
+        sans: ["Cairo", "Noto Sans Arabic", "Poppins", "Inter", "sans-serif"],
+        serif: ["Cairo", "Noto Sans Arabic", "serif"],
+        mono: ["Cairo", "Noto Sans Arabic", "monospace"],
       },
       animation: {
         fadeIn: "fadeIn 0.5s ease-in-out",

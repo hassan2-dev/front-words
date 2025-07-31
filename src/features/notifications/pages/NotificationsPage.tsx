@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { apiClient } from "../../../core/utils/api";
-import { ENDPOINTS } from "../../../core/config/api";
+import { API_ENDPOINTS } from "../../../core/config/api";
 
 export const NotificationsPage: React.FC = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -11,7 +11,7 @@ export const NotificationsPage: React.FC = () => {
     const fetchNotifications = async () => {
       setLoading(true);
       try {
-        const res = await apiClient.get<any>(ENDPOINTS.NOTIFICATIONS.LIST);
+        const res = await apiClient.get<any>(API_ENDPOINTS.NOTIFICATIONS.LIST);
         console.log("Notifications response:", res);
 
         if (
@@ -55,7 +55,9 @@ export const NotificationsPage: React.FC = () => {
         // تحديث الإشعارات عند العودة للصفحة
         const fetchNotifications = async () => {
           try {
-            const res = await apiClient.get<any>(ENDPOINTS.NOTIFICATIONS.LIST);
+            const res = await apiClient.get<any>(
+              API_ENDPOINTS.NOTIFICATIONS.LIST
+            );
             if (
               res.success &&
               res.data &&
@@ -79,7 +81,9 @@ export const NotificationsPage: React.FC = () => {
       // تحديث الإشعارات عند التركيز على النافذة
       const fetchNotifications = async () => {
         try {
-          const res = await apiClient.get<any>(ENDPOINTS.NOTIFICATIONS.LIST);
+          const res = await apiClient.get<any>(
+            API_ENDPOINTS.NOTIFICATIONS.LIST
+          );
           if (
             res.success &&
             res.data &&

@@ -6,7 +6,7 @@ import React, {
   ReactNode,
 } from "react";
 import { apiClient } from "../utils/api";
-import { ENDPOINTS } from "../config/api";
+import { API_ENDPOINTS } from "../config/api";
 import { STORAGE_KEYS } from "../constants/app";
 import type { User, AuthState, LoginCredentials, RegisterData } from "../types";
 
@@ -100,7 +100,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       dispatch({ type: "AUTH_START" });
 
-      const response = await apiClient.post(ENDPOINTS.AUTH.LOGIN, credentials);
+      const response = await apiClient.post(
+        API_ENDPOINTS.AUTH.LOGIN,
+        credentials
+      );
 
       if (
         response.success &&
@@ -142,7 +145,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       dispatch({ type: "AUTH_START" });
 
-      const response = await apiClient.post(ENDPOINTS.AUTH.REGISTER, data);
+      const response = await apiClient.post(API_ENDPOINTS.AUTH.REGISTER, data);
 
       if (
         response.success &&
@@ -182,8 +185,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Logout Function
   const logout = async (): Promise<void> => {
     try {
-      // Call logout endpoint
-      await apiClient.post(ENDPOINTS.AUTH.LOGOUT);
+      // Note: No logout endpoint defined in API_ENDPOINTS
+      // You can add a logout endpoint to the API if needed
+      // await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT);
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
@@ -211,15 +215,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const refreshAuth = async (): Promise<void> => {
     try {
       dispatch({ type: "AUTH_START" });
-      const response = await apiClient.get(ENDPOINTS.AUTH.ME);
+      const response = await apiClient.get(API_ENDPOINTS.AUTH.ME);
 
       if (response.success && response.data) {
         const user: User = response.data;
         dispatch({ type: "AUTH_SUCCESS", payload: user });
-        localStorage.setItem(
-          STORAGE_KEYS.USER_DATA,
-          JSON.stringify(user)
-        );
+        localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
       } else {
         // إذا السيرفر رجع رفض مصادقة
         throw new Error("UNAUTHORIZED");

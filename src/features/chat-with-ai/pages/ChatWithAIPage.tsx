@@ -534,24 +534,7 @@ const ChatWithAIPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4 rtl:space-x-reverse">
-              <button
-                onClick={() => navigate(-1)}
-                className="p-3 hover:bg-slate-100/80 dark:hover:bg-slate-700/80 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                <svg
-                  className="w-6 h-6 text-slate-600 dark:text-slate-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
+              
               <div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                   دردشة مع الذكاء الاصطناعي

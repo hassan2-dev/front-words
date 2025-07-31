@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { apiClient } from "../../../core/utils/api";
-import { ENDPOINTS } from "../../../core/config/api";
+import { API_ENDPOINTS } from "../../../core/config/api";
 import { AchievementsAdminPage } from "../../Achievements/AchievementsAdminPage";
 
 export const AdminDashboard: React.FC = () => {
@@ -13,9 +13,8 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const fetchAdminDashboard = async () => {
       setLoading(true);
-      const statsRes = await apiClient.get<any>(ENDPOINTS.ADMIN.DASHBOARD);
-      const usersRes = await apiClient.get<any[]>(ENDPOINTS.ADMIN.USERS);
-      const activityRes = await apiClient.get<any[]>(ENDPOINTS.ADMIN.ANALYTICS);
+      const statsRes = await apiClient.get<any>(API_ENDPOINTS.ADMIN.STATS);
+      const usersRes = await apiClient.get<any[]>(API_ENDPOINTS.ADMIN.USERS.LIST);
       if (statsRes.success && statsRes.data) setStats(statsRes.data);
       if (usersRes.success && usersRes.data) setRecentUsers(usersRes.data);
       if (activityRes.success && activityRes.data)

@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { apiClient } from "../../../core/utils/api";
-import { ENDPOINTS } from "../../../core/config/api";
+import { API_ENDPOINTS } from "../../../core/config/api";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   completeStory,
   generateStoryFromWords,
   getAIRemainingRequests,
-  getPopularStories,
-  getStories,
 } from "../../../core/utils/api";
 import { useAuth } from "../../../core/providers/AuthProvider";
 
@@ -302,55 +300,6 @@ export const StoriesPage: React.FC = () => {
     }
   };
 
-  // جلب القصص المشهورة
-  const fetchPopularStories = async () => {
-    setPopularLoading(true);
-    setPopularError(null);
-    try {
-      const res = await getPopularStories();
-      if (res.success && res.data) {
-        setPopularStories(Array.isArray(res.data) ? res.data : []);
-      } else {
-        setPopularStories([]);
-      }
-    } catch {
-      setPopularError("تعذر جلب القصص المشهورة.");
-    } finally {
-      setPopularLoading(false);
-    }
-  };
-
-  // جلب كل القصص
-  const fetchStories = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await getStories({
-        level: selectedLevel !== "All" ? selectedLevel : undefined,
-      });
-      if (res.success && res.data) {
-        // التعامل مع التنسيق الجديد الذي يحتوي على stories و pagination
-        const storiesData = (res.data as any)?.stories || res.data || [];
-        setStories(storiesData);
-      } else {
-        setStories([]);
-        setError("تعذر جلب القصص.");
-      }
-    } catch (err) {
-      setError("حدث خطأ أثناء جلب القصص.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPopularStories();
-  }, []);
-
-  useEffect(() => {
-    fetchStories();
-  }, [selectedLevel]);
-
   useEffect(() => {
     fetchRemainingRequests();
   }, []);
@@ -476,58 +425,8 @@ export const StoriesPage: React.FC = () => {
             <div className="space-y-6">
               <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  الكلمات المتعلمة ({totalWords})
+                  قم بانشاء قصة من الكلمات المتعلمة ({totalWords})
                 </h3>
-
-                {/* الكلمات العامة */}
-                {learnedWords.public.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-3">
-                      الكلمات العامة ({learnedWords.public.length})
-                    </h4>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {learnedWords.public.slice(0, 10).map((word, index) => (
-                        <span
-                          key={`public-${index}`}
-                          className="bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-sm"
-                          title={word.meaning}
-                        >
-                          {word.word}
-                        </span>
-                      ))}
-                      {learnedWords.public.length > 10 && (
-                        <span className="text-blue-600 dark:text-blue-400 text-sm">
-                          +{learnedWords.public.length - 10} أكثر
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* الكلمات الخاصة */}
-                {learnedWords.private.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-purple-600 dark:text-purple-400 mb-3">
-                      الكلمات الخاصة ({learnedWords.private.length})
-                    </h4>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {learnedWords.private.slice(0, 10).map((word, index) => (
-                        <span
-                          key={`private-${index}`}
-                          className="bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-3 py-1 rounded-full text-sm"
-                          title={word.meaning}
-                        >
-                          {word.word}
-                        </span>
-                      ))}
-                      {learnedWords.private.length > 10 && (
-                        <span className="text-purple-600 dark:text-purple-400 text-sm">
-                          +{learnedWords.private.length - 10} أكثر
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 <button
                   onClick={handleGenerateClick}

@@ -9,35 +9,41 @@ export interface EnhancedStory {
 }
 
 export const enhanceStory = (story: any): EnhancedStory => {
-  const originalContent = story.content;
-  const originalTranslation = story.translation;
-  
+  // Check if story is valid
+  if (!story || typeof story !== 'object') {
+    console.error('Invalid story object passed to enhanceStory:', story);
+    throw new Error('Invalid story object');
+  }
+
+  const originalContent = story.content || '';
+  const originalTranslation = story.translation || '';
+
   // تحسين العنوان
-  const enhancedTitle = story.title.includes("قصة اليوم") 
-    ? story.title 
-    : `قصة اليوم - ${story.title}`;
+  const enhancedTitle = story.title && story.title.includes("قصة اليوم")
+    ? story.title
+    : `قصة اليوم - ${story.title || 'قصة جديدة'}`;
 
   // تحسين المحتوى الإنجليزي
   let enhancedContent = originalContent;
-  
+
   // إضافة مقدمة أكثر تشويقاً
   if (!enhancedContent.includes("Once upon a time")) {
     enhancedContent = `Once upon a time, in a world full of learning and discovery, ${enhancedContent}`;
   }
-  
+
   // إضافة خاتمة أكثر إلهاماً
   if (!enhancedContent.includes("journey")) {
     enhancedContent += `\n\nThis amazing journey of learning continues every day, making each word a stepping stone towards fluency and confidence in English. The student's dedication and passion for learning shine through every new word mastered.`;
   }
-  
+
   // تحسين الترجمة العربية
   let enhancedTranslation = originalTranslation;
-  
+
   // إضافة مقدمة عربية
   if (!enhancedTranslation.includes("في يوم من الأيام")) {
     enhancedTranslation = `في يوم من الأيام، في عالم مليء بالتعلم والاكتشاف، ${enhancedTranslation}`;
   }
-  
+
   // إضافة خاتمة عربية
   if (!enhancedTranslation.includes("رحلة")) {
     enhancedTranslation += `\n\nهذه الرحلة المذهلة للتعلم تستمر كل يوم، مما يجعل كل كلمة لبنة نحو الطلاقة والثقة في اللغة الإنجليزية. إصرار الطالب وشغفه بالتعلم يتألقان من خلال كل كلمة جديدة يتقنها.`;
@@ -59,7 +65,7 @@ export const enhanceWords = (words: any[]): any[] => {
     // إضافة جمل أكثر تشويقاً للكلمات الجديدة
     if (word.status === "NOT_LEARNED" && !word.sentence) {
       const enhancedWord = { ...word };
-      
+
       // جمل محسنة حسب نوع الكلمة
       const enhancedSentences = {
         "snip": "The chef snips fresh herbs for the dish.",
@@ -75,15 +81,15 @@ export const enhanceWords = (words: any[]): any[] => {
         "letter": "She wrote a beautiful letter to her grandmother.",
         "kite": "The colorful kite flew high in the blue sky.",
       };
-      
+
       if (enhancedSentences[word.word as keyof typeof enhancedSentences]) {
         enhancedWord.sentence = enhancedSentences[word.word as keyof typeof enhancedSentences];
         enhancedWord.sentenceAr = getArabicTranslation(enhancedWord.sentence);
       }
-      
+
       return enhancedWord;
     }
-    
+
     return word;
   });
 };
@@ -104,6 +110,6 @@ const getArabicTranslation = (sentence: string): string => {
     "She wrote a beautiful letter to her grandmother.": "كتبت رسالة جميلة لجدتها.",
     "The colorful kite flew high in the blue sky.": "طارت الطائرة الورقية الملونة عالياً في السماء الزرقاء.",
   };
-  
+
   return translations[sentence] || sentence;
 }; 

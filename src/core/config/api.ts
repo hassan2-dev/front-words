@@ -25,13 +25,21 @@ export const API_ENDPOINTS = {
     LEARN: (word: string) => `/words/${word}/learn`,
     LEARNED: '/words/learned',
     PRIVATE: '/words/private',
+    // New endpoints
+    LEVEL: (level: string) => `/words/level/${level}`,
+    SENTENCES: (level: string) => `/words/sentences/${level}`,
   },
 
   // ===== Daily Stories =====
   DAILY_STORIES: {
     GET: '/stories/daily/story',
-    GENERATE: '/stories/daily/story/generate',
-    UPDATE_WORD_STATUS: '/stories/daily/story/word-status',
+    GET_ALL_WORDS: '/stories/daily/story/all-words',
+    GET_COMPLEMENTARY_WORDS: '/stories/daily/story/complementary-words',
+    GET_LEARNED_WORDS: '/stories/daily/story/learned-words',
+    GET_STORY_WORDS: (storyId: string) => `/stories/daily/story/${storyId}/words`,
+    REMAINING: '/stories/daily/story/remaining',
+    WORD_INTERACTION: '/stories/daily/story/word-interaction',
+    WORD_STATISTICS: '/stories/daily/story/word-statistics',
     COMPLETE: '/stories/daily/story/complete',
     CAN_PROCEED: '/stories/daily/story/can-proceed',
   },
@@ -39,7 +47,8 @@ export const API_ENDPOINTS = {
   // ===== AI =====
   AI: {
     GENERATE_STORY_FROM_WORDS: '/ai/generate/story-from-words',
-    GENERATE_STORY: '/ai/generate-story',
+    GENERATE_WORD_SENTENCES: '/ai/generate-word-sentences',
+    GENERATE_MULTIPLE_WORD_SENTENCES: '/ai/generate-multiple-word-sentences',
     REMAINING_REQUESTS: '/ai/remaining-requests',
   },
 

@@ -74,6 +74,7 @@ export interface Story {
 
 // Daily Story Types
 export interface DailyStoryWord {
+    sentence_ar: any;
     word: string;
     meaning: string;
     sentence: string;

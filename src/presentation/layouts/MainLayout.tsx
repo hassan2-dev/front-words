@@ -84,7 +84,6 @@ const getNavItems = (
       icon: <Sparkles size={20} />,
     },
     { name: "القصص", href: ROUTES.STORIES, icon: <BookMarked size={20} /> },
-    { name: "الملف الشخصي", href: ROUTES.PROFILE, icon: <User size={20} /> },
   ];
 };
 
@@ -113,6 +112,47 @@ export const MainLayout: React.FC = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Function to get user data from localStorage
+  const getUserFromStorage = () => {
+    try {
+      const userData = localStorage.getItem("letspeak_user_data");
+      if (userData) {
+        const parsedData = JSON.parse(userData);
+        console.log("Parsed data from localStorage:", parsedData);
+        // Handle both formats: direct user object or {user: {...}}
+        const user = parsedData.user || parsedData;
+        console.log("Extracted user:", user);
+        return user;
+      }
+    } catch (error) {
+      console.error("Error parsing user data:", error);
+    }
+    return null;
+  };
+
+  // Get user data from localStorage as fallback
+  const storedUser = getUserFromStorage();
+  const displayUser = user || storedUser;
+
+  // Debug: Check localStorage and user data
+  useEffect(() => {
+    console.log("=== DEBUG USER DATA ===");
+    console.log("User from useAuth:", user);
+    console.log("Stored user from localStorage:", storedUser);
+    console.log("Display user:", displayUser);
+    console.log(
+      "User data from localStorage:",
+      localStorage.getItem("letspeak_user_data")
+    );
+    console.log(
+      "Auth token from localStorage:",
+      localStorage.getItem("letspeak_auth_token")
+    );
+    console.log("Is user authenticated:", user !== null);
+    console.log("User name:", displayUser?.name);
+    console.log("========================");
+  }, [user, storedUser, displayUser]);
 
   // Refs for click outside detection
   const profileDropdownRef = useRef<HTMLDivElement>(null);
@@ -333,9 +373,6 @@ export const MainLayout: React.FC = () => {
                     <h1 className="text-xl font-black text-white tracking-wider drop-shadow-lg">
                       Let<span className="text-orange-300">s</span>peak
                     </h1>
-                    <p className="text-sm text-white/70 font-medium">
-                      منصة تعلم الإنجليزية
-                    </p>
                   </div>
                 )}
               </div>
@@ -423,26 +460,29 @@ export const MainLayout: React.FC = () => {
                       src={
                         user?.avatar ||
                         `https://ui-avatars.com/api/?name=${
-                          user?.name || "مستخدم"
+                          displayUser?.name || storedUser?.name || "مستخدم"
                         }&background=6366f1&color=fff&size=48`
                       }
-                      alt={user?.name}
+                      alt={displayUser?.name || storedUser?.name || "مستخدم"}
                       className="w-10 h-10 rounded-full border-2 border-white shadow-lg"
                     />
                     <div className="absolute -bottom-1 -left-1">
-                      {getRoleIcon(user?.role)}
+                      {getRoleIcon(displayUser?.role || storedUser?.role)}
                     </div>
                   </div>
                   {!sidebarCollapsed && (
                     <>
+                      {console.log("User data:", displayUser)}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-white truncate">
-                          {user?.name}
+                          {displayUser?.name || storedUser?.name || "مستخدم"}
                         </p>
                         <p className="text-xs text-white/70 truncate font-medium">
-                          {user?.role === USER_ROLES.ADMIN
+                          {(displayUser?.role || storedUser?.role) ===
+                          USER_ROLES.ADMIN
                             ? "مشرف النظام"
-                            : user?.role === USER_ROLES.TRAINER
+                            : (displayUser?.role || storedUser?.role) ===
+                              USER_ROLES.TRAINER
                             ? "مدرب محترف"
                             : "طالب نشط"}
                         </p>

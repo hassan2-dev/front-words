@@ -427,7 +427,6 @@ export const DailyWordsPage: React.FC = () => {
                 </span>
                 <span>أضف كلمة خاصة</span>
               </button>
-             
             </div>
           </div>
         </div>
@@ -1101,12 +1100,40 @@ export const DailyWordsPage: React.FC = () => {
                         <p className="text-black text-lg mb-4 relative z-10">
                           {word.meaning || word.arabic}
                         </p>
-                        <button
-                          onClick={() => speakWord(word.english || word.word)}
-                          className="mt-2 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-6 rounded-xl shadow-2xl transition-all duration-300 relative z-10 transform hover:scale-105"
-                        >
-                          نطق الكلمة 🔊
-                        </button>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => speakWord(word.english || word.word)}
+                            className="flex-1 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-xl shadow-2xl transition-all duration-300 relative z-10 transform hover:scale-105 text-sm"
+                          >
+                            نطق 🔊
+                          </button>
+                          <button
+                            onClick={() => {
+                              // إضافة الكلمة إلى قائمة الكلمات المجهولة
+                              const stored =
+                                localStorage.getItem("unknownWords");
+                              let arr = stored ? JSON.parse(stored) : [];
+                              const key = word.id || word.word || word.english;
+
+                              // إضافة الكلمة إلى unknownWords إذا لم تكن موجودة
+                              const exists = arr.some(
+                                (w: any) =>
+                                  (w.id || w.word || w.english) === key
+                              );
+                              if (!exists) {
+                                arr.push(word);
+                                localStorage.setItem(
+                                  "unknownWords",
+                                  JSON.stringify(arr)
+                                );
+                                setUnknownWords(arr);
+                              }
+                            }}
+                            className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-2 px-4 rounded-xl shadow-2xl transition-all duration-300 relative z-10 transform hover:scale-105 text-sm"
+                          >
+                            لا أعرفها ❌
+                          </button>
+                        </div>
                       </div>
                     ))}
                 </div>
@@ -1216,12 +1243,40 @@ export const DailyWordsPage: React.FC = () => {
                         <p className="text-black text-lg mb-4 relative z-10">
                           {word.meaning || word.arabic}
                         </p>
-                        <button
-                          onClick={() => speakWord(word.english || word.word)}
-                          className="mt-2 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-6 rounded-xl shadow-2xl transition-all duration-300 relative z-10 transform hover:scale-105"
-                        >
-                          نطق الكلمة 🔊
-                        </button>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => speakWord(word.english || word.word)}
+                            className="flex-1 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-xl shadow-2xl transition-all duration-300 relative z-10 transform hover:scale-105 text-sm"
+                          >
+                            نطق 🔊
+                          </button>
+                          <button
+                            onClick={() => {
+                              // إضافة الكلمة إلى قائمة الكلمات المجهولة
+                              const stored =
+                                localStorage.getItem("unknownWords");
+                              let arr = stored ? JSON.parse(stored) : [];
+                              const key = word.id || word.word || word.english;
+
+                              // إضافة الكلمة إلى unknownWords إذا لم تكن موجودة
+                              const exists = arr.some(
+                                (w: any) =>
+                                  (w.id || w.word || w.english) === key
+                              );
+                              if (!exists) {
+                                arr.push(word);
+                                localStorage.setItem(
+                                  "unknownWords",
+                                  JSON.stringify(arr)
+                                );
+                                setUnknownWords(arr);
+                              }
+                            }}
+                            className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-2 px-4 rounded-xl shadow-2xl transition-all duration-300 relative z-10 transform hover:scale-105 text-sm"
+                          >
+                            لا أعرفها ❌
+                          </button>
+                        </div>
                       </div>
                     ))}
                 </div>

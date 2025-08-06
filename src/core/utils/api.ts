@@ -35,7 +35,7 @@ class ApiClient {
     constructor() {
         // For Vite, we'll use a simple fallback approach
         this.baseURL = 'http://localhost:3000';
-        this.timeout = 10000;
+        this.timeout = 10000; // 10 seconds default timeout (محسن)
     }
 
     // Get auth token from storage
@@ -257,11 +257,33 @@ export const getLearnedWords = () =>
 export const getDailyStory = () =>
     apiClient.get<ApiResponse<DailyStory>>(API_ENDPOINTS.DAILY_STORIES.GET);
 
-export const generateDailyStory = (data: { publicWords: string[]; privateWords: string[]; userName: string; level: string }) =>
-    apiClient.post<ApiResponse<DailyStory>>(API_ENDPOINTS.DAILY_STORIES.GENERATE, data);
+export const getAllDailyStoryWords = () =>
+    apiClient.get<ApiResponse<{
+        words: DailyStoryWord[];
+        dailyWords: DailyStoryWord[];
+        complementaryWords: DailyStoryWord[];
+        knownWords: DailyStoryWord[];
+        unknownWords: DailyStoryWord[];
+        partiallyKnownWords: DailyStoryWord[];
+        totalWords: number;
+        dailyWordsCount: number;
+        complementaryWordsCount: number;
+        knownWordsCount: number;
+        unknownWordsCount: number;
+        partiallyKnownWordsCount: number;
+    }>>(API_ENDPOINTS.DAILY_STORIES.GET_ALL_WORDS);
+
+export const getComplementaryWords = () =>
+    apiClient.get<ApiResponse<{ words: DailyStoryWord[] }>>(API_ENDPOINTS.DAILY_STORIES.GET_COMPLEMENTARY_WORDS);
+
+export const getLearnedWordsFromStory = () =>
+    apiClient.get<ApiResponse<{ words: DailyStoryWord[] }>>(API_ENDPOINTS.DAILY_STORIES.GET_LEARNED_WORDS);
+
+export const getStoryWords = (storyId: string) =>
+    apiClient.get<ApiResponse<{ words: DailyStoryWord[] }>>(API_ENDPOINTS.DAILY_STORIES.GET_STORY_WORDS(storyId));
 
 export const updateWordStatus = (data: WordStatusUpdate) =>
-    apiClient.post<ApiResponse>(API_ENDPOINTS.DAILY_STORIES.UPDATE_WORD_STATUS, data);
+    apiClient.post<ApiResponse>(API_ENDPOINTS.DAILY_STORIES.WORD_INTERACTION, data);
 
 export const completeDailyStory = (data: DailyStoryComplete) =>
     apiClient.post<ApiResponse<any>>(API_ENDPOINTS.DAILY_STORIES.COMPLETE, data);
@@ -361,7 +383,7 @@ export const generateStoryFromWords = (data: { words: string[]; level: string; l
     }>>(API_ENDPOINTS.AI.GENERATE_STORY_FROM_WORDS, data);
 
 export const generateStory = (data: { words: string[]; level: string }) =>
-    apiClient.post<ApiResponse<{ story: string; translation: string }>>(API_ENDPOINTS.AI.GENERATE_STORY, data);
+    apiClient.post<ApiResponse<{ story: string; translation: string }>>(API_ENDPOINTS.AI.GENERATE_STORY_FROM_WORDS, data);
 
 export const getAIRemainingRequests = () =>
     apiClient.get<ApiResponse<{ storyRequests: number; chatRequests: number }>>(API_ENDPOINTS.AI.REMAINING_REQUESTS);
@@ -385,12 +407,12 @@ export const addStreak = (data?: { action: string; date?: string }) => {
 // إضافة دوال جديدة للستريك
 export const resetStreak = () => {
     console.log("resetStreak API call");
-    return apiClient.post<ApiResponse<any>>('/activities/streak/reset', {});
+    return apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.STREAK_ADD, { action: 'reset' });
 };
 
 export const initializeStreak = () => {
     console.log("initializeStreak API call");
-    return apiClient.post<ApiResponse<any>>('/activities/streak/initialize', {});
+    return apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.STREAK_ADD, { action: 'initialize' });
 };
 
 export const getStreak = () =>

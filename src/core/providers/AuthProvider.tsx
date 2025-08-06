@@ -252,7 +252,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (token && userData) {
         try {
-          const user = JSON.parse(userData);
+          const parsedData = JSON.parse(userData);
+          // Handle both formats: direct user object or {user: {...}}
+          const user = parsedData.user || parsedData;
           dispatch({ type: "AUTH_SUCCESS", payload: user });
 
           // تحقق من صلاحية التوكن

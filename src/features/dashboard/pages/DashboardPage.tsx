@@ -8,13 +8,23 @@ import {
   initializeStreak,
   getLearnedWords,
   getDailyStory,
-  generateDailyStory,
+  generateStory,
 } from "@/core/utils/api";
 import { FaBookOpen, FaFire, FaStar, FaChartLine } from "react-icons/fa";
-import { HiSparkles } from "react-icons/hi";
 import { useNavigate } from "react-router-dom";
 import type { DailyStory } from "@/core/types";
 import { DailyStoryExam } from "../../daily-words/components/DailyStoryExam";
+
+// CSS for animations
+const fadeInAnimation = `
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-out;
+  }
+`;
 
 // Types
 interface Progress {
@@ -243,86 +253,6 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
   );
 };
 
-const WelcomeModal: React.FC<{
-  onAddStreak: () => void;
-  onInitializeStreak: () => void;
-  addingStreak: boolean;
-  streakDates: string[];
-  hasExistingStreak: boolean;
-}> = ({
-  onAddStreak,
-  onInitializeStreak,
-  addingStreak,
-  streakDates,
-  hasExistingStreak,
-}) => {
-  // استخدام التاريخ المحلي بدلاً من UTC
-  const now = new Date();
-  const today =
-    now.getFullYear() +
-    "-" +
-    String(now.getMonth() + 1).padStart(2, "0") +
-    "-" +
-    String(now.getDate()).padStart(2, "0");
-  const isAlreadyCompleted = streakDates.includes(today);
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full text-center border border-gray-100 dark:border-gray-700 transform animate-pulse max-h-[90vh] overflow-y-auto">
-        <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-          <HiSparkles color="#fff" size={36} />
-        </div>
-
-        <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          مرحباً بك 👋
-        </h2>
-
-        <p className="mb-6 sm:mb-8 text-gray-700 dark:text-gray-300 text-base sm:text-lg leading-relaxed">
-          ابدأ رحلتك التعليمية اليوم وسجّل أول يوم في سلسلة النجاح!
-        </p>
-
-        <WeeklyStreakDisplay streakDates={streakDates} />
-        {(() => {
-          console.log("WelcomeModal streakDates:", streakDates);
-          return null;
-        })()}
-
-        <div className="mt-6 sm:mt-8">
-          {isAlreadyCompleted ? (
-            <div className="text-green-600 dark:text-green-400 font-bold text-base sm:text-lg">
-              ✔️ لقد سجلت يومك بالفعل اليوم!
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {!hasExistingStreak && (
-                <div className="text-orange-600 dark:text-orange-400 text-sm mb-2">
-                  🆕 مرحباً بك! سنقوم بإنشاء أول سلسلة نجاح لك
-                </div>
-              )}
-              <button
-                onClick={hasExistingStreak ? onAddStreak : onInitializeStreak}
-                disabled={addingStreak}
-                className="w-full px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:transform-none font-semibold text-base sm:text-lg"
-              >
-                {addingStreak ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    {hasExistingStreak ? "جاري الإضافة..." : "جاري الإنشاء..."}
-                  </div>
-                ) : hasExistingStreak ? (
-                  "🚀 ابدأ رحلتك الآن"
-                ) : (
-                  "🎯 إنشاء أول سلسلة نجاح"
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 /*
  * التحديثات المضافة:
  *
@@ -487,7 +417,6 @@ export const DashboardPage: React.FC = () => {
   const [wordsCount, setWordsCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showWelcome, setShowWelcome] = useState(true);
   const [addingStreak, setAddingStreak] = useState(false);
   const [lastStreakDate, setLastStreakDate] = useState<string | null>(null);
   const [streakDates, setStreakDates] = useState<string[]>([]);
@@ -507,6 +436,14 @@ export const DashboardPage: React.FC = () => {
     null
   );
 
+  // New states for streak error handling
+  const [streakError, setStreakError] = useState<string | null>(null);
+  const [showStreakError, setShowStreakError] = useState(false);
+
+  // New states for welcome modal
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
+
   // دالة مساعدة لتحويل التاريخ من UTC إلى المحلي
   const convertUTCToLocalDate = (utcDateString: string): string => {
     const utcDate = new Date(utcDateString);
@@ -514,6 +451,59 @@ export const DashboardPage: React.FC = () => {
       utcDate.getTime() + utcDate.getTimezoneOffset() * 60000
     );
     return localDate.toISOString().split("T")[0];
+  };
+
+  // دالة لمسح localStorage
+  const clearLocalStorage = () => {
+    localStorage.removeItem("lastStreakAddedDate");
+    localStorage.removeItem("lastStoryShownDate");
+    localStorage.removeItem("lastDailyStoryDate");
+    localStorage.removeItem("welcomeShown");
+    console.log("LocalStorage cleared successfully");
+
+    // إعادة تعيين الحالة
+    setStreakAddedToday(false);
+    setDailyStoryCompleted(false);
+    setShowWelcomeModal(false);
+    setIsNewUser(false);
+
+    // إعادة تحميل البيانات
+    fetchDashboardData();
+  };
+
+  // دالة للتحقق من وجود ستريك
+  const hasStreak = (): boolean => {
+    console.log("hasStreak check:", {
+      streak,
+      streakAddedToday,
+      result: streak > 0 || streakAddedToday,
+    });
+    return streak > 0 || streakAddedToday;
+  };
+
+  // دالة للتحقق من الستريك في قاعدة البيانات
+  const verifyStreakInDatabase = async (): Promise<boolean> => {
+    try {
+      console.log("🔍 Verifying streak in database...");
+      const streakResponse = await getStreak();
+      if (streakResponse.success && streakResponse.data) {
+        const data = streakResponse.data as any;
+        const currentStreak = data.currentStreak || data.streak || 0;
+        console.log("📊 Current streak in database:", currentStreak);
+        const hasValidStreak = currentStreak > 0;
+        console.log(
+          hasValidStreak
+            ? "✅ Streak verified successfully"
+            : "❌ No valid streak found"
+        );
+        return hasValidStreak;
+      }
+      console.log("❌ No streak data found in response");
+      return false;
+    } catch (error) {
+      console.error("❌ Error verifying streak in database:", error);
+      return false;
+    }
   };
 
   // Functions
@@ -530,7 +520,25 @@ export const DashboardPage: React.FC = () => {
 
   // New function to check if story exists and handle loading
   const checkAndLoadDailyStory = async () => {
-    console.log("checkAndLoadDailyStory called");
+    console.log("=== checkAndLoadDailyStory called ===");
+
+    // التحقق من وجود ستريك في قاعدة البيانات مباشرة
+    const streakVerified = await verifyStreakInDatabase();
+    if (!streakVerified) {
+      console.log("Streak not verified in database, retrying...");
+      // انتظار إضافي وإعادة المحاولة
+      await new Promise((resolve) => setTimeout(resolve, 500)); // تقليل الوقت إلى 500ms
+      const retryVerification = await verifyStreakInDatabase();
+      if (!retryVerification) {
+        console.log("Streak still not verified, showing welcome modal");
+        setShowWelcomeModal(true);
+        return;
+      }
+    }
+
+    console.log(
+      "✅ Streak verified in database, proceeding with daily story check..."
+    );
     const now = new Date();
     const today =
       now.getFullYear() +
@@ -541,8 +549,15 @@ export const DashboardPage: React.FC = () => {
 
     const lastStoryDate = localStorage.getItem("lastStoryShownDate");
 
+    console.log("Story check conditions:", {
+      today,
+      lastStoryDate,
+      isSameDay: lastStoryDate === today,
+      shouldSkip: lastStoryDate === today,
+      hasStreak: hasStreak(),
+    });
+
     // إذا تم عرض القصة اليوم، لا نحتاج لتحميلها مرة أخرى
-    // هذا يضمن أن المستخدم لا يتم توجيهه للقصة إلا مرة واحدة في اليوم
     if (lastStoryDate === today) {
       console.log("Story already shown today, skipping...");
       setDailyStoryCompleted(true);
@@ -563,20 +578,25 @@ export const DashboardPage: React.FC = () => {
     setLoadingMessage("جاري التحقق من القصة اليومية...");
     console.log("Setting loading message: جاري التحقق من القصة اليومية...");
 
+    // تأخير قصير
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     try {
-      // محاولة الحصول على القصة الموجودة مع timeout أطول
-      // إذا فشل الـ API، ننتقل مباشرة لتوليد قصة جديدة
+      // محاولة الحصول على القصة الموجودة مع timeout محسن
       let response;
       try {
+        console.log("Attempting to fetch daily story...");
         response = (await Promise.race([
           getDailyStory(),
           new Promise(
-            (_, reject) => setTimeout(() => reject(new Error("Timeout")), 60000) // 60 ثانية timeout
+            (_, reject) =>
+              setTimeout(() => reject(new Error("StoryFetchTimeout")), 3000) // 3 ثانية للجلب (محسن)
           ),
         ])) as any;
+        console.log("Daily story fetch response:", response);
       } catch (apiError) {
         console.log(
-          "API call failed, proceeding to generate new story:",
+          "Story fetch failed, proceeding to generate new story:",
           apiError
         );
         // إذا فشل الـ API، ننتقل لتوليد قصة جديدة
@@ -591,7 +611,7 @@ export const DashboardPage: React.FC = () => {
         console.log("Setting loading message: جاري تحميل القصة اليومية...");
 
         // تأخير قصير لمحاكاة التحميل
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 150));
 
         setDailyStory(response.data as unknown as DailyStory);
         setLoadingMessage("تم تحميل القصة بنجاح!");
@@ -599,9 +619,18 @@ export const DashboardPage: React.FC = () => {
         console.log("Story loaded successfully, navigating...");
 
         // تأخير قصير لإظهار رسالة النجاح
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 150));
 
         // توجيه المستخدم إلى القصة
+        console.log("Navigating to story reader...");
+
+        // Validate story object before navigation
+        if (!response.data || typeof response.data !== "object") {
+          console.error("Invalid story data:", response.data);
+          setStoryLoadingError("فشل في إنشاء القصة. يرجى المحاولة مرة أخرى.");
+          return;
+        }
+
         navigate("/story-reader", {
           state: {
             story: response.data,
@@ -634,17 +663,22 @@ export const DashboardPage: React.FC = () => {
 
   // Function to generate new daily story with loading messages
   const generateNewDailyStory = async () => {
-    console.log("generateNewDailyStory called");
+    console.log(
+      "🎯 generateNewDailyStory called - Story generation will only proceed after streak verification"
+    );
     try {
-      console.log("Setting loading message: جاري توليد قصة جديدة...");
-      setLoadingMessage("جاري توليد قصة جديدة...");
+      console.log("Setting loading message: جاري جلب كلماتك المتعلمة...");
+      setLoadingMessage("جاري جلب كلماتك المتعلمة...");
 
-      // اجلب الكلمات المتعلمة مع timeout
+      // تأخير قصير
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // اجلب الكلمات المتعلمة مع timeout محسن
       const learnedRes = (await Promise.race([
         getLearnedWords(),
         new Promise(
           (_, reject) =>
-            setTimeout(() => reject(new Error("WordsTimeout")), 5000) // 5 ثانية timeout
+            setTimeout(() => reject(new Error("WordsTimeout")), 3000) // 3 ثانية timeout محسن
         ),
       ])) as any;
       const publicWords = Array.isArray((learnedRes.data as any)?.public)
@@ -662,51 +696,107 @@ export const DashboardPage: React.FC = () => {
           ).map((w) => w.word)
         : [];
 
-      setLoadingMessage("جاري إنشاء القصة من كلماتك...");
-      console.log("Setting loading message: جاري إنشاء القصة من كلماتك...");
+      console.log("Setting loading message: جاري إنشاء قصة مخصصة لك...");
+      setLoadingMessage("جاري إنشاء قصة مخصصة لك...");
+
+      // تأخير قصير لإظهار رسالة التحميل
+      await new Promise((resolve) => setTimeout(resolve, 400)); // تقليل الوقت إلى 400ms
+
       console.log("About to generate story with timeout...");
 
-      // توليد القصة الجديدة مع timeout أطول
+      // توليد القصة الجديدة مع timeout محسن
+      console.log("🚀 Starting story generation with optimized timeout...");
+
+      // Validate data before sending to API
+      const storyData = {
+        publicWords,
+        privateWords,
+        userName: user?.name || "الطالب",
+        level: String(user?.level || "L1"),
+      };
+
+      console.log("Story generation data:", storyData);
+
       const storyResponse = (await Promise.race([
-        generateDailyStory({
-          publicWords,
-          privateWords,
-          userName: user?.name || "الطالب",
+        generateStory({
+          words: [...publicWords, ...privateWords],
           level: String(user?.level || "L1"),
         }),
         new Promise(
           (_, reject) =>
-            setTimeout(() => reject(new Error("StoryGenerationTimeout")), 90000) // 90 ثانية timeout للـ AI
+            setTimeout(
+              () => reject(new Error("AIStoryGenerationTimeout")),
+              8000
+            ) // 8 ثانية timeout للـ AI (محسن)
         ),
       ])) as any;
 
       console.log("Story generation completed:", storyResponse);
 
       if (storyResponse.success && storyResponse.data) {
-        setLoadingMessage("جاري ترجمة القصة...");
+        console.log("Story response data:", storyResponse.data);
+
+        // Validate story structure
+        if (
+          !storyResponse.data.title ||
+          !storyResponse.data.content ||
+          !storyResponse.data.translation
+        ) {
+          console.error("Incomplete story data:", storyResponse.data);
+          setStoryLoadingError(
+            "القصة المُنشأة غير مكتملة. يرجى المحاولة مرة أخرى."
+          );
+          return;
+        }
+
+        // Validate words array
+        if (
+          !Array.isArray(storyResponse.data.words) ||
+          storyResponse.data.words.length === 0
+        ) {
+          console.error("Story missing words array:", storyResponse.data);
+          setStoryLoadingError(
+            "القصة لا تحتوي على كلمات للتعلم. يرجى المحاولة مرة أخرى."
+          );
+          return;
+        }
+
         console.log("Setting loading message: جاري ترجمة القصة...");
-        console.log("Starting translation simulation...");
+        setLoadingMessage("جاري ترجمة القصة...");
 
         // تأخير لمحاكاة الترجمة
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 300)); // تقليل الوقت إلى 300ms
 
-        setLoadingMessage("تقريباً انتهينا...");
-        console.log("Setting loading message: تقريباً انتهينا...");
-        console.log("Almost done...");
+        console.log("Setting loading message: جاري إعداد الكلمات للتعلم...");
+        setLoadingMessage("جاري إعداد الكلمات للتعلم...");
 
         // تأخير قصير
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 150)); // تقليل الوقت إلى 150ms
+
+        console.log("Setting loading message: تقريباً انتهينا...");
+        setLoadingMessage("تقريباً انتهينا...");
+
+        // تأخير قصير
+        await new Promise((resolve) => setTimeout(resolve, 150)); // تقليل الوقت إلى 150ms
 
         setDailyStory(storyResponse.data as unknown as DailyStory);
-        setLoadingMessage("تم إنشاء القصة بنجاح!");
-        console.log("Setting loading message: تم إنشاء القصة بنجاح!");
+        console.log("Setting loading message: تم إنشاء القصة بنجاح! 🎉");
+        setLoadingMessage("تم إنشاء القصة بنجاح! 🎉");
         console.log("Story created successfully!");
 
         // تأخير قصير لإظهار رسالة النجاح
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 200)); // تقليل الوقت إلى 200ms
 
         // توجيه المستخدم إلى القصة
         console.log("Navigating to story reader...");
+
+        // Validate story object before navigation
+        if (!storyResponse.data || typeof storyResponse.data !== "object") {
+          console.error("Invalid story data:", storyResponse.data);
+          setStoryLoadingError("فشل في إنشاء القصة. يرجى المحاولة مرة أخرى.");
+          return;
+        }
+
         navigate("/story-reader", {
           state: {
             story: storyResponse.data,
@@ -731,8 +821,83 @@ export const DashboardPage: React.FC = () => {
       console.error("Error generating daily story:", error);
       if (error.message === "WordsTimeout") {
         setStoryLoadingError("انتهت مهلة جلب الكلمات. يرجى المحاولة مرة أخرى.");
-      } else if (error.message === "StoryGenerationTimeout") {
-        setStoryLoadingError("انتهت مهلة إنشاء القصة. يرجى المحاولة مرة أخرى.");
+      } else if (error.message === "AIStoryGenerationTimeout") {
+        console.log("AI timeout, using fallback story...");
+        setLoadingMessage("جاري استخدام قصة احتياطية...");
+
+        // تأخير قصير
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Fallback story - أقصر وأسرع
+        const fallbackStory = {
+          title: "قصة اليوم - رحلة التعلم",
+          content:
+            "Once upon a time, a student named " +
+            (user?.name || "الطالب") +
+            " started learning English. Every day brought new words and challenges. The student worked hard and learned many new words. This journey continues every day, making each word a step towards fluency in English.",
+          translation:
+            "في يوم من الأيام، بدأ طالب اسمه " +
+            (user?.name || "الطالب") +
+            " في تعلم اللغة الإنجليزية. كل يوم يجلب كلمات جديدة وتحديات. عمل الطالب بجد وتعلم كلمات جديدة كثيرة. هذه الرحلة تستمر كل يوم، مما يجعل كل كلمة خطوة نحو الطلاقة في اللغة الإنجليزية.",
+          words: [
+            {
+              word: "journey",
+              meaning: "رحلة",
+              sentence: "Learning English is an exciting journey.",
+              sentence_ar: "تعلم اللغة الإنجليزية رحلة مثيرة.",
+              status: "UNKNOWN",
+              isDailyWord: true,
+              canInteract: true,
+              isClickable: true,
+              hasDefinition: true,
+              hasSentence: true,
+              color: "blue",
+            },
+            {
+              word: "learning",
+              meaning: "تعلم",
+              sentence: "Learning new words is fun.",
+              sentence_ar: "تعلم كلمات جديدة ممتع.",
+              status: "UNKNOWN",
+              isDailyWord: true,
+              canInteract: true,
+              isClickable: true,
+              hasDefinition: true,
+              hasSentence: true,
+              color: "green",
+            },
+          ],
+          totalWords: 2,
+          dailyWordsCount: 2,
+          complementaryWordsCount: 0,
+          date: new Date().toISOString(),
+          isCompleted: false,
+        };
+
+        setDailyStory(fallbackStory as unknown as DailyStory);
+        setLoadingMessage("تم إنشاء قصة احتياطية!");
+
+        // تأخير قصير لإظهار رسالة النجاح
+        await new Promise((resolve) => setTimeout(resolve, 150));
+
+        // توجيه المستخدم إلى القصة
+        navigate("/story-reader", {
+          state: {
+            story: fallbackStory,
+            fromDashboard: true,
+          },
+        });
+
+        // تسجيل أن القصة تم عرضها اليوم
+        const now = new Date();
+        const today =
+          now.getFullYear() +
+          "-" +
+          String(now.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(now.getDate()).padStart(2, "0");
+        localStorage.setItem("lastStoryShownDate", today);
+        setDailyStoryCompleted(true);
       } else {
         setStoryLoadingError("حدث خطأ في إنشاء القصة. يرجى المحاولة مرة أخرى.");
       }
@@ -745,9 +910,6 @@ export const DashboardPage: React.FC = () => {
     setError(null);
     try {
       console.log("Fetching dashboard data...");
-
-      // Add a small delay to ensure auth is ready
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       const [progressRes, streakRes, learnedRes] = await Promise.all([
         getProgress(),
@@ -802,26 +964,32 @@ export const DashboardPage: React.FC = () => {
         const data = streakRes.data as any;
         console.log("Streak data from API:", data);
 
+        // Handle the new API response structure
         const streakValue = data.currentStreak || data.streak || 0;
         const lastDate = data.lastDate || null;
+        const totalDays = data.totalDays || 0;
+        const isActive = data.isActive || false;
 
-        console.log("Setting streak values:", { streakValue, lastDate });
+        console.log("Setting streak values:", {
+          streakValue,
+          lastDate,
+          totalDays,
+          isActive,
+        });
         setStreak(streakValue);
         setLastStreakDate(lastDate);
 
-        // Handle streak dates
+        // Handle streak dates - the API doesn't return streakDays array
+        // We need to generate it based on the currentStreak and lastDate
         console.log("Processing streak dates:", {
-          streakDays: data.streakDays,
-          isArray: Array.isArray(data.streakDays),
+          currentStreak: data.currentStreak,
           lastDate: data.lastDate,
-          streakValue,
+          totalDays: data.totalDays,
+          isActive: data.isActive,
         });
 
-        if (data.streakDays && Array.isArray(data.streakDays)) {
-          console.log("Using streakDays from API:", data.streakDays);
-          setStreakDates(data.streakDays);
-        } else if (data.lastDate && streakValue > 0) {
-          // Fallback: Create streak dates based on streak count and last date
+        if (data.lastDate && streakValue > 0) {
+          // Generate streak dates based on streak count and last date
           const lastDate = new Date(data.lastDate);
           const streakDates: string[] = [];
 
@@ -832,30 +1000,11 @@ export const DashboardPage: React.FC = () => {
             streakDates.push(date.toISOString().split("T")[0]);
           }
 
+          console.log("Generated streak dates:", streakDates);
           setStreakDates(streakDates);
         } else {
-          // If no streak data, try to create from last date only
-          if (data.lastDate) {
-            const lastDate = new Date(data.lastDate);
-            const today = new Date();
-            const todayStr = today.toISOString().split("T")[0];
-            const lastDateStr = lastDate.toISOString().split("T")[0];
-
-            // If last date is today or yesterday, consider it as a streak
-            if (
-              lastDateStr === todayStr ||
-              lastDateStr ===
-                new Date(today.getTime() - 24 * 60 * 60 * 1000)
-                  .toISOString()
-                  .split("T")[0]
-            ) {
-              setStreakDates([lastDateStr]);
-            } else {
-              setStreakDates([]);
-            }
-          } else {
-            setStreakDates([]);
-          }
+          // If no streak data or streak is 0, set empty array
+          setStreakDates([]);
         }
 
         // Check if streak was added today
@@ -866,6 +1015,7 @@ export const DashboardPage: React.FC = () => {
           String(now.getMonth() + 1).padStart(2, "0") +
           "-" +
           String(now.getDate()).padStart(2, "0");
+
         if (data.lastDate) {
           // تحويل التاريخ من UTC إلى المحلي
           const lastDateStr = convertUTCToLocalDate(data.lastDate);
@@ -887,6 +1037,8 @@ export const DashboardPage: React.FC = () => {
           } else {
             setStreakAddedToday(false);
           }
+        } else {
+          setStreakAddedToday(false);
         }
       } else {
         console.log("Streak response failed:", streakRes);
@@ -894,12 +1046,6 @@ export const DashboardPage: React.FC = () => {
         setStreak(0);
         setStreakDates([]);
         setStreakAddedToday(false);
-
-        // إذا كان المستخدم جديد وليس لديه ستريك، اعرض الـ welcome modal
-        if (user && isAuthenticated && !authLoading) {
-          console.log("New user detected, will show welcome modal");
-          setShowWelcome(true);
-        }
       }
 
       // Handle learned words data
@@ -936,19 +1082,24 @@ export const DashboardPage: React.FC = () => {
       setStreak(0);
       setWordsCount(0);
       setStreakDates([]);
+      setStreakAddedToday(false);
+
+      // إظهار رسالة خطأ للمستخدم
+      setStreakError("حدث خطأ في تحميل البيانات. يرجى المحاولة مرة أخرى.");
+      setShowStreakError(true);
+      setTimeout(() => setShowStreakError(false), 5000);
     } finally {
       setLoading(false);
     }
   };
 
   const handleAddStreak = async () => {
-    console.log("handleAddStreak called");
-    console.log("handleAddStreak state:", {
+    console.log("=== handleAddStreak called ===");
+    console.log("Current state before addStreak:", {
+      streak,
+      streakAddedToday,
       isProcessingStreak,
       addingStreak,
-      streakAddedToday,
-      user: !!user,
-      isAuthenticated,
     });
 
     if (isProcessingStreak || addingStreak) {
@@ -965,11 +1116,17 @@ export const DashboardPage: React.FC = () => {
       "-" +
       String(now.getDate()).padStart(2, "0");
 
+    console.log("Today's date:", today);
+
     // تحقق من localStorage أولاً
     const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
-    const lastAutoAddedDate = localStorage.getItem("lastAutoStreakDate");
 
-    if (lastAddedDate === today || lastAutoAddedDate === today) {
+    console.log("localStorage dates:", {
+      lastAddedDate,
+      today,
+    });
+
+    if (lastAddedDate === today) {
       console.log("Streak already added today (localStorage), skipping...");
       setStreakAddedToday(true);
       return;
@@ -977,6 +1134,7 @@ export const DashboardPage: React.FC = () => {
 
     setAddingStreak(true);
     setIsProcessingStreak(true);
+
     try {
       console.log("Adding streak for date:", today);
 
@@ -989,32 +1147,74 @@ export const DashboardPage: React.FC = () => {
 
       // تسجيل في localStorage
       localStorage.setItem("lastStreakAddedDate", today);
-      localStorage.setItem("lastAutoStreakDate", today);
 
       setStreakAddedToday(true);
-      setShowWelcome(false);
 
       // محاولة إضافة الستريك للـ API
       try {
+        console.log("=== CALLING addStreak API ===");
+        console.log("API call data:", {
+          action: "add",
+          date: today,
+        });
+
         const streakResponse = await addStreak({
           action: "add",
           date: today,
         });
+
+        console.log("=== API RESPONSE RECEIVED ===");
         console.log("Streak API response:", streakResponse);
+        console.log("Response success:", streakResponse.success);
+        console.log("Response data:", streakResponse.data);
+        console.log("Response error:", streakResponse.error);
 
         if (streakResponse.success) {
           console.log("Streak added successfully to database");
-          // تحديث lastStreakDate
+          // تحديث الستريك من الـ API
+          const updatedStreak = streak + 1;
+          setStreak(updatedStreak);
           setLastStreakDate(new Date().toISOString());
+          setStreakError(null);
+
+          // إعادة جلب بيانات الستريك من الـ API للتأكد
+          try {
+            console.log("Refreshing streak data from API...");
+            const streakDataResponse = await getStreak();
+            console.log("Streak refresh response:", streakDataResponse);
+            if (streakDataResponse.success && streakDataResponse.data) {
+              const data = streakDataResponse.data as any;
+              const newStreakValue = data.currentStreak || data.streak || 0;
+              console.log("Updated streak from API:", newStreakValue);
+              setStreak(newStreakValue);
+            }
+          } catch (refreshError) {
+            console.error("Error refreshing streak data:", refreshError);
+          }
         } else {
           console.error(
             "Failed to add streak to database:",
             streakResponse.error
           );
+          setStreakError("فشل في إضافة الستريك للخادم، لكن تم حفظه محلياً");
+          setShowStreakError(true);
+          setTimeout(() => setShowStreakError(false), 5000);
         }
       } catch (apiError) {
+        console.error("=== API ERROR OCCURRED ===");
         console.error("Error adding streak to API:", apiError);
-        // الستريك تم إضافته محلياً، نستمر
+        console.error("Error type:", typeof apiError);
+        console.error(
+          "Error message:",
+          apiError instanceof Error ? apiError.message : apiError
+        );
+        console.error(
+          "Error stack:",
+          apiError instanceof Error ? apiError.stack : "No stack trace"
+        );
+        setStreakError("خطأ في الاتصال بالخادم، لكن تم حفظ الستريك محلياً");
+        setShowStreakError(true);
+        setTimeout(() => setShowStreakError(false), 5000);
       }
 
       // إظهار رسالة نجاح
@@ -1023,21 +1223,65 @@ export const DashboardPage: React.FC = () => {
         setShowSuccessMessage(false);
       }, 3000);
 
+      console.log("✅ Streak saved, now proceeding to check daily story...");
       // تحقق من القصة اليومية وتوجيه المستخدم
       console.log("Calling checkAndLoadDailyStory from handleAddStreak");
-      await checkAndLoadDailyStory();
+      try {
+        await checkAndLoadDailyStory();
+      } catch (error) {
+        console.error("Error in checkAndLoadDailyStory:", error);
+        // إذا فشل، جرب التوجيه المباشر
+        console.log("Attempting direct navigation to story...");
+        // Clear story localStorage to force navigation
+        localStorage.removeItem("lastStoryShownDate");
+
+        // Navigate to story reader with a mock story
+        const mockStory = {
+          id: "test-story",
+          title: "قصة تجريبية - Test Story",
+          content: "This is a test story content for navigation testing.",
+          translation: "هذه قصة تجريبية لاختبار التوجيه.",
+          words: [
+            {
+              word: "test",
+              meaning: "اختبار",
+              status: "NOT_LEARNED",
+              isDailyWord: true,
+              type: "unknown",
+            },
+          ],
+          level: "L1",
+          createdAt: new Date().toISOString(),
+        };
+
+        navigate("/story-reader", {
+          state: {
+            story: mockStory,
+            fromDashboard: true,
+          },
+        });
+      }
     } catch (err) {
+      console.error("=== GENERAL ERROR IN handleAddStreak ===");
       console.error("Error adding streak:", err);
       // الستريك تم إضافته محلياً، نستمر
     } finally {
+      console.log("=== FINALLY BLOCK EXECUTED ===");
       setAddingStreak(false);
       setIsProcessingStreak(false);
     }
   };
 
   // دالة جديدة لمعالجة المستخدمين الجدد الذين ليس لديهم ستريك
+
   const handleInitializeStreak = async () => {
-    console.log("handleInitializeStreak called");
+    console.log("=== handleInitializeStreak called ===");
+    console.log("Current state before initializeStreak:", {
+      streak,
+      streakAddedToday,
+      isProcessingStreak,
+      addingStreak,
+    });
 
     if (isProcessingStreak || addingStreak) {
       console.log("Streak is already being processed, skipping...");
@@ -1050,14 +1294,144 @@ export const DashboardPage: React.FC = () => {
     try {
       console.log("Initializing streak for new user...");
 
-      // محاولة إنشاء ستريك جديد
-      const initResponse = await initializeStreak();
-      console.log("Initialize streak response:", initResponse);
+      // إضافة اليوم الحالي محلياً أولاً
+      const now = new Date();
+      const today =
+        now.getFullYear() +
+        "-" +
+        String(now.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(now.getDate()).padStart(2, "0");
 
-      if (initResponse.success) {
-        console.log("Streak initialized successfully");
+      if (!streakDates.includes(today)) {
+        const updatedStreakDates = [...streakDates, today].sort();
+        setStreakDates(updatedStreakDates);
+      }
 
-        // إضافة اليوم الحالي محلياً
+      // تسجيل في localStorage
+      localStorage.setItem("lastStreakAddedDate", today);
+
+      setStreakAddedToday(true);
+
+      // محاولة إنشاء ستريك جديد في الـ API
+      try {
+        console.log("Calling initializeStreak API...");
+        const initResponse = await initializeStreak();
+        console.log("Initialize streak response:", initResponse);
+
+        if (initResponse.success) {
+          console.log("Streak initialized successfully");
+          setStreak(1); // تعيين الستريك إلى 1 للمستخدم الجديد
+          setStreakError(null);
+
+          // إعادة جلب بيانات الستريك من الـ API للتأكد
+          try {
+            console.log("Refreshing streak data after initialization...");
+            const streakDataResponse = await getStreak();
+            console.log(
+              "Streak refresh response after initialization:",
+              streakDataResponse
+            );
+            if (streakDataResponse.success && streakDataResponse.data) {
+              const data = streakDataResponse.data as any;
+              const newStreakValue = data.currentStreak || data.streak || 0;
+              console.log(
+                "Updated streak from API after initialization:",
+                newStreakValue
+              );
+              setStreak(newStreakValue);
+            }
+          } catch (refreshError) {
+            console.error(
+              "Error refreshing streak data after initialization:",
+              refreshError
+            );
+          }
+        } else {
+          console.error("Failed to initialize streak:", initResponse.error);
+          setStreakError("فشل في إنشاء الستريك في الخادم، لكن تم حفظه محلياً");
+          setShowStreakError(true);
+          setTimeout(() => setShowStreakError(false), 5000);
+        }
+      } catch (apiError) {
+        console.error("Error initializing streak:", apiError);
+        setStreakError("خطأ في الاتصال بالخادم، لكن تم حفظ الستريك محلياً");
+        setShowStreakError(true);
+        setTimeout(() => setShowStreakError(false), 5000);
+      }
+
+      // إظهار رسالة نجاح
+      setShowSuccessMessage(true);
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+      }, 3000);
+
+      console.log(
+        "✅ Streak initialized, now proceeding to check daily story..."
+      );
+      // تحقق من القصة اليومية
+      console.log("Calling checkAndLoadDailyStory from handleInitializeStreak");
+
+      // انتظار قصير للتأكد من تحديث الـ state
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      try {
+        await checkAndLoadDailyStory();
+      } catch (error) {
+        console.error("Error in checkAndLoadDailyStory:", error);
+        // إذا فشل، جرب التوجيه المباشر
+        console.log("Attempting direct navigation to story...");
+        // Clear story localStorage to force navigation
+        localStorage.removeItem("lastStoryShownDate");
+
+        // Navigate to story reader with a mock story
+        const mockStory = {
+          id: "test-story",
+          title: "قصة تجريبية - Test Story",
+          content: "This is a test story content for navigation testing.",
+          translation: "هذه قصة تجريبية لاختبار التوجيه.",
+          words: [
+            {
+              word: "test",
+              meaning: "اختبار",
+              status: "NOT_LEARNED",
+              isDailyWord: true,
+              type: "unknown",
+            },
+          ],
+          level: "L1",
+          createdAt: new Date().toISOString(),
+        };
+
+        navigate("/story-reader", {
+          state: {
+            story: mockStory,
+            fromDashboard: true,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Error initializing streak:", err);
+    } finally {
+      setAddingStreak(false);
+      setIsProcessingStreak(false);
+    }
+  };
+
+  // دالة جديدة تجمع بين إضافة الستريك وإنشاء القصة
+  const handleAddStreakAndCreateStory = async () => {
+    console.log("🚀 handleAddStreakAndCreateStory called");
+    setLoadingMessage("جاري إضافة اليوم وإنشاء القصة...");
+
+    try {
+      // إضافة الستريك أولاً
+      console.log("Adding streak...");
+      const streakResponse = await addStreak({ action: "daily_login" });
+
+      if (streakResponse.success) {
+        console.log("Streak added successfully:", streakResponse.data);
+
+        // تحديث الـ state المحلي
         const now = new Date();
         const today =
           now.getFullYear() +
@@ -1065,41 +1439,73 @@ export const DashboardPage: React.FC = () => {
           String(now.getMonth() + 1).padStart(2, "0") +
           "-" +
           String(now.getDate()).padStart(2, "0");
+        localStorage.setItem("lastStreakDate", today);
+        localStorage.setItem("streakAddedToday", "true");
 
-        if (!streakDates.includes(today)) {
-          const updatedStreakDates = [...streakDates, today].sort();
-          setStreakDates(updatedStreakDates);
-        }
-
-        // تسجيل في localStorage
-        localStorage.setItem("lastStreakAddedDate", today);
-        localStorage.setItem("lastAutoStreakDate", today);
-
+        // تحديث الـ state
         setStreakAddedToday(true);
-        setShowWelcome(false);
-
-        // إظهار رسالة نجاح
-        setShowSuccessMessage(true);
-        setTimeout(() => {
-          setShowSuccessMessage(false);
-        }, 3000);
-
-        // تحقق من القصة اليومية
-        await checkAndLoadDailyStory();
-      } else {
-        console.error("Failed to initialize streak:", initResponse.error);
-        // محاولة إعادة تعيين الستريك
-        const resetResponse = await resetStreak();
-        if (resetResponse.success) {
-          console.log("Streak reset successfully, trying to add again...");
-          await handleAddStreak();
+        // تحديث الستريك في الـ state
+        if (
+          streakResponse?.data &&
+          typeof streakResponse.data === "object" &&
+          "streak" in streakResponse.data
+        ) {
+          setStreak((streakResponse.data as any).streak);
         }
+
+        // تأخير قصير للتأكد من تحديث الـ state
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        console.log("Streak added, now checking for daily story...");
+        setLoadingMessage("جاري التحقق من القصة اليومية...");
+
+        // محاولة الحصول على القصة اليومية
+        try {
+          const storyResponse = (await Promise.race([
+            getDailyStory(),
+            new Promise(
+              (_, reject) =>
+                setTimeout(() => reject(new Error("StoryFetchTimeout")), 5000) // 5 ثانية للجلب
+            ),
+          ])) as any;
+
+          if (storyResponse.success && storyResponse.data) {
+            console.log("Daily story found:", storyResponse.data);
+            setLoadingMessage("تم العثور على القصة اليومية!");
+
+            // توجيه المستخدم إلى القصة
+            navigate("/story-reader", {
+              state: {
+                story: storyResponse.data,
+                fromDashboard: true,
+              },
+            });
+
+            // تسجيل أن القصة تم عرضها اليوم
+            localStorage.setItem("lastStoryShownDate", today);
+            setDailyStoryCompleted(true);
+          } else {
+            console.log("No daily story found, generating new one...");
+            setLoadingMessage("جاري إنشاء قصة جديدة...");
+            await generateNewDailyStory();
+          }
+        } catch (storyError) {
+          console.log(
+            "Error fetching daily story, generating new one:",
+            storyError
+          );
+          setLoadingMessage("جاري إنشاء قصة جديدة...");
+          await generateNewDailyStory();
+        }
+      } else {
+        console.error("Failed to add streak:", streakResponse);
+        setStoryLoadingError("فشل في إضافة الستريك. يرجى المحاولة مرة أخرى.");
       }
-    } catch (err) {
-      console.error("Error initializing streak:", err);
+    } catch (error) {
+      console.error("Error in handleAddStreakAndCreateStory:", error);
+      setStoryLoadingError("حدث خطأ. يرجى المحاولة مرة أخرى.");
     } finally {
-      setAddingStreak(false);
-      setIsProcessingStreak(false);
+      setLoadingMessage("");
     }
   };
 
@@ -1110,48 +1516,13 @@ export const DashboardPage: React.FC = () => {
     // Only fetch data if user is authenticated and not loading
     if (isAuthenticated && !authLoading && user) {
       fetchDashboardData();
-      fetchDailyStory();
-    }
-
-    // إعادة تعيين streakAddedToday عند بداية يوم جديد
-    const now = new Date();
-    const today =
-      now.getFullYear() +
-      "-" +
-      String(now.getMonth() + 1).padStart(2, "0") +
-      "-" +
-      String(now.getDate()).padStart(2, "0");
-    const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
-    const lastAutoAddedDate = localStorage.getItem("lastAutoStreakDate");
-
-    // تحقق من أن الستريك تم إضافته اليوم
-    const alreadyAddedToday =
-      lastAddedDate === today || lastAutoAddedDate === today;
-
-    if (alreadyAddedToday) {
-      setStreakAddedToday(true);
-
-      // إضافة اليوم الحالي إلى streakDates إذا تم إضافته محلياً
-      if (!streakDates.includes(today)) {
-        console.log("Adding today to streakDates from localStorage check");
-        const updatedStreakDates = [...streakDates, today].sort();
-        setStreakDates(updatedStreakDates);
-      }
-    } else {
-      setStreakAddedToday(false);
-
-      // إذا كان المستخدم جديد وليس لديه ستريك، اعرض الـ welcome modal
-      if (user && isAuthenticated && streak === 0) {
-        console.log(
-          "New user detected in first useEffect, showing welcome modal"
-        );
-        setShowWelcome(true);
-      }
+      // إزالة fetchDailyStory من هنا لتجنب التحميل المزدوج
     }
   }, [isAuthenticated, authLoading, user]);
 
+  // دمج useEffect للتحقق من الستريك والترحيب في واحد
   useEffect(() => {
-    if (lastStreakDate) {
+    if (user && isAuthenticated && !loading && !authLoading) {
       const now = new Date();
       const today =
         now.getFullYear() +
@@ -1159,114 +1530,64 @@ export const DashboardPage: React.FC = () => {
         String(now.getMonth() + 1).padStart(2, "0") +
         "-" +
         String(now.getDate()).padStart(2, "0");
-      const lastStreakDateLocal = convertUTCToLocalDate(lastStreakDate);
-      setShowWelcome(lastStreakDateLocal !== today);
-    }
-  }, [lastStreakDate]);
 
-  // إضافة الستريك تلقائياً عند دخول المستخدم (فقط مرة واحدة في اليوم)
-  useEffect(() => {
-    // استخدام التاريخ المحلي بدلاً من UTC
-    const now = new Date();
-    const today =
-      now.getFullYear() +
-      "-" +
-      String(now.getMonth() + 1).padStart(2, "0") +
-      "-" +
-      String(now.getDate()).padStart(2, "0");
+      // تحقق من localStorage للستريك
+      const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
+      const alreadyAddedTodayLocal = lastAddedDate === today;
 
-    // تحقق من localStorage أولاً
-    const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
-    const lastAutoAddedDate = localStorage.getItem("lastAutoStreakDate");
-    const alreadyAddedTodayLocal =
-      lastAddedDate === today || lastAutoAddedDate === today;
-
-    // تحقق من آخر تاريخ streak من الـ backend
-    const lastStreakDateStr = lastStreakDate
-      ? convertUTCToLocalDate(lastStreakDate)
-      : null;
-
-    console.log("Auto streak conditions check:", {
-      user: !!user,
-      loading,
-      authLoading,
-      isAuthenticated,
-      alreadyAddedTodayLocal,
-      isProcessingStreak,
-      lastStreakDateStr,
-      today,
-      willSendPost: !!(
-        user &&
-        !loading &&
-        !authLoading &&
-        isAuthenticated &&
-        !alreadyAddedTodayLocal &&
-        !isProcessingStreak
-      ),
-    });
-
-    // إضافة الستريك إذا لم يتم إضافته اليوم بعد
-    if (
-      user &&
-      !loading &&
-      !authLoading &&
-      isAuthenticated &&
-      !alreadyAddedTodayLocal &&
-      !isProcessingStreak
-    ) {
-      console.log("Adding streak automatically...");
-
-      // تحقق من الستريك الحالي
-      if (streak === 0) {
-        console.log("User has no streak, initializing...");
-        handleInitializeStreak();
+      if (alreadyAddedTodayLocal) {
+        setStreakAddedToday(true);
+        // تحديث streakDates إذا لم يكن اليوم موجود
+        if (!streakDates.includes(today)) {
+          console.log("Adding today to streakDates from localStorage check");
+          const updatedStreakDates = [...streakDates, today].sort();
+          setStreakDates(updatedStreakDates);
+        }
       } else {
-        console.log("User has existing streak, adding...");
-        handleAddStreak();
+        setStreakAddedToday(false);
       }
-    } else if (alreadyAddedTodayLocal) {
-      console.log("Streak already added today (localStorage)");
-      setStreakAddedToday(true);
-      // تحديث streakDates إذا لم يكن اليوم موجود
-      if (!streakDates.includes(today)) {
-        console.log("Adding today to streakDates from localStorage check");
-        const updatedStreakDates = [...streakDates, today].sort();
-        setStreakDates(updatedStreakDates);
+
+      // التحقق من وجود ستريك للترحيب
+      const hasAnyStreak = hasStreak();
+      const isFirstTime = !localStorage.getItem("welcomeShown");
+
+      console.log("Welcome modal check:", {
+        hasAnyStreak,
+        isFirstTime,
+        streak,
+        streakAddedToday,
+        user: user.name,
+      });
+
+      // إذا كان المستخدم جديد أو ليس لديه ستريك، اعرض البوب الترحيبي
+      // تحقق من الستريك في قاعدة البيانات أيضاً
+      if (
+        isFirstTime ||
+        (!hasAnyStreak && !isProcessingStreak && !alreadyAddedTodayLocal)
+      ) {
+        console.log(
+          "Showing welcome modal for new user or user without streak"
+        );
+        setIsNewUser(true);
+        setShowWelcomeModal(true);
+        localStorage.setItem("welcomeShown", "true");
+      } else if (hasAnyStreak || alreadyAddedTodayLocal) {
+        // إذا كان هناك ستريك، تأكد من إخفاء البوب الترحيبي
+        console.log("User has streak, hiding welcome modal");
+        setShowWelcomeModal(false);
       }
-    } else if (streak === 0 && user && isAuthenticated) {
-      // إذا كان المستخدم جديد وليس لديه ستريك، اعرض الـ welcome modal
-      console.log("New user with no streak, showing welcome modal");
-      setShowWelcome(true);
     }
-  }, [user, loading, isProcessingStreak, authLoading, isAuthenticated]); // إزالة lastStreakDate و streakDates و streakAddedToday من dependencies لمنع infinite loop
+  }, [
+    user,
+    isAuthenticated,
+    loading,
+    authLoading,
+    streak,
+    streakDates,
+    isProcessingStreak,
+  ]);
 
-  // عرض القصة اليومية والامتحان تلقائياً عند بداية يوم جديد
-  useEffect(() => {
-    const now = new Date();
-    const today =
-      now.getFullYear() +
-      "-" +
-      String(now.getMonth() + 1).padStart(2, "0") +
-      "-" +
-      String(now.getDate()).padStart(2, "0");
-
-    const lastStoryDate = localStorage.getItem("lastDailyStoryDate");
-
-    if (
-      user &&
-      !loading &&
-      dailyStory &&
-      lastStoryDate !== today &&
-      !dailyStoryCompleted
-    ) {
-      console.log(
-        "Daily story available for today, but not showing automatically..."
-      );
-      // لا نعرض القصة تلقائياً، فقط نترك المستخدم يختار متى يريد قراءتها
-    }
-  }, [user, dailyStory, loading, dailyStoryCompleted]);
-
-  // منع إظهار القصة في كل مرة يتم فيها refresh
+  // useEffect منفصل للتحقق من القصة المكتملة
   useEffect(() => {
     const now = new Date();
     const today =
@@ -1284,27 +1605,6 @@ export const DashboardPage: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const now = new Date();
-    const today =
-      now.getFullYear() +
-      "-" +
-      String(now.getMonth() + 1).padStart(2, "0") +
-      "-" +
-      String(now.getDate()).padStart(2, "0");
-    if (streakDates.includes(today)) {
-      setShowWelcome(false);
-    }
-
-    // إذا كان المستخدم جديد وليس لديه ستريك، اعرض الـ welcome modal
-    if (user && isAuthenticated && streak === 0 && !showWelcome) {
-      console.log(
-        "New user detected in streakDates useEffect, showing welcome modal"
-      );
-      setShowWelcome(true);
-    }
-  }, [streakDates, user, isAuthenticated, streak, showWelcome]);
-
   console.log("Dashboard render state:", {
     loading,
     error,
@@ -1320,7 +1620,6 @@ export const DashboardPage: React.FC = () => {
       : null,
     streak,
     wordsCount,
-    showWelcome,
     streakAddedToday,
     isProcessingStreak,
     user: user
@@ -1340,363 +1639,496 @@ export const DashboardPage: React.FC = () => {
     loadingMessage
   );
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 transition-colors duration-300">
-      {/* Streak Calendar Modal */}
-      <Modal open={showStreakModal} onClose={() => setShowStreakModal(false)}>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-          سلسلة الأيام الأسبوعية
-        </h2>
-        {(() => {
-          console.log("Modal streakDates:", streakDates);
-          return null;
-        })()}
-        <WeeklyStreakDisplay streakDates={streakDates} />
-      </Modal>
+    <>
+      <style>{fadeInAnimation}</style>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 transition-colors duration-300">
+        {/* Streak Calendar Modal */}
+        <Modal open={showStreakModal} onClose={() => setShowStreakModal(false)}>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+            سلسلة الأيام الأسبوعية
+          </h2>
+          {(() => {
+            console.log("Modal streakDates:", streakDates);
+            return null;
+          })()}
 
-      {/* Success Message */}
-      {showSuccessMessage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full text-center border border-gray-100 dark:border-gray-700 transform animate-pulse">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-3xl">🎉</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white">
-              مبروك! 🎉
-            </h2>
-            <p className="mb-6 sm:mb-8 text-gray-700 dark:text-gray-300 text-base sm:text-lg leading-relaxed">
-              تم إضافة يومك بنجاح! سيتم توجيهك إلى قراءة قصة اليوم...
-            </p>
-            <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center animate-bounce">
-              <span className="text-white text-2xl">📚</span>
+          <WeeklyStreakDisplay streakDates={streakDates} />
+        </Modal>
+
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full text-center border border-gray-100 dark:border-gray-700 transform animate-pulse">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-3xl">🎉</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white">
+                مبروك! 🎉
+              </h2>
+              <p className="mb-6 sm:mb-8 text-gray-700 dark:text-gray-300 text-base sm:text-lg leading-relaxed">
+                تم إضافة يومك بنجاح! سيتم توجيهك إلى قراءة قصة اليوم...
+              </p>
+              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center animate-bounce">
+                <span className="text-white text-2xl">📚</span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Story Loading Modal */}
-      {isLoadingStory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full text-center border border-gray-100 dark:border-gray-700">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-            </div>
-
-            <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white">
-              {storyLoadingError ? "حدث خطأ" : "جاري تحميل القصة"}
-            </h2>
-
-            {storyLoadingError ? (
-              <div className="text-red-600 dark:text-red-400 mb-4 text-sm sm:text-base">
-                {storyLoadingError}
+        {/* Streak Error Message */}
+        {showStreakError && streakError && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full text-center border border-gray-100 dark:border-gray-700">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-3xl">⚠️</span>
               </div>
-            ) : (
-              <div className="text-gray-700 dark:text-gray-300 mb-4 text-sm sm:text-base">
-                {loadingMessage}
-              </div>
-            )}
-
-            {storyLoadingError ? (
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white">
+                تنبيه
+              </h2>
+              <p className="mb-6 sm:mb-8 text-gray-700 dark:text-gray-300 text-base sm:text-lg leading-relaxed">
+                {streakError}
+              </p>
               <button
-                onClick={() => {
-                  setStoryLoadingError(null);
-                  checkAndLoadDailyStory();
-                }}
+                onClick={() => setShowStreakError(false)}
                 className="px-6 sm:px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-sm sm:text-base"
               >
-                🔄 إعادة المحاولة
+                حسناً
               </button>
-            ) : (
-              <div className="flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400">
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
-                <div
-                  className="w-2 h-2 bg-current rounded-full animate-bounce"
-                  style={{ animationDelay: "0.1s" }}
-                ></div>
-                <div
-                  className="w-2 h-2 bg-current rounded-full animate-bounce"
-                  style={{ animationDelay: "0.2s" }}
-                ></div>
-              </div>
-            )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Daily Story Exam Modal */}
-      {showDailyStoryExam && dailyStory && (
-        <DailyStoryExam
-          onComplete={() => {
-            setDailyStoryCompleted(true);
-            setShowDailyStoryExam(false);
-          }}
-          onClose={() => setShowDailyStoryExam(false)}
-        />
-      )}
+        {/* Story Loading Modal */}
+        {isLoadingStory && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 sm:p-10 max-w-lg w-full text-center border border-gray-100 dark:border-gray-700 transform scale-100 animate-fadeIn">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 sm:mb-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+              </div>
 
-      {/* Welcome Modal */}
-      {showWelcome &&
-        user &&
-        !streakAddedToday &&
-        !addingStreak &&
-        !isProcessingStreak && (
-          <WelcomeModal
-            onAddStreak={handleAddStreak}
-            onInitializeStreak={handleInitializeStreak}
-            addingStreak={addingStreak}
-            streakDates={streakDates}
-            hasExistingStreak={streak > 0}
+              <h2 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-gray-900 dark:text-white">
+                {storyLoadingError ? "حدث خطأ" : "جاري إنشاء القصة اليومية"}
+              </h2>
+
+              {storyLoadingError ? (
+                <div className="text-red-600 dark:text-red-400 mb-6 text-base sm:text-lg">
+                  {storyLoadingError}
+                </div>
+              ) : (
+                <div className="text-gray-700 dark:text-gray-300 mb-6 text-base sm:text-lg font-medium">
+                  {loadingMessage}
+                </div>
+              )}
+
+              {storyLoadingError ? (
+                <button
+                  onClick={() => {
+                    setStoryLoadingError(null);
+                    checkAndLoadDailyStory();
+                  }}
+                  className="px-8 sm:px-10 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-base sm:text-lg"
+                >
+                  🔄 إعادة المحاولة
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center gap-3 text-blue-600 dark:text-blue-400">
+                    <div className="w-3 h-3 bg-current rounded-full animate-bounce"></div>
+                    <div
+                      className="w-3 h-3 bg-current rounded-full animate-bounce"
+                      style={{ animationDelay: "0.1s" }}
+                    ></div>
+                    <div
+                      className="w-3 h-3 bg-current rounded-full animate-bounce"
+                      style={{ animationDelay: "0.2s" }}
+                    ></div>
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    يرجى الانتظار، هذا قد يستغرق بضع دقائق...
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Welcome Modal */}
+        {showWelcomeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full text-center border border-gray-100 dark:border-gray-700 transform animate-fadeIn">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-3xl">🎉</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white">
+                أهلاً وسهلاً بك! 🎉
+              </h2>
+              <p className="mb-6 sm:mb-8 text-gray-700 dark:text-gray-300 text-base sm:text-lg leading-relaxed">
+                {isNewUser
+                  ? "مرحباً بك في منصة التعلم الذكية! ابدأ رحلتك التعليمية بإضافة أول يوم في سلسلة النجاح."
+                  : "لقراءة قصة اليوم، يجب عليك أولاً إضافة يوم في سلسلة النجاح."}
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <button
+                  onClick={async () => {
+                    setShowWelcomeModal(false);
+                    if (streak === 0) {
+                      await handleInitializeStreak();
+                    } else {
+                      await handleAddStreak();
+                    }
+                  }}
+                  className="flex-1 px-6 sm:px-8 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-sm sm:text-base"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <span>🔥</span>
+                    <span>إضافة اليوم</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowWelcomeModal(false);
+                    clearLocalStorage();
+                  }}
+                  className="flex-1 px-6 sm:px-8 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-sm sm:text-base"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <span>🔄</span>
+                    <span>إعادة تعيين</span>
+                  </div>
+                </button>
+              </div>
+
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
+                إضافة اليوم تتيح لك الوصول للقصة اليومية المخصصة
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Daily Story Exam Modal */}
+        {showDailyStoryExam && dailyStory && (
+          <DailyStoryExam
+            onComplete={() => {
+              setDailyStoryCompleted(true);
+              setShowDailyStoryExam(false);
+            }}
+            onClose={() => setShowDailyStoryExam(false)}
           />
         )}
 
-      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {/* Header Section */}
-        <div className="mb-8 sm:mb-12 text-center">
-          <div className="inline-flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 px-4 sm:px-6 py-2 sm:py-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-600 transition-colors duration-300">
-            <FaBookOpen color="#2563eb" size={24} />
-            <span className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base">
-              منصة التعلم الذكية
-            </span>
+        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          {/* Header Section */}
+          <div className="mb-8 sm:mb-12 text-center">
+            <div className="inline-flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 px-4 sm:px-6 py-2 sm:py-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-600 transition-colors duration-300">
+              <FaBookOpen color="#2563eb" size={24} />
+              <span className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base">
+                منصة التعلم الذكية
+              </span>
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold  text-gray-900 dark:text-white z-10 mb-3 sm:mb-4 bg-orange-500 bg-clip-text text-transparent">
+              أهلاً وسهلاً، {user?.name || "الطالب"}
+            </h1>
+
+            <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed px-4">
+              استمر في رحلتك نحو إتقان اللغة الإنجليزية مع أحدث الأدوات
+              التعليمية
+            </p>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold  text-gray-900 dark:text-white z-10 mb-3 sm:mb-4 bg-orange-500 bg-clip-text text-transparent">
-            أهلاً وسهلاً، {user?.name || "الطالب"}
-          </h1>
-
-          <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed px-4">
-            استمر في رحلتك نحو إتقان اللغة الإنجليزية مع أحدث الأدوات التعليمية
-          </p>
-        </div>
-
-        {/* Content */}
-        {(() => {
-          console.log("Render condition check:", {
-            loading,
-            error,
-            authLoading,
-            userRole: user?.role || "USER",
-            userExists: !!user,
-            isAuthenticated,
-            willShowContent:
-              !loading && !error && !authLoading && !!user && isAuthenticated,
-          });
-          return null;
-        })()}
-        {authLoading ? (
-          <LoadingSpinner />
-        ) : loading ? (
-          <LoadingSpinner />
-        ) : error ? (
-          <ErrorDisplay error={error} onRetry={fetchDashboardData} />
-        ) : user && isAuthenticated ? (
-          <>
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12">
-              {/* Progress Card */}
-              <StatCard
-                title="تقدمك الشخصي"
-                subtitle="مسيرتك التعليمية"
-                value={progress ? `${progress.progressPercent}%` : "0%"}
-                icon={<FaChartLine color="#fff" size={24} />}
-                gradientFrom="from-blue-500/10"
-                gradientTo="to-cyan-500/10"
-                hoverBorder="hover:border-blue-200 dark:hover:border-blue-600"
-              >
-                <div className="mb-3 sm:mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 rounded-full">
-                      اليوم
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 sm:h-3 overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 sm:h-3 rounded-full transition-all duration-1000 ease-out shadow-sm"
-                      style={{
-                        width: progress ? `${progress.progressPercent}%` : "0%",
-                      }}
-                    />
-                  </div>
-                </div>
-                <p className="text-gray-600 dark:text-gray-400 text-center text-sm sm:text-base">
-                  {progress
-                    ? `${progress.completedLessons} من ${progress.totalLessons} درساً مكتملاً`
-                    : "لم تبدأ بعد"}
-                </p>
-              </StatCard>
-
-              {/* Streak Card */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                  console.log(
-                    "Streak card clicked, current streakDates:",
-                    streakDates
-                  );
-                  setShowStreakModal(true);
-                }}
-                onKeyDown={(e) =>
-                  (e.key === "Enter" || e.key === " ") &&
-                  setShowStreakModal(true)
-                }
-                className="group outline-none focus:ring-2 focus:ring-orange-400 rounded-2xl sm:rounded-3xl transition-all duration-200 hover:shadow-2xl hover:scale-[1.03] cursor-pointer"
-                style={{ minHeight: 120 }}
-              >
+          {/* Content */}
+          {(() => {
+            console.log("Render condition check:", {
+              loading,
+              error,
+              authLoading,
+              userRole: user?.role || "USER",
+              userExists: !!user,
+              isAuthenticated,
+              willShowContent:
+                !loading && !error && !authLoading && !!user && isAuthenticated,
+            });
+            return null;
+          })()}
+          {authLoading ? (
+            <LoadingSpinner />
+          ) : loading ? (
+            <LoadingSpinner />
+          ) : error ? (
+            <ErrorDisplay error={error} onRetry={fetchDashboardData} />
+          ) : user && isAuthenticated ? (
+            <>
+              {/* Statistics Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12">
+                {/* Progress Card */}
                 <StatCard
-                  title="سلسلة النجاح"
-                  subtitle="أيام الحضور"
-                  value={streak}
-                  icon={<FaFire color="#fff" size={24} />}
-                  gradientFrom="from-orange-500/10"
-                  gradientTo="to-red-500/10"
-                  hoverBorder="hover:border-orange-200 dark:hover:border-orange-600"
+                  title="تقدمك الشخصي"
+                  subtitle="مسيرتك التعليمية"
+                  value={progress ? `${progress.progressPercent}%` : "0%"}
+                  icon={<FaChartLine color="#fff" size={24} />}
+                  gradientFrom="from-blue-500/10"
+                  gradientTo="to-cyan-500/10"
+                  hoverBorder="hover:border-blue-200 dark:hover:border-blue-600"
                 >
                   <div className="mb-3 sm:mb-4">
-                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 rounded-full">
-                      {streak > 0 ? "🔥 مستمر!" : "ابدأ اليوم"}
-                    </span>
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-400 text-center mb-2 text-sm sm:text-base">
-                    {streak > 7 ? "إنجاز رائع! 🎉" : "استمر في التعلم"}
-                  </p>
-                  <div className="text-center mt-2">
-                    {streakAddedToday && (
-                      <span className="text-green-600 dark:text-green-400 text-xs font-medium">
-                        ✅ تم إضافة اليوم
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 rounded-full">
+                        اليوم
                       </span>
-                    )}
-                  </div>
-                </StatCard>
-              </div>
-
-              {/* Words Learned Card */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() =>
-                  navigate("/daily-words", { state: { tab: "learned" } })
-                }
-                onKeyDown={(e) =>
-                  (e.key === "Enter" || e.key === " ") &&
-                  navigate("/daily-words", { state: { tab: "learned" } })
-                }
-                className="group outline-none focus:ring-2 focus:ring-green-400 rounded-2xl sm:rounded-3xl transition-all duration-200 hover:shadow-2xl hover:scale-[1.03] cursor-pointer"
-                style={{ minHeight: 120 }}
-              >
-                <StatCard
-                  title="رصيد المفردات"
-                  subtitle="إجمالي الكلمات المتعلمة"
-                  value={wordsCount}
-                  icon={<FaBookOpen color="#fff" size={24} />}
-                  gradientFrom="from-green-500/10"
-                  gradientTo="to-emerald-500/10"
-                  hoverBorder="hover:border-green-200 dark:hover:border-green-600"
-                >
-                  <div className="mb-3 sm:mb-4">
-                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 rounded-full">
-                      كلمة
-                    </span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 sm:h-3 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 sm:h-3 rounded-full transition-all duration-1000 ease-out shadow-sm"
+                        style={{
+                          width: progress
+                            ? `${progress.progressPercent}%`
+                            : "0%",
+                        }}
+                      />
+                    </div>
                   </div>
                   <p className="text-gray-600 dark:text-gray-400 text-center text-sm sm:text-base">
-                    {wordsCount > 50 ? "مفردات ممتازة! 📚" : "تعلم المزيد"}
+                    {progress
+                      ? `${progress.completedLessons} من ${progress.totalLessons} درساً مكتملاً`
+                      : "لم تبدأ بعد"}
                   </p>
                 </StatCard>
-              </div>
-            </div>
 
-            {/* Quick Actions Section */}
-            <div className="mb-6 sm:mb-8">
-              <div className="text-center mb-6 sm:mb-8">
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
-                  الأنشطة التعليمية
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 text-base sm:text-lg px-4">
-                  اختر النشاط المناسب وابدأ رحلة التعلم
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                <ActionButton
-                  title="الكلمات اليومية"
-                  description="اكتشف مفردات جديدة كل يوم"
-                  icon="📖"
-                  gradientFrom="from-purple-500/10"
-                  gradientTo="to-pink-500/10"
-                  hoverBorder="hover:border-purple-200 dark:hover:border-purple-600"
-                />
-
-                <ActionButton
-                  title="قصة اليوم"
-                  description="اقرأ قصة مخصصة بكلماتك"
-                  icon="📚"
-                  gradientFrom="from-indigo-500/10"
-                  gradientTo="to-blue-500/10"
-                  hoverBorder="hover:border-indigo-200 dark:hover:border-indigo-600"
-                  onClick={async () => {
-                    // تحقق من القصة اليومية وتوجيه المستخدم
-                    await checkAndLoadDailyStory();
+                {/* Streak Card */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    console.log(
+                      "Streak card clicked, current streakDates:",
+                      streakDates
+                    );
+                    setShowStreakModal(true);
                   }}
-                />
+                  onKeyDown={(e) =>
+                    (e.key === "Enter" || e.key === " ") &&
+                    setShowStreakModal(true)
+                  }
+                  className="group outline-none focus:ring-2 focus:ring-orange-400 rounded-2xl sm:rounded-3xl transition-all duration-200 hover:shadow-2xl hover:scale-[1.03] cursor-pointer"
+                  style={{ minHeight: 120 }}
+                >
+                  <StatCard
+                    title="سلسلة النجاح"
+                    subtitle="أيام الحضور"
+                    value={streak}
+                    icon={<FaFire color="#fff" size={24} />}
+                    gradientFrom="from-orange-500/10"
+                    gradientTo="to-red-500/10"
+                    hoverBorder="hover:border-orange-200 dark:hover:border-orange-600"
+                  >
+                    <div className="mb-3 sm:mb-4">
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 rounded-full">
+                        {streak > 0 ? "🔥 مستمر!" : "ابدأ اليوم"}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 text-center mb-2 text-sm sm:text-base">
+                      {streak > 7 ? "إنجاز رائع! 🎉" : "استمر في التعلم"}
+                    </p>
+                    <div className="text-center mt-2">
+                      {streakAddedToday ? (
+                        <span className="text-green-600 dark:text-green-400 text-xs font-medium">
+                          ✅ تم إضافة اليوم
+                        </span>
+                      ) : (
+                        user &&
+                        isAuthenticated &&
+                        !isProcessingStreak && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (streak === 0) {
+                                handleInitializeStreak();
+                              } else {
+                                handleAddStreak();
+                              }
+                            }}
+                            disabled={isProcessingStreak || addingStreak}
+                            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-xs font-medium px-3 py-1 rounded-full shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                          >
+                            {isProcessingStreak || addingStreak ? (
+                              <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                                جاري الإضافة...
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <FaFire className="text-xs" />
+                                إضافة اليوم
+                              </div>
+                            )}
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </StatCard>
+                </div>
 
-                <ActionButton
-                  title="المحادثة مع الذكاء الاصطناعي"
-                  description="تحدث مع المساعد الذكي"
-                  icon="🤖"
-                  gradientFrom="from-indigo-500/10"
-                  gradientTo="to-blue-500/10"
-                  hoverBorder="hover:border-indigo-200 dark:hover:border-indigo-600"
-                  onClick={() => navigate("/chat-with-ai")}
-                />
-
-                <ActionButton
-                  title="الإشعارات"
-                  description="استعرض إشعاراتك الأخيرة"
-                  icon="🔔"
-                  gradientFrom="from-yellow-500/10"
-                  gradientTo="to-orange-500/10"
-                  hoverBorder="hover:border-yellow-200 dark:hover:border-yellow-600"
-                  onClick={() => navigate("/notifications")}
-                />
-
-                <ActionButton
-                  title="الإنجازات"
-                  description="استعرض حصيلة إنجازاتك"
-                  icon="🏅"
-                  gradientFrom="from-emerald-500/10"
-                  gradientTo="to-teal-500/10"
-                  hoverBorder="hover:border-emerald-200 dark:hover:border-emerald-600"
-                />
+                {/* Words Learned Card */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    navigate("/daily-words", { state: { tab: "learned" } })
+                  }
+                  onKeyDown={(e) =>
+                    (e.key === "Enter" || e.key === " ") &&
+                    navigate("/daily-words", { state: { tab: "learned" } })
+                  }
+                  className="group outline-none focus:ring-2 focus:ring-green-400 rounded-2xl sm:rounded-3xl transition-all duration-200 hover:shadow-2xl hover:scale-[1.03] cursor-pointer"
+                  style={{ minHeight: 120 }}
+                >
+                  <StatCard
+                    title="رصيد المفردات"
+                    subtitle="إجمالي الكلمات المتعلمة"
+                    value={wordsCount}
+                    icon={<FaBookOpen color="#fff" size={24} />}
+                    gradientFrom="from-green-500/10"
+                    gradientTo="to-emerald-500/10"
+                    hoverBorder="hover:border-green-200 dark:hover:border-green-600"
+                  >
+                    <div className="mb-3 sm:mb-4">
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 rounded-full">
+                        كلمة
+                      </span>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 text-center text-sm sm:text-base">
+                      {wordsCount > 50 ? "مفردات ممتازة! 📚" : "تعلم المزيد"}
+                    </p>
+                  </StatCard>
+                </div>
               </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 sm:py-20">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mb-4 sm:mb-6">
-              <span className="text-red-600 text-2xl sm:text-3xl">⚠️</span>
-            </div>
-            <div className="text-center text-red-600 dark:text-red-400 mb-4 sm:mb-6 text-lg font-medium">
-              يرجى تسجيل الدخول للوصول إلى لوحة التحكم
-            </div>
-            <button
-              onClick={() => navigate("/login")}
-              className="px-6 sm:px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-sm sm:text-base"
-            >
-              تسجيل الدخول
-            </button>
-          </div>
-        )}
 
-        {/* Motivational Quote */}
-        <div className="text-center mt-12 sm:mt-16">
-          <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-lg mx-4">
-            <FaStar color="#fde047" size={20} />
-            <FaStar color="#fde047" size={20} />
-            <span className="font-medium text-sm sm:text-base lg:text-lg text-center">
-              "التعلم رحلة مستمرة، وكل خطوة تقربك من هدفك"
-            </span>
-            <FaStar color="#fde047" size={20} />
+              {/* Quick Actions Section */}
+              <div className="mb-6 sm:mb-8">
+                <div className="text-center mb-6 sm:mb-8">
+                  <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
+                    الأنشطة التعليمية
+                  </h2>
+                  <p className="text-gray-600 dark:text-gray-400 text-base sm:text-lg px-4">
+                    اختر النشاط المناسب وابدأ رحلة التعلم
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                  <ActionButton
+                    title="الكلمات اليومية"
+                    description="اكتشف مفردات جديدة كل يوم"
+                    icon="📖"
+                    gradientFrom="from-purple-500/10"
+                    gradientTo="to-pink-500/10"
+                    hoverBorder="hover:border-purple-200 dark:hover:border-purple-600"
+                  />
+
+                  <ActionButton
+                    title="إضافة يوم + قصة"
+                    description="أضف يوم جديد واحصل على قصة مخصصة"
+                    icon="🚀"
+                    gradientFrom="from-green-500/10"
+                    gradientTo="to-emerald-500/10"
+                    hoverBorder="hover:border-green-200 dark:hover:border-green-600"
+                    onClick={handleAddStreakAndCreateStory}
+                  />
+
+                  <ActionButton
+                    title="قصة اليوم"
+                    description={
+                      hasStreak()
+                        ? "اقرأ قصة مخصصة بكلماتك"
+                        : "أضف يوم أولاً لقراءة القصة"
+                    }
+                    icon="📚"
+                    gradientFrom={
+                      hasStreak() ? "from-indigo-500/10" : "from-gray-400/10"
+                    }
+                    gradientTo={
+                      hasStreak() ? "to-blue-500/10" : "to-gray-500/10"
+                    }
+                    hoverBorder={
+                      hasStreak()
+                        ? "hover:border-indigo-200 dark:hover:border-indigo-600"
+                        : "hover:border-gray-300 dark:hover:border-gray-500"
+                    }
+                    onClick={async () => {
+                      if (hasStreak()) {
+                        // تحقق من القصة اليومية وتوجيه المستخدم
+                        await checkAndLoadDailyStory();
+                      } else {
+                        // إظهار البوب الترحيبي
+                        setShowWelcomeModal(true);
+                      }
+                    }}
+                  />
+
+                  <ActionButton
+                    title="المحادثة مع الذكاء الاصطناعي"
+                    description="تحدث مع المساعد الذكي"
+                    icon="🤖"
+                    gradientFrom="from-indigo-500/10"
+                    gradientTo="to-blue-500/10"
+                    hoverBorder="hover:border-indigo-200 dark:hover:border-indigo-600"
+                    onClick={() => navigate("/chat-with-ai")}
+                  />
+
+                  <ActionButton
+                    title="الإشعارات"
+                    description="استعرض إشعاراتك الأخيرة"
+                    icon="🔔"
+                    gradientFrom="from-yellow-500/10"
+                    gradientTo="to-orange-500/10"
+                    hoverBorder="hover:border-yellow-200 dark:hover:border-yellow-600"
+                    onClick={() => navigate("/notifications")}
+                  />
+
+                  <ActionButton
+                    title="الإنجازات"
+                    description="استعرض حصيلة إنجازاتك"
+                    icon="🏅"
+                    gradientFrom="from-emerald-500/10"
+                    gradientTo="to-teal-500/10"
+                    hoverBorder="hover:border-emerald-200 dark:hover:border-emerald-600"
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 sm:py-20">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mb-4 sm:mb-6">
+                <span className="text-red-600 text-2xl sm:text-3xl">⚠️</span>
+              </div>
+              <div className="text-center text-red-600 dark:text-red-400 mb-4 sm:mb-6 text-lg font-medium">
+                يرجى تسجيل الدخول للوصول إلى لوحة التحكم
+              </div>
+              <button
+                onClick={() => navigate("/login")}
+                className="px-6 sm:px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-sm sm:text-base"
+              >
+                تسجيل الدخول
+              </button>
+            </div>
+          )}
+
+          {/* Motivational Quote */}
+          <div className="text-center mt-12 sm:mt-16">
+            <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-lg mx-4">
+              <FaStar color="#fde047" size={20} />
+              <FaStar color="#fde047" size={20} />
+              <span className="font-medium text-sm sm:text-base lg:text-lg text-center">
+                "التعلم رحلة مستمرة، وكل خطوة تقربك من هدفك"
+              </span>
+              <FaStar color="#fde047" size={20} />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
+
+export default DashboardPage;

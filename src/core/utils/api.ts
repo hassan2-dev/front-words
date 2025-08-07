@@ -35,7 +35,7 @@ class ApiClient {
     constructor() {
         // For Vite, we'll use a simple fallback approach
         this.baseURL = 'http://localhost:3000';
-        this.timeout = 10000; // 10 seconds default timeout (محسن)
+        this.timeout = 30000; // 30 seconds default timeout (محسن للإندبوينت الجديد)
     }
 
     // Get auth token from storage

@@ -12,6 +12,8 @@ import {
   getPrivateWords,
 } from "../../../core/utils/api";
 import { useLocation, useNavigate } from "react-router-dom";
+import { Loading } from "../../../presentation/components";
+import { FaBookOpen } from "react-icons/fa";
 
 // تعريف AllWordsResponse أعلى الملف
 export type AllWordsResponse = { public: any[]; private: any[] };
@@ -402,32 +404,15 @@ export const DailyWordsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative overflow-hidden flex items-center justify-center">
-        {/* Animated background */}
-        <div className="absolute inset-0">
-          <div className="absolute top-1/3 left-1/3 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl animate-ping"></div>
-          <div className="absolute bottom-1/3 right-1/3 w-72 h-72 bg-purple-500/20 rounded-full blur-3xl animate-ping delay-500"></div>
-        </div>
-
+      <div className="min-h-screenrelative overflow-hidden flex items-center justify-center">
+        
         <div className="text-center relative z-10">
-          {/* Enhanced loading spinner */}
-          <div className="relative w-32 h-32 mx-auto mb-8">
-            <div className="absolute inset-0 rounded-full border-4 border-white/20"></div>
-            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-blue-400 border-r-purple-400 animate-spin"></div>
-            <div className="absolute inset-2 rounded-full border-4 border-transparent border-t-pink-400 border-l-indigo-400 animate-spin animate-reverse"></div>
-          </div>
-
-          <div className="space-y-4">
-            <p className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              جاري تحميل الكلمات...
-            </p>
-            <p className="text-xl text-gray-300">يرجى الانتظار قليلاً ✨</p>
-            <div className="flex justify-center space-x-2 mt-6">
-              <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce"></div>
-              <div className="w-3 h-3 bg-purple-400 rounded-full animate-bounce delay-100"></div>
-              <div className="w-3 h-3 bg-pink-400 rounded-full animate-bounce delay-200"></div>
-            </div>
-          </div>
+          <Loading
+            variant="video"
+            size="xl"
+            text="جاري تحميل الكلمات..."
+            className="text-white"
+          />
         </div>
       </div>
     );
@@ -435,35 +420,18 @@ export const DailyWordsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-800 dark:to-gray-900 relative overflow-hidden">
-      {/* Enhanced background pattern */}
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-100/40 via-transparent to-transparent dark:from-blue-900/20"></div>
-        <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-indigo-100/40 via-transparent to-transparent dark:from-indigo-900/20"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-100/20 dark:bg-purple-900/20 rounded-full blur-3xl"></div>
-      </div>
+
+
 
       <div className="w-full h-full px-0 py-0 relative z-10">
         {/* Enhanced Header Section */}
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 animate-pulse"></div>
-                <svg
-                  className="w-7 h-7 text-white transform group-hover:scale-110 transition-transform duration-300 relative z-10"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                  />
-                </svg>
-              </div>
-              <div>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <FaBookOpen color="#2563eb" size={24} />
+                </div>
                 <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
                   الكلمات اليومية
                 </h1>
@@ -1213,21 +1181,7 @@ export const DailyWordsPage: React.FC = () => {
             allCategoriesData.known.words.length === 0 ? (
               <div className="mb-8 flex justify-center">
                 <div className="max-w-lg bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl p-10 text-center border border-white/20">
-                  <div className="w-20 h-20 bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl animate-bounce">
-                    <svg
-                      className="w-10 h-10 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                      />
-                    </svg>
-                  </div>
+                 <Loading isOverlay variant="video"  />
                   <h2 className="text-4xl font-bold bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 bg-clip-text text-transparent mb-4">
                     لا توجد كلمات معروفة
                   </h2>

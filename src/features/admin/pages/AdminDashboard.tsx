@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { apiClient } from "../../../core/utils/api";
 import { API_ENDPOINTS } from "../../../core/config/api";
 import { AchievementsAdminPage } from "../../Achievements/AchievementsAdminPage";
+import { Loading } from "../../../presentation/components";
 
 export const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -275,7 +276,17 @@ export const AdminDashboard: React.FC = () => {
 
   const renderAchievements = () => <AchievementsAdminPage />;
 
-  if (loading) return <div>جاري تحميل بيانات الأدمن...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loading
+          variant="video"
+          size="xl"
+          text="جاري تحميل بيانات الأدمن..."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">

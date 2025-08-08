@@ -11,19 +11,64 @@ import {
   requestDailyStory,
 } from "@/core/utils/api";
 import { Loading } from "@/presentation/components";
-import { FaBookOpen, FaFire, FaStar, FaChartLine } from "react-icons/fa";
+import {
+  FaBookOpen,
+  FaFire,
+  FaStar,
+  FaChartLine,
+  FaMoon,
+  FaSun,
+} from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import type { DailyStory } from "@/core/types";
 import { DailyStoryExam } from "../../daily-words/components/DailyStoryExam";
 
-// CSS for animations
-const fadeInAnimation = `
+// Enhanced CSS animations and utility classes (UI-only)
+const enhancedAnimations = `
   @keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.9); }
-    to { opacity: 1; transform: scale(1); }
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
-  .animate-fadeIn {
-    animation: fadeIn 0.3s ease-out;
+  @keyframes slideIn {
+    from { transform: translateX(-30px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes bounceIn {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+    70% { transform: scale(0.9); opacity: 0.9; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: calc(200px + 100%) 0; }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-6px); }
+  }
+  .animate-fadeIn { animation: fadeIn 0.6s ease-out; }
+  .animate-slideIn { animation: slideIn 0.5s ease-out; }
+  .animate-bounceIn { animation: bounceIn 0.8s ease-out; }
+  .animate-pulse-custom { animation: pulse 2s infinite; }
+  .animate-float { animation: float 3s ease-in-out infinite; }
+  .shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+    background-size: 200px 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  .glass {
+    backdrop-filter: blur(16px);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  .dark .glass {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 `;
 
@@ -72,6 +117,46 @@ const ErrorDisplay: React.FC<{ error: string; onRetry: () => void }> = ({
     </button>
   </div>
 );
+
+// UI-only: Dark mode toggle button
+const DarkModeToggle: React.FC = () => {
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("theme");
+      if (saved) return saved === "dark";
+      return (
+        window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches
+      );
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (isDark) {
+      root.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      root.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDark]);
+
+  return (
+    <button
+      onClick={() => setIsDark((v) => !v)}
+      className="fixed top-4 right-4 z-50 p-3 rounded-full glass hover:bg-white/20 dark:hover:bg-black/20 transition-all duration-300 group shadow-lg hover:shadow-xl"
+      aria-label="Toggle theme"
+    >
+      {isDark ? (
+        <FaSun className="w-5 h-5 text-yellow-500 group-hover:text-yellow-400 transition-colors duration-300" />
+      ) : (
+        <FaMoon className="w-5 h-5 text-blue-600 group-hover:text-blue-500 transition-colors duration-300" />
+      )}
+    </button>
+  );
+};
 
 const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
   streakDates,
@@ -619,8 +704,6 @@ export const DashboardPage: React.FC = () => {
       // محاولة الحصول على القصة من الإندبوينت الجديد مع timeout محسن
       let response;
       try {
-        console.log("📝 Attempting to request story from endpoint...");
-
         // إضافة رسائل تحميل تفصيلية مع توقيتات واقعية (90-120 ثانية)
         const loadingSteps = [
           { message: "جاري التحقق من القصة اليومية...", duration: 2000 },
@@ -650,7 +733,6 @@ export const DashboardPage: React.FC = () => {
           }
         }, 3000); // تحديث كل 3 ثانية ليتناسب مع الوقت الأطول
 
-        console.log("📝 Calling requestDailyStory()...");
         const apiStartTime = performance.now();
         response = (await Promise.race([
           requestDailyStory(),
@@ -663,8 +745,6 @@ export const DashboardPage: React.FC = () => {
         const apiDuration = apiEndTime - apiStartTime;
 
         clearInterval(messageInterval);
-        console.log("📊 Story request response:", response);
-        console.log(`⏱️ API Request Time: ${apiDuration.toFixed(2)}ms`);
       } catch (apiError) {
         console.log(
           "❌ Story request failed, creating fallback story:",
@@ -676,26 +756,18 @@ export const DashboardPage: React.FC = () => {
       }
 
       if (response.success && response.data) {
-        console.log("✅ Story exists, loading...");
         setLoadingMessage("جاري تحميل القصة...");
-        console.log("📝 Setting loading message: جاري تحميل القصة...");
 
         // تأخير قصير لمحاكاة التحميل
         await new Promise((resolve) => setTimeout(resolve, 150));
 
         setDailyStory(response.data as unknown as DailyStory);
         setLoadingMessage("تم إنشاء القصة بنجاح! 🎉 (150 كلمة مع جمل ومعاني)");
-        console.log(
-          "📝 Setting loading message: تم إنشاء القصة بنجاح! 🎉 (150 كلمة مع جمل ومعاني)"
-        );
-        console.log("✅ Story loaded successfully, navigating...");
 
         // تأخير قصير لإظهار رسالة النجاح
         await new Promise((resolve) => setTimeout(resolve, 150));
 
         // توجيه المستخدم إلى القصة
-        console.log("Navigating to story reader...");
-        console.log("Story data for navigation:", response.data);
 
         // Validate story object before navigation
         if (!response.data || typeof response.data !== "object") {
@@ -704,20 +776,16 @@ export const DashboardPage: React.FC = () => {
           return;
         }
 
-        console.log("About to call navigate with story data...");
         try {
-          console.log("Calling navigate to /story-reader...");
           navigate("/story-reader", {
             state: {
               story: response.data,
               fromDashboard: true,
             },
           });
-          console.log("Navigation called successfully");
 
           // تأخير قصير للتأكد من أن التوجيه حدث
           await new Promise((resolve) => setTimeout(resolve, 100));
-          console.log("Navigation delay completed");
         } catch (navError) {
           console.error("Navigation error:", navError);
           setStoryLoadingError(
@@ -754,25 +822,18 @@ export const DashboardPage: React.FC = () => {
         setStoryLoadingError("حدث خطأ في طلب القصة. يرجى المحاولة مرة أخرى.");
       }
     } finally {
-      console.log("Setting isLoadingStory to false");
       setIsLoadingStory(false);
       setLoadingMessage("");
       storyLoadingRef.current = false; // إعادة تعيين ref
     }
-    console.log("checkAndLoadDailyStory finished");
   };
 
   // دالة جديدة لإنشاء قصة احتياطية
   const createFallbackStory = async () => {
-    console.log("🎯 createFallbackStory called");
     try {
-      console.log("Setting loading message: جاري إنشاء قصة احتياطية...");
       setLoadingMessage("جاري إنشاء قصة احتياطية...");
-
-      // تأخير قصير
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // إنشاء قصة احتياطية بسيطة
       const fallbackStory = {
         title: "قصة اليوم - رحلة التعلم",
         content:
@@ -821,27 +882,17 @@ export const DashboardPage: React.FC = () => {
       setDailyStory(fallbackStory as unknown as DailyStory);
       setLoadingMessage("تم إنشاء قصة احتياطية! 📚");
 
-      // تأخير قصير لإظهار رسالة النجاح
       await new Promise((resolve) => setTimeout(resolve, 150));
 
-      // توجيه المستخدم إلى القصة
-      console.log("Navigating to fallback story reader...");
-      console.log("Fallback story data for navigation:", fallbackStory);
-
-      console.log("About to call navigate with fallback story data...");
       try {
-        console.log("Calling navigate to /story-reader with fallback...");
         navigate("/story-reader", {
           state: {
             story: fallbackStory,
             fromDashboard: true,
           },
         });
-        console.log("Fallback navigation called successfully");
 
-        // تأخير قصير للتأكد من أن التوجيه حدث
         await new Promise((resolve) => setTimeout(resolve, 100));
-        console.log("Fallback navigation delay completed");
       } catch (navError) {
         console.error("Fallback navigation error:", navError);
         setStoryLoadingError(
@@ -850,7 +901,6 @@ export const DashboardPage: React.FC = () => {
         return;
       }
 
-      // تسجيل أن القصة تم عرضها اليوم
       const now = new Date();
       const today =
         now.getFullYear() +
@@ -861,7 +911,6 @@ export const DashboardPage: React.FC = () => {
       localStorage.setItem("lastStoryShownDate", today);
       setDailyStoryCompleted(true);
 
-      // إخفاء الـ loading modal بعد التوجيه الناجح
       setIsLoadingStory(false);
       setLoadingMessage("");
     } catch (error) {
@@ -876,35 +925,14 @@ export const DashboardPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      console.log("Fetching dashboard data...");
-
       const [progressRes, streakRes, learnedRes] = await Promise.all([
         getProgress(),
         getStreak(),
         getLearnedWords(),
       ]);
 
-      console.log("API Responses:", {
-        progressRes: {
-          success: progressRes.success,
-          data: progressRes.data,
-          error: progressRes.error,
-        },
-        streakRes: {
-          success: streakRes.success,
-          data: streakRes.data,
-          error: streakRes.error,
-        },
-        learnedRes: {
-          success: learnedRes.success,
-          data: learnedRes.data,
-          error: learnedRes.error,
-        },
-      });
-
       // Handle progress data
       if (progressRes.success && progressRes.data) {
-        console.log("Setting progress:", progressRes.data);
         const progressData = progressRes.data as any;
         const progress: Progress = {
           completedLessons:
@@ -914,10 +942,8 @@ export const DashboardPage: React.FC = () => {
           progressPercent:
             progressData.progress || progressData.progressPercent || 0,
         };
-        console.log("Converted progress:", progress);
         setProgress(progress);
       } else {
-        console.log("Progress response failed:", progressRes);
         // Set default progress if API fails
         setProgress({
           completedLessons: 0,
@@ -929,7 +955,6 @@ export const DashboardPage: React.FC = () => {
       // Handle streak data
       if (streakRes.success && streakRes.data) {
         const data = streakRes.data as any;
-        console.log("Streak data from API:", data);
 
         // Handle the new API response structure
         const streakValue = data.currentStreak || data.streak || 0;
@@ -937,23 +962,11 @@ export const DashboardPage: React.FC = () => {
         const totalDays = data.totalDays || 0;
         const isActive = data.isActive || false;
 
-        console.log("Setting streak values:", {
-          streakValue,
-          lastDate,
-          totalDays,
-          isActive,
-        });
         setStreak(streakValue);
         setLastStreakDate(lastDate);
 
         // Handle streak dates - the API doesn't return streakDays array
         // We need to generate it based on the currentStreak and lastDate
-        console.log("Processing streak dates:", {
-          currentStreak: data.currentStreak,
-          lastDate: data.lastDate,
-          totalDays: data.totalDays,
-          isActive: data.isActive,
-        });
 
         if (data.lastDate && streakValue > 0) {
           // Generate streak dates based on streak count and last date
@@ -967,7 +980,6 @@ export const DashboardPage: React.FC = () => {
             streakDates.push(date.toISOString().split("T")[0]);
           }
 
-          console.log("Generated streak dates:", streakDates);
           setStreakDates(streakDates);
         } else {
           // If no streak data or streak is 0, set empty array
@@ -986,18 +998,11 @@ export const DashboardPage: React.FC = () => {
         if (data.lastDate) {
           // تحويل التاريخ من UTC إلى المحلي
           const lastDateStr = convertUTCToLocalDate(data.lastDate);
-          console.log("Date comparison:", {
-            today,
-            lastDateStr,
-            originalLastDate: data.lastDate,
-            isToday: lastDateStr === today,
-          });
           if (lastDateStr === today) {
             setStreakAddedToday(true);
 
             // إضافة اليوم الحالي إلى streakDates إذا تم إضافته في قاعدة البيانات
             if (!streakDates.includes(today)) {
-              console.log("Adding today to streakDates from database check");
               const updatedStreakDates = [...streakDates, today].sort();
               setStreakDates(updatedStreakDates);
             }
@@ -1008,7 +1013,6 @@ export const DashboardPage: React.FC = () => {
           setStreakAddedToday(false);
         }
       } else {
-        console.log("Streak response failed:", streakRes);
         // Set default streak values if API fails
         setStreak(0);
         setStreakDates([]);
@@ -1016,7 +1020,6 @@ export const DashboardPage: React.FC = () => {
       }
 
       // Handle learned words data
-      console.log("Learned words response:", learnedRes);
       if (learnedRes && learnedRes.success && learnedRes.data) {
         const learnedData = learnedRes.data as any;
         let totalWords = 0;
@@ -1028,14 +1031,11 @@ export const DashboardPage: React.FC = () => {
           totalWords += learnedData.private.length;
         }
 
-        console.log("Setting words count:", { totalWords });
         setWordsCount(totalWords);
       } else {
-        console.log("Learned words data is invalid:", learnedRes);
         setWordsCount(0);
       }
 
-      console.log("Dashboard data fetch completed successfully");
     } catch (err) {
       console.error("Dashboard fetch error:", err);
       setError("حدث خطأ أثناء جلب البيانات");
@@ -1061,16 +1061,7 @@ export const DashboardPage: React.FC = () => {
   };
 
   const handleAddStreak = async () => {
-    console.log("=== handleAddStreak called ===");
-    console.log("Current state before addStreak:", {
-      streak,
-      streakAddedToday,
-      isProcessingStreak,
-      addingStreak,
-    });
-
     if (isProcessingStreak || addingStreak) {
-      console.log("Streak is already being processed, skipping...");
       return;
     }
 
@@ -1083,18 +1074,10 @@ export const DashboardPage: React.FC = () => {
       "-" +
       String(now.getDate()).padStart(2, "0");
 
-    console.log("Today's date:", today);
-
     // تحقق من localStorage أولاً
     const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
 
-    console.log("localStorage dates:", {
-      lastAddedDate,
-      today,
-    });
-
     if (lastAddedDate === today) {
-      console.log("Streak already added today (localStorage), skipping...");
       setStreakAddedToday(true);
       return;
     }
@@ -1103,11 +1086,8 @@ export const DashboardPage: React.FC = () => {
     setIsProcessingStreak(true);
 
     try {
-      console.log("Adding streak for date:", today);
-
       // إضافة الستريك محلياً أولاً
       if (!streakDates.includes(today)) {
-        console.log("Adding today to streakDates locally");
         const updatedStreakDates = [...streakDates, today].sort();
         setStreakDates(updatedStreakDates);
       }
@@ -1119,25 +1099,12 @@ export const DashboardPage: React.FC = () => {
 
       // محاولة إضافة الستريك للـ API
       try {
-        console.log("=== CALLING addStreak API ===");
-        console.log("API call data:", {
-          action: "add",
-          date: today,
-        });
-
         const streakResponse = await addStreak({
           action: "add",
           date: today,
         });
 
-        console.log("=== API RESPONSE RECEIVED ===");
-        console.log("Streak API response:", streakResponse);
-        console.log("Response success:", streakResponse.success);
-        console.log("Response data:", streakResponse.data);
-        console.log("Response error:", streakResponse.error);
-
         if (streakResponse.success) {
-          console.log("Streak added successfully to database");
           // تحديث الستريك من الـ API
           const updatedStreak = streak + 1;
           setStreak(updatedStreak);
@@ -1146,13 +1113,10 @@ export const DashboardPage: React.FC = () => {
 
           // إعادة جلب بيانات الستريك من الـ API للتأكد
           try {
-            console.log("Refreshing streak data from API...");
             const streakDataResponse = await getStreak();
-            console.log("Streak refresh response:", streakDataResponse);
             if (streakDataResponse.success && streakDataResponse.data) {
               const data = streakDataResponse.data as any;
               const newStreakValue = data.currentStreak || data.streak || 0;
-              console.log("Updated streak from API:", newStreakValue);
               setStreak(newStreakValue);
             }
           } catch (refreshError) {
@@ -1168,17 +1132,7 @@ export const DashboardPage: React.FC = () => {
           setTimeout(() => setShowStreakError(false), 5000);
         }
       } catch (apiError) {
-        console.error("=== API ERROR OCCURRED ===");
-        console.error("Error adding streak to API:", apiError);
-        console.error("Error type:", typeof apiError);
-        console.error(
-          "Error message:",
-          apiError instanceof Error ? apiError.message : apiError
-        );
-        console.error(
-          "Error stack:",
-          apiError instanceof Error ? apiError.stack : "No stack trace"
-        );
+
         setStreakError("خطأ في الاتصال بالخادم، لكن تم حفظ الستريك محلياً");
         setShowStreakError(true);
         setTimeout(() => setShowStreakError(false), 5000);
@@ -1190,9 +1144,7 @@ export const DashboardPage: React.FC = () => {
         setShowSuccessMessage(false);
       }, 3000);
 
-      console.log("✅ Streak saved, now proceeding to check daily story...");
       // تحقق من القصة اليومية وتوجيه المستخدم
-      console.log("Calling checkAndLoadDailyStory from handleAddStreak");
       try {
         await checkAndLoadDailyStory();
       } catch (error) {
@@ -1229,11 +1181,8 @@ export const DashboardPage: React.FC = () => {
         });
       }
     } catch (err) {
-      console.error("=== GENERAL ERROR IN handleAddStreak ===");
-      console.error("Error adding streak:", err);
       // الستريك تم إضافته محلياً، نستمر
     } finally {
-      console.log("=== FINALLY BLOCK EXECUTED ===");
       setAddingStreak(false);
       setIsProcessingStreak(false);
     }
@@ -1242,16 +1191,7 @@ export const DashboardPage: React.FC = () => {
   // دالة جديدة لمعالجة المستخدمين الجدد الذين ليس لديهم ستريك
 
   const handleInitializeStreak = async () => {
-    console.log("=== handleInitializeStreak called ===");
-    console.log("Current state before initializeStreak:", {
-      streak,
-      streakAddedToday,
-      isProcessingStreak,
-      addingStreak,
-    });
-
     if (isProcessingStreak || addingStreak) {
-      console.log("Streak is already being processed, skipping...");
       return;
     }
 
@@ -1259,8 +1199,6 @@ export const DashboardPage: React.FC = () => {
     setIsProcessingStreak(true);
 
     try {
-      console.log("Initializing streak for new user...");
-
       // إضافة اليوم الحالي محلياً أولاً
       const now = new Date();
       const today =
@@ -1282,30 +1220,18 @@ export const DashboardPage: React.FC = () => {
 
       // محاولة إنشاء ستريك جديد في الـ API
       try {
-        console.log("Calling initializeStreak API...");
         const initResponse = await initializeStreak();
-        console.log("Initialize streak response:", initResponse);
 
         if (initResponse.success) {
-          console.log("Streak initialized successfully");
           setStreak(1); // تعيين الستريك إلى 1 للمستخدم الجديد
           setStreakError(null);
 
           // إعادة جلب بيانات الستريك من الـ API للتأكد
           try {
-            console.log("Refreshing streak data after initialization...");
             const streakDataResponse = await getStreak();
-            console.log(
-              "Streak refresh response after initialization:",
-              streakDataResponse
-            );
             if (streakDataResponse.success && streakDataResponse.data) {
               const data = streakDataResponse.data as any;
               const newStreakValue = data.currentStreak || data.streak || 0;
-              console.log(
-                "Updated streak from API after initialization:",
-                newStreakValue
-              );
               setStreak(newStreakValue);
             }
           } catch (refreshError) {
@@ -1333,11 +1259,7 @@ export const DashboardPage: React.FC = () => {
         setShowSuccessMessage(false);
       }, 3000);
 
-      console.log(
-        "✅ Streak initialized, now proceeding to check daily story..."
-      );
       // تحقق من القصة اليومية
-      console.log("Calling checkAndLoadDailyStory from handleInitializeStreak");
 
       // انتظار قصير للتأكد من تحديث الـ state
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -1387,26 +1309,18 @@ export const DashboardPage: React.FC = () => {
 
   // دالة جديدة تجمع بين إضافة الستريك وإنشاء القصة
   const handleAddStreakAndCreateStory = async () => {
-    console.log("🚀 handleAddStreakAndCreateStory called");
     setIsLoadingStory(true);
     setLoadingMessage("جاري إضافة اليوم...");
 
     try {
       // إضافة الستريك أولاً
-      console.log("📝 Adding streak with data:", {
-        action: "add",
-        date: new Date().toISOString().split("T")[0],
-      });
-
       const streakResponse = await addStreak({
         action: "add",
         date: new Date().toISOString().split("T")[0],
       });
 
-      console.log("📊 Full streak response:", streakResponse);
 
       if (streakResponse.success) {
-        console.log("✅ Streak added successfully:", streakResponse.data);
 
         // تحديث الـ state المحلي
         const now = new Date();
@@ -1427,21 +1341,18 @@ export const DashboardPage: React.FC = () => {
           const data = streakResponse.data as any;
           const streakCount =
             data.streakCount || data.currentStreak || data.streak || 0;
-          console.log("📊 Updating streak state with:", streakCount);
           setStreak(streakCount);
         }
 
         // تأخير قصير للتأكد من تحديث الـ state
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        console.log("📝 Streak added, now requesting daily story...");
         setLoadingMessage(
           "جاري إنشاء القصة اليومية... ⏱️ (قد يستغرق دقيقة ونصف إلى دقيقتين)"
         );
 
         // طلب قصة جديدة من الإندبوينت
         try {
-          console.log("📝 Calling requestDailyStory()...");
           const storyResponse = (await Promise.race([
             requestDailyStory(),
             new Promise(
@@ -1453,13 +1364,7 @@ export const DashboardPage: React.FC = () => {
             ),
           ])) as any;
 
-          console.log("📊 Story response:", storyResponse);
-
           if (storyResponse.success && storyResponse.data) {
-            console.log(
-              "✅ Daily story created successfully:",
-              storyResponse.data
-            );
             setLoadingMessage(
               "تم إنشاء القصة اليومية بنجاح! 🎉 (150 كلمة مع جمل ومعاني)"
             );
@@ -1479,17 +1384,10 @@ export const DashboardPage: React.FC = () => {
             localStorage.setItem("lastStoryShownDate", today);
             setDailyStoryCompleted(true);
           } else {
-            console.log(
-              "❌ Failed to create daily story, creating fallback..."
-            );
             setLoadingMessage("جاري إنشاء قصة احتياطية...");
             await createFallbackStory();
           }
         } catch (storyError) {
-          console.log(
-            "❌ Error requesting daily story, creating fallback:",
-            storyError
-          );
           setLoadingMessage("جاري إنشاء قصة احتياطية...");
           await createFallbackStory();
         }
@@ -1508,7 +1406,6 @@ export const DashboardPage: React.FC = () => {
 
   // Effects
   useEffect(() => {
-    console.log("Dashboard useEffect triggered - fetching data");
 
     // Only fetch data if user is authenticated and not loading
     if (isAuthenticated && !authLoading && user) {
@@ -1539,17 +1436,11 @@ export const DashboardPage: React.FC = () => {
       const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
       const alreadyAddedTodayLocal = lastAddedDate === today;
 
-      console.log("🔍 Welcome modal check - localStorage:", {
-        lastAddedDate,
-        today,
-        alreadyAddedTodayLocal,
-      });
 
       if (alreadyAddedTodayLocal) {
         setStreakAddedToday(true);
         // تحديث streakDates إذا لم يكن اليوم موجود
         if (!streakDates.includes(today)) {
-          console.log("📝 Adding today to streakDates from localStorage check");
           const updatedStreakDates = [...streakDates, today].sort();
           setStreakDates(updatedStreakDates);
         }
@@ -1561,30 +1452,17 @@ export const DashboardPage: React.FC = () => {
       const hasAnyStreak = streak > 0 || streakAddedToday;
       const isFirstTime = !localStorage.getItem("welcomeShown");
 
-      console.log("🔍 Welcome modal check:", {
-        hasAnyStreak,
-        isFirstTime,
-        streak,
-        streakAddedToday,
-        user: user.name,
-        welcomeShown: localStorage.getItem("welcomeShown"),
-      });
-
       // إذا كان المستخدم جديد أو ليس لديه ستريك، اعرض البوب الترحيبي
       // تحقق من الستريك في قاعدة البيانات أيضاً
       if (
         isFirstTime ||
         (!hasAnyStreak && !isProcessingStreak && !alreadyAddedTodayLocal)
       ) {
-        console.log(
-          "🎉 Showing welcome modal for new user or user without streak"
-        );
         setIsNewUser(true);
         setShowWelcomeModal(true);
         localStorage.setItem("welcomeShown", "true");
       } else if (hasAnyStreak || alreadyAddedTodayLocal) {
         // إذا كان هناك ستريك، تأكد من إخفاء البوب الترحيبي
-        console.log("✅ User has streak, hiding welcome modal");
         setShowWelcomeModal(false);
       }
     }
@@ -1616,91 +1494,47 @@ export const DashboardPage: React.FC = () => {
     }
   }, []);
 
-  console.log("Dashboard render state:", {
-    loading,
-    error,
-    isLoadingStory,
-    loadingMessage,
-    storyLoadingError,
-    progress: progress
-      ? {
-          completedLessons: progress.completedLessons,
-          totalLessons: progress.totalLessons,
-          progressPercent: progress.progressPercent,
-        }
-      : null,
-    streak,
-    wordsCount,
-    streakAddedToday,
-    isProcessingStreak,
-    user: user
-      ? {
-          name: user.name || "الطالب",
-          role: user.role || "USER",
-          id: user.id,
-          fullUser: user,
-        }
-      : null,
-  });
-
-  console.log(
-    "Dashboard render - isLoadingStory:",
-    isLoadingStory,
-    "loadingMessage:",
-    loadingMessage
-  );
-
   // Add a debug button to clear localStorage for testing
   const debugClearStorage = () => {
-    console.log("🧹 Clearing localStorage for debugging...");
     localStorage.removeItem("welcomeShown");
     localStorage.removeItem("lastStreakAddedDate");
     localStorage.removeItem("lastStoryShownDate");
     localStorage.removeItem("streakAddedToday");
-    console.log("✅ localStorage cleared");
     // Force re-render
     window.location.reload();
   };
 
   // Add a debug function to show welcome modal
   const debugShowWelcomeModal = () => {
-    console.log("🎉 Manually showing welcome modal for debugging...");
     setShowWelcomeModal(true);
     setIsNewUser(true);
   };
 
   // Add a debug function to test streak and story creation
   const debugTestStreakAndStory = async () => {
-    console.log("🧪 Testing streak and story creation...");
     try {
-      console.log("📝 Testing addStreak...");
       const streakResponse = await addStreak({
         action: "add",
         date: new Date().toISOString().split("T")[0],
       });
-      console.log("📊 Streak response:", streakResponse);
-
-      console.log("📝 Testing requestDailyStory...");
       const storyResponse = await requestDailyStory();
-      console.log("📊 Story response:", storyResponse);
-
-      console.log("✅ Debug test completed");
     } catch (error) {
-      console.error("❌ Debug test failed:", error);
     }
   };
 
   return (
     <>
-      <style>{fadeInAnimation}</style>
+      <style>{enhancedAnimations}</style>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-900 dark:to-indigo-950 transition-colors duration-300">
+        {(authLoading || loading) && (
+          <Loading isOverlay variant="video" size="xl" text="جاري التحميل..." />
+        )}
         {/* Streak Calendar Modal */}
         <Modal open={showStreakModal} onClose={() => setShowStreakModal(false)}>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
             سلسلة الأيام الأسبوعية
           </h2>
-          {(() => {
-            console.log("Modal streakDates:", streakDates);
+          {(() => {     
             return null;
           })()}
 
@@ -1750,75 +1584,18 @@ export const DashboardPage: React.FC = () => {
           </div>
         )}
 
-        {/* Story Loading Modal */}
+        {/* Story Loading Overlay */}
         {isLoadingStory && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 sm:p-10 max-w-lg w-full text-center border border-gray-100 dark:border-gray-700 transform scale-100 animate-fadeIn">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 sm:mb-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-              </div>
-
-              <h2 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-gray-900 dark:text-white">
-                {storyLoadingError ? "حدث خطأ" : "جاري إنشاء القصة اليومية"}
-              </h2>
-
-              {!storyLoadingError && (
-                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                  <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 text-sm">
-                    <span className="text-lg">⚠️</span>
-                    <span>
-                      لا تغلق الصفحة أثناء التوليد - الوقت طبيعي (90-120 ثانية)
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {storyLoadingError ? (
-                <div className="text-red-600 dark:text-red-400 mb-6 text-base sm:text-lg">
-                  {storyLoadingError}
-                </div>
-              ) : (
-                <div className="text-gray-700 dark:text-gray-300 mb-6 text-base sm:text-lg font-medium">
-                  {loadingMessage}
-                </div>
-              )}
-
-              {storyLoadingError ? (
-                <button
-                  onClick={() => {
-                    setStoryLoadingError(null);
-                    checkAndLoadDailyStory();
-                  }}
-                  className="px-8 sm:px-10 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-base sm:text-lg"
-                >
-                  🔄 إعادة المحاولة
-                </button>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-center gap-3 text-blue-600 dark:text-blue-400">
-                    <div className="w-3 h-3 bg-current rounded-full animate-bounce"></div>
-                    <div
-                      className="w-3 h-3 bg-current rounded-full animate-bounce"
-                      style={{ animationDelay: "0.1s" }}
-                    ></div>
-                    <div
-                      className="w-3 h-3 bg-current rounded-full animate-bounce"
-                      style={{ animationDelay: "0.2s" }}
-                    ></div>
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                    يرجى الانتظار، هذا قد يستغرق 90-120 ثانية...
-                  </div>
-                  <div className="text-xs text-gray-400 dark:text-gray-500 mb-2">
-                    القصة ستتضمن 150 كلمة مع جمل ومعاني من الذكاء الاصطناعي
-                  </div>
-                  <div className="text-xs text-red-500 dark:text-red-400 font-medium">
-                    ⚠️ لا تغلق الصفحة أو تنتقل لأي مكان حتى تنتهي القصة
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <Loading
+            isOverlay
+            variant="video"
+            size="xl"
+            text={
+              storyLoadingError
+                ? storyLoadingError
+                : loadingMessage || "جاري إنشاء القصة اليومية"
+            }
+          />
         )}
 
         {/* Welcome Modal */}
@@ -1900,42 +1677,35 @@ export const DashboardPage: React.FC = () => {
 
         <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {/* Header Section */}
-          <div className="mb-8 sm:mb-12 text-center">
-            <div className="inline-flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 px-4 sm:px-6 py-2 sm:py-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-600 transition-colors duration-300">
-              <FaBookOpen color="#2563eb" size={24} />
-              <span className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base">
-                منصة التعلم الذكية
-              </span>
+          {!loading && (
+            <div className="mb-8 sm:mb-12 text-center">
+              <div className="inline-flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4 px-4 sm:px-6 py-2 sm:py-3 bg-white dark:bg-gray-800 rounded-full shadow-lg border border-gray-200 dark:border-gray-600 transition-colors duration-300">
+                <FaBookOpen color="#2563eb" size={24} />
+                <span className="text-gray-600 dark:text-gray-300 font-medium text-sm sm:text-base">
+                  منصة let<span className="text-orange-500">s</span>peak الذكية
+                </span>
+              </div>
+
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold  text-gray-900 dark:text-white z-10 mb-3 sm:mb-4 bg-orange-500 bg-clip-text text-transparent">
+                أهلاً وسهلاً، {user?.name || "الطالب"}
+              </h1>
+
+              <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed px-4">
+                استمر في رحلتك نحو إتقان اللغة الإنجليزية مع أحدث الأدوات
+                التعليمية
+              </p>
             </div>
-
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold  text-gray-900 dark:text-white z-10 mb-3 sm:mb-4 bg-orange-500 bg-clip-text text-transparent">
-              أهلاً وسهلاً، {user?.name || "الطالب"}
-            </h1>
-
-            <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed px-4">
-              استمر في رحلتك نحو إتقان اللغة الإنجليزية مع أحدث الأدوات
-              التعليمية
-            </p>
-          </div>
+          )}
 
           {/* Content */}
           {(() => {
-            console.log("Render condition check:", {
-              loading,
-              error,
-              authLoading,
-              userRole: user?.role || "USER",
-              userExists: !!user,
-              isAuthenticated,
-              willShowContent:
-                !loading && !error && !authLoading && !!user && isAuthenticated,
-            });
+
             return null;
           })()}
           {authLoading ? (
-            <LoadingSpinner />
+            <Loading size="xl" variant="video" text="جاري التحميل..." />
           ) : loading ? (
-            <LoadingSpinner />
+            <Loading size="xl" variant="video" text="جاري التحميل..." />
           ) : error ? (
             <ErrorDisplay error={error} onRetry={fetchDashboardData} />
           ) : user && isAuthenticated ? (
@@ -1981,10 +1751,7 @@ export const DashboardPage: React.FC = () => {
                   role="button"
                   tabIndex={0}
                   onClick={() => {
-                    console.log(
-                      "Streak card clicked, current streakDates:",
-                      streakDates
-                    );
+                    console.log("Streak card clicked");       
                     setShowStreakModal(true);
                   }}
                   onKeyDown={(e) =>
@@ -2085,7 +1852,6 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-
               {/* Quick Actions Section */}
               <div className="mb-6 sm:mb-8">
                 <div className="text-center mb-6 sm:mb-8">
@@ -2177,38 +1943,7 @@ export const DashboardPage: React.FC = () => {
                     onClick={() => navigate("/achievements")}
                   />
 
-                  {/* Debug Button - Only show in development */}
-                  {process.env.NODE_ENV === "development" && (
-                    <>
-                      <ActionButton
-                        title="Debug - Clear Storage"
-                        description="Clear localStorage for testing"
-                        icon="🧹"
-                        gradientFrom="from-red-500/10"
-                        gradientTo="to-pink-500/10"
-                        hoverBorder="hover:border-red-200 dark:hover:border-red-600"
-                        onClick={debugClearStorage}
-                      />
-                      <ActionButton
-                        title="Debug - Show Welcome"
-                        description="Manually show welcome modal"
-                        icon="🎉"
-                        gradientFrom="from-blue-500/10"
-                        gradientTo="to-cyan-500/10"
-                        hoverBorder="hover:border-blue-200 dark:hover:border-blue-600"
-                        onClick={debugShowWelcomeModal}
-                      />
-                      <ActionButton
-                        title="Debug - Test API"
-                        description="Test streak and story APIs"
-                        icon="🧪"
-                        gradientFrom="from-green-500/10"
-                        gradientTo="to-emerald-500/10"
-                        hoverBorder="hover:border-green-200 dark:hover:border-green-600"
-                        onClick={debugTestStreakAndStory}
-                      />
-                    </>
-                  )}
+                
                 </div>
               </div>
             </>
@@ -2228,18 +1963,6 @@ export const DashboardPage: React.FC = () => {
               </button>
             </div>
           )}
-
-          {/* Motivational Quote */}
-          <div className="text-center mt-12 sm:mt-16">
-            <div className="inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full shadow-lg mx-4">
-              <FaStar color="#fde047" size={20} />
-              <FaStar color="#fde047" size={20} />
-              <span className="font-medium text-sm sm:text-base lg:text-lg text-center">
-                "التعلم رحلة مستمرة، وكل خطوة تقربك من هدفك"
-              </span>
-              <FaStar color="#fde047" size={20} />
-            </div>
-          </div>
         </div>
       </div>
     </>

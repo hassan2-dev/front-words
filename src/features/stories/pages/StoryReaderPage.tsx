@@ -29,6 +29,7 @@ import {
   updateWordStatus,
   completeDailyStory,
 } from "@/core/utils/api";
+import { Loading } from "@/presentation/components";
 
 interface StoryReaderProps {
   story?: DailyStory;
@@ -74,6 +75,12 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     progressPercentage: 0,
   });
   const [remainingRequests, setRemainingRequests] = useState(0);
+
+  if (isLoading) {
+    return (
+      <Loading size="lg" variant="default" text="جاري تحميل القصة..." />
+    );
+  }
 
   // Load story from location if not provided
   useEffect(() => {

@@ -4,6 +4,7 @@ import { useAuth } from "../../../core/providers/AuthProvider";
 import { ROUTES } from "../../../core/constants/app";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTheme } from "../../../core/providers/ThemeProvider";
+import { Loading } from "../../../presentation/components";
 
 const LoginPage: React.FC = () => {
   const [phone, setPhone] = useState("");
@@ -54,6 +55,11 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center transition-colors duration-300">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <Loading isOverlay variant="video" size="xl" text="جاري تسجيل الدخول..." />
+      )}
+      
       <div className="w-full max-w-2xl px-10 py-16 flex flex-col items-center justify-center transition-all duration-300">
         <div className="text-center mb-8 w-full flex flex-col items-center justify-center">
           <img

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../../core/providers/AuthProvider";
+import { Loading } from "../../../presentation/components";
 
 export const RegisterPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -46,6 +47,16 @@ export const RegisterPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <Loading
+          isOverlay={true}
+          variant="video"
+          size="xl"
+          text="جاري إنشاء الحساب..."
+        />
+      )}
+      
       <div className="max-w-md w-full space-y-8">
         <div>
           <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">

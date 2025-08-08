@@ -4,13 +4,10 @@ import { API_ENDPOINTS } from "../../../core/config/api";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../../core/providers/AuthProvider";
+import { Loading } from "@/presentation/components";
 
 // Loader component
-const Loader = ({ text = "جاري التحميل..." }) => (
-  <div className="text-center py-8 text-lg text-gray-500 animate-pulse">
-    {text}
-  </div>
-);
+
 
 // Error display with retry
 const ErrorDisplay: React.FC<{ error: string; onRetry?: () => void }> = ({
@@ -226,7 +223,10 @@ export const StoriesPage: React.FC = () => {
     }
   };
 
-  if (loading) return <div>جاري تحميل القصص...</div>;
+  if (loading)
+    return (
+      <Loading size="xl" variant="video" text="جاري تحميل القصص..." />
+    );
 
   return (
     <div className="p-6">
@@ -263,7 +263,9 @@ export const StoriesPage: React.FC = () => {
           </div>
         </div>
 
-        {dailyStoryLoading && <Loader text="جاري تحميل القصة اليومية..." />}
+          {dailyStoryLoading && (
+          <Loading size="xl" variant="video" text="جاري تحميل القصة اليومية..." />
+        )}
         {dailyStoryError && (
           <ErrorDisplay error={dailyStoryError} onRetry={fetchDailyStory} />
         )}

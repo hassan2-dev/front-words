@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { apiClient } from "../../../core/utils/api";
 import { API_ENDPOINTS } from "../../../core/config/api";
+import { Loading } from "@/presentation/components";
 
 export const TrainerDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -129,7 +130,10 @@ export const TrainerDashboard: React.FC = () => {
     </div>
   );
 
-  if (loading) return <div>جاري تحميل بيانات المدرب...</div>;
+  if (loading)
+    return (
+      <Loading size="xl" variant="video" text="جاري تحميل بيانات المدرب..." />
+    );
 
   return (
     <div className="p-6">

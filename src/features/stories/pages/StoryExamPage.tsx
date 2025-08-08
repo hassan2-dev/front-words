@@ -10,6 +10,7 @@ import {
 } from "react-icons/fa";
 import { HiSparkles } from "react-icons/hi";
 import type { DailyStory } from "@/core/types";
+import { Loading } from "@/presentation/components";
 
 interface Question {
   id: string;
@@ -382,8 +383,7 @@ export const StoryExamPage: React.FC<StoryExamProps> = ({
                 >
                   {loading ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      جاري التصحيح...
+                      <Loading size="xl" variant="video" text="جاري التصحيح..." />
                     </>
                   ) : (
                     <>

@@ -249,6 +249,39 @@ export const reviewWord = (id: string, data: { score: number; feedback: string }
 export const getDailyWords = () =>
     apiClient.get<{ words: any[] }>('/words/daily');
 
+export const getAllCategories = () => {
+    // الحصول على User ID من الـ token
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    let userId = null;
+
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            userId = payload.userId || payload.id || payload.sub;
+        } catch (error) {
+            console.error('Error parsing token:', error);
+        }
+    }
+
+    // إذا لم نتمكن من الحصول على User ID من الـ token، نستخدم null
+    // وسيتم التعامل معه في الـ backend
+    return apiClient.get<ApiResponse<{
+        daily: { totalWords: number; words: any[]; learnedWords: any[]; unlearnedWords: any[] };
+        known: { totalWords: number; words: any[]; publicWords: any[]; privateWords: any[] };
+        partiallyKnown: { totalWords: number; words: any[]; publicWords: any[]; privateWords: any[] };
+        unknown: { totalWords: number; words: any[]; publicWords: any[]; privateWords: any[] };
+        private: { totalWords: number; words: any[]; publicWords: any[]; privateWords: any[] };
+        summary: {
+            dailyCount: number;
+            knownCount: number;
+            partiallyKnownCount: number;
+            unknownCount: number;
+            privateCount: number;
+            totalCount: number;
+        };
+    }>>('/words/all-categories', { userId });
+};
+
 export const learnWord = (word: string) =>
     apiClient.post(API_ENDPOINTS.WORDS.LEARN(word));
 
@@ -364,26 +397,113 @@ export const getAdminTrainers = () =>
     apiClient.get<ApiResponse<any[]>>(API_ENDPOINTS.ADMIN.TRAINERS.LIST);
 
 // --- NOTIFICATIONS ---
-export const getNotifications = () =>
-    apiClient.get<ApiResponse<Notification[]>>(API_ENDPOINTS.NOTIFICATIONS.LIST);
+export const getNotifications = () => {
+    // الحصول على User ID من الـ token
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    let userId = null;
 
-export const getUnreadNotificationsCount = () =>
-    apiClient.get<ApiResponse<{ count: number }>>(API_ENDPOINTS.NOTIFICATIONS.UNREAD_COUNT);
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            userId = payload.userId || payload.id || payload.sub;
+        } catch (error) {
+            console.error('Error parsing token:', error);
+        }
+    }
 
-export const markNotificationAsRead = (id: string) =>
-    apiClient.put<ApiResponse>(API_ENDPOINTS.NOTIFICATIONS.MARK_AS_READ(id), {});
+    return apiClient.get<ApiResponse<Notification[]>>(API_ENDPOINTS.NOTIFICATIONS.GET);
+};
 
-export const markAllNotificationsAsRead = () =>
-    apiClient.put<ApiResponse>(API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_READ, {});
+export const getUnreadNotificationsCount = () => {
+    // الحصول على User ID من الـ token
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    let userId = null;
 
-export const deleteNotification = (id: string) =>
-    apiClient.delete<ApiResponse>(API_ENDPOINTS.NOTIFICATIONS.DELETE(id));
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            userId = payload.userId || payload.id || payload.sub;
+        } catch (error) {
+            console.error('Error parsing token:', error);
+        }
+    }
 
-export const getNotificationStats = () =>
-    apiClient.get<ApiResponse<any>>(API_ENDPOINTS.NOTIFICATIONS.STATS);
+    return apiClient.get<ApiResponse<{ count: number }>>(API_ENDPOINTS.NOTIFICATIONS.UNREAD_COUNT);
+};
 
-export const sendNotification = (data: any) =>
-    apiClient.post<ApiResponse>(API_ENDPOINTS.NOTIFICATIONS.SEND, data);
+export const getNotificationStats = () => {
+    // الحصول على User ID من الـ token
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    let userId = null;
+
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            userId = payload.userId || payload.id || payload.sub;
+        } catch (error) {
+            console.error('Error parsing token:', error);
+        }
+    }
+
+    return apiClient.get<ApiResponse<{
+        total: number;
+        unread: number;
+        read: number;
+        byType: Record<string, number>;
+        recentActivity: any[];
+    }>>(API_ENDPOINTS.NOTIFICATIONS.STATS);
+};
+
+export const markNotificationAsRead = (id: string) => {
+    // الحصول على User ID من الـ token
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    let userId = null;
+
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            userId = payload.userId || payload.id || payload.sub;
+        } catch (error) {
+            console.error('Error parsing token:', error);
+        }
+    }
+
+    return apiClient.put<ApiResponse>(API_ENDPOINTS.NOTIFICATIONS.MARK_AS_READ(id));
+};
+
+export const markAllNotificationsAsRead = () => {
+    // الحصول على User ID من الـ token
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    let userId = null;
+
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            userId = payload.userId || payload.id || payload.sub;
+        } catch (error) {
+            console.error('Error parsing token:', error);
+        }
+    }
+
+    return apiClient.put<ApiResponse>(API_ENDPOINTS.NOTIFICATIONS.MARK_ALL_AS_READ);
+};
+
+export const deleteNotification = (id: string) => {
+    // الحصول على User ID من الـ token
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    let userId = null;
+
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            userId = payload.userId || payload.id || payload.sub;
+        } catch (error) {
+            console.error('Error parsing token:', error);
+        }
+    }
+
+    return apiClient.delete<ApiResponse>(API_ENDPOINTS.NOTIFICATIONS.DELETE(id));
+};
 
 // --- CHAT ---
 export const sendChatMessage = (data: { message: string; type: string; language: string; context?: string }) =>

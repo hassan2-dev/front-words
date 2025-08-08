@@ -3,6 +3,7 @@ import { useAuth } from "../../../core/providers/AuthProvider";
 import { RiArrowRightLine, RiArrowLeftLine } from "react-icons/ri";
 import {
   getDailyWords,
+  getAllCategories,
   learnWord,
   getLearnedWords,
   addWord,
@@ -24,13 +25,17 @@ export const DailyWordsPage: React.FC = () => {
   const [newWord, setNewWord] = useState("");
   const [newMeaning, setNewMeaning] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [tab, setTab] = useState<"daily" | "learned" | "private">("daily");
+  const [tab, setTab] = useState<
+    "daily" | "known" | "partially-known" | "unknown" | "private"
+  >("daily");
   const [learnedWords, setLearnedWords] = useState<any[] | null>(null);
   const [privateWords, setPrivateWords] = useState<any[] | null>(null);
+  const [allCategoriesData, setAllCategoriesData] = useState<any>(null);
   const [loadingTab, setLoadingTab] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState<{
     learned?: number;
     private?: number;
+    allCategories?: number;
   }>({});
 
   const [dailyWordsBlocked, setDailyWordsBlocked] = useState(false);
@@ -77,7 +82,7 @@ export const DailyWordsPage: React.FC = () => {
     const fetchWords = async () => {
       setLoading(true);
       const res = await getDailyWords();
-      if (res.success && Array.isArray(res.data)) {
+      if (res.success && res.data && res.data.words) {
         // استخدام الكلمات الجديدة من API مباشرة
         const today = new Date().toISOString().split("T")[0];
         const lastFetchDate = localStorage.getItem("lastFetchDate");
@@ -87,7 +92,7 @@ export const DailyWordsPage: React.FC = () => {
           // مسح البيانات القديمة عند بداية يوم جديد
           localStorage.removeItem("unknownWords");
 
-          const newWords = res.data.map((word: any, idx: number) => ({
+          const newWords = res.data.words.map((word: any, idx: number) => ({
             ...word,
             id: word.id || word.word || idx,
           }));
@@ -104,7 +109,7 @@ export const DailyWordsPage: React.FC = () => {
           const unknownWordsArray = JSON.parse(unknownWordsStored);
 
           // عرض جميع الكلمات الأصلية
-          const allWords = res.data.map((word: any, idx: number) => ({
+          const allWords = res.data.words.map((word: any, idx: number) => ({
             ...word,
             id: word.id || word.word || idx,
           }));
@@ -118,6 +123,9 @@ export const DailyWordsPage: React.FC = () => {
       setLoading(false);
     };
     fetchWords();
+
+    // جلب جميع البيانات الشاملة
+    fetchAllCategories();
   }, [dailyWordsBlocked]);
 
   // جلب الكلمات المتعلمة عند الحاجة - مع cache
@@ -167,6 +175,51 @@ export const DailyWordsPage: React.FC = () => {
   };
 
   // جلب كلمات الطالب الخاصة عند الحاجة - مع cache
+  const fetchAllCategories = async () => {
+    const now = Date.now();
+    const cacheTime = 5 * 60 * 1000; // 5 دقائق cache
+
+    // التحقق من cache
+    if (
+      allCategoriesData &&
+      lastFetchTime.allCategories &&
+      now - lastFetchTime.allCategories < cacheTime
+    ) {
+      return; // استخدام البيانات المخزنة
+    }
+
+    setLoadingTab(true);
+    try {
+      const res = await getAllCategories();
+      console.log("All Categories API result:", res);
+      if (res.success && res.data) {
+        const data = res.data as any;
+        setAllCategoriesData(data);
+
+        // تحديث البيانات الفردية حسب التبويب الحالي
+        if (data?.daily) {
+          setWords(data.daily.words || []);
+        }
+        if (data?.known) {
+          setLearnedWords(data.known.words || []);
+        }
+        if (data?.private) {
+          setPrivateWords(data.private.words || []);
+        }
+        if (data?.unknown) {
+          setUnknownWords(data.unknown.words || []);
+        }
+      } else {
+        setAllCategoriesData(null);
+      }
+    } catch (error) {
+      console.error("Error fetching all categories:", error);
+      setAllCategoriesData(null);
+    }
+    setLastFetchTime((prev) => ({ ...prev, allCategories: now }));
+    setLoadingTab(false);
+  };
+
   const fetchPrivateWords = async () => {
     const now = Date.now();
     const cacheTime = 5 * 60 * 1000; // 5 دقائق cache
@@ -196,7 +249,7 @@ export const DailyWordsPage: React.FC = () => {
     const now = Date.now();
     const cacheTime = 5 * 60 * 1000; // 5 دقائق cache
 
-    if (tab === "learned" && !loadingTab) {
+    if (tab === "known" && !loadingTab) {
       const shouldFetch =
         !learnedWords ||
         !lastFetchTime.learned ||
@@ -219,11 +272,16 @@ export const DailyWordsPage: React.FC = () => {
     }
   }, [tab, loadingTab]);
 
-  const currentWord = words[currentWordIndex];
-  const learnedCount = words.filter((word) => word.isLearned).length;
+  const currentWord = allCategoriesData?.daily?.words
+    ? allCategoriesData.daily.words[currentWordIndex]
+    : words[currentWordIndex];
+  const learnedCount = allCategoriesData?.daily?.words
+    ? allCategoriesData.daily.words.filter((word: any) => word.isLearned).length
+    : words.filter((word) => word.isLearned).length;
 
   const nextWord = () => {
-    if (currentWordIndex < words.length - 1) {
+    const currentWords = allCategoriesData?.daily?.words || words;
+    if (currentWordIndex < currentWords.length - 1) {
       setCurrentWordIndex((prev) => prev + 1);
       setShowAnswer(false);
     }
@@ -376,21 +434,23 @@ export const DailyWordsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-800 dark:to-gray-900 relative overflow-hidden">
-      {/* Subtle background pattern */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-800 dark:to-gray-900 relative overflow-hidden">
+      {/* Enhanced background pattern */}
       <div className="absolute inset-0">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-100/30 via-transparent to-transparent dark:from-blue-900/10"></div>
-        <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-indigo-100/30 via-transparent to-transparent dark:from-indigo-900/10"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-100/40 via-transparent to-transparent dark:from-blue-900/20"></div>
+        <div className="absolute bottom-0 right-0 w-full h-full bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-indigo-100/40 via-transparent to-transparent dark:from-indigo-900/20"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-100/20 dark:bg-purple-900/20 rounded-full blur-3xl"></div>
       </div>
 
       <div className="w-full h-full px-0 py-0 relative z-10">
         {/* Enhanced Header Section */}
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg relative overflow-hidden group">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-purple-400/20 animate-pulse"></div>
                 <svg
-                  className="w-6 h-6 text-white transform group-hover:scale-110 transition-transform duration-300"
+                  className="w-7 h-7 text-white transform group-hover:scale-110 transition-transform duration-300 relative z-10"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -404,7 +464,7 @@ export const DailyWordsPage: React.FC = () => {
                 </svg>
               </div>
               <div>
-                <h1 className="text-3xl lg:text-4xl font-bold text-gray-800 dark:text-white mb-1">
+                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-2">
                   الكلمات اليومية
                 </h1>
                 <p className="text-gray-600 dark:text-gray-300 text-sm lg:text-base">
@@ -420,7 +480,7 @@ export const DailyWordsPage: React.FC = () => {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowModal(true)}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 flex items-center gap-2 group transform hover:scale-105"
+                className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-xl transition-all duration-300 flex items-center gap-2 group transform hover:scale-105"
               >
                 <span className="text-lg group-hover:rotate-90 transition-transform duration-300">
                   ＋
@@ -432,50 +492,90 @@ export const DailyWordsPage: React.FC = () => {
         </div>
 
         {/* Enhanced Tabs */}
-        <div className="flex justify-center mb-6">
-          <div className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl p-1 shadow-lg border border-gray-200 dark:border-gray-700">
+        <div className="flex justify-center mb-8">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl p-2 shadow-xl border border-gray-200 dark:border-gray-700">
             <button
-              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-300 focus:outline-none ${
+              className={`px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-300 focus:outline-none ${
                 tab === "daily"
-                  ? "bg-blue-600 text-white shadow-md"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg transform scale-105"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200"
               }`}
               onClick={() => setTab("daily")}
             >
               <span>الكلمات اليومية</span>
-              {words.length > 0 && (
-                <span className="ml-2 px-2 py-0.5 text-xs bg-white/20 rounded-full">
-                  {words.length}
+              {(allCategoriesData?.daily?.totalWords || words.length) > 0 && (
+                <span className="ml-2 px-2 py-0.5 text-xs bg-white/30 rounded-full font-bold">
+                  {allCategoriesData?.daily?.totalWords ||
+                    allCategoriesData?.daily?.words?.length ||
+                    words.length}
                 </span>
               )}
             </button>
             <button
-              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-300 focus:outline-none ${
-                tab === "learned"
-                  ? "bg-green-600 text-white shadow-md"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              className={`px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-300 focus:outline-none ${
+                tab === "known"
+                  ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg transform scale-105"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200"
               }`}
-              onClick={() => setTab("learned")}
+              onClick={() => setTab("known")}
             >
-              <span>الكلمات المتعلمة</span>
-              {learnedWords && learnedWords.length > 0 && (
-                <span className="ml-2 px-2 py-0.5 text-xs bg-white/20 rounded-full">
-                  {learnedWords.length}
+              <span>المعروفة</span>
+              {(allCategoriesData?.known?.totalWords || learnedWords?.length) >
+                0 && (
+                <span className="ml-2 px-2 py-0.5 text-xs bg-white/30 rounded-full font-bold">
+                  {allCategoriesData?.known?.totalWords ||
+                    allCategoriesData?.known?.words?.length ||
+                    learnedWords?.length ||
+                    0}
                 </span>
               )}
             </button>
             <button
-              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-300 focus:outline-none ${
+              className={`px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-300 focus:outline-none ${
+                tab === "partially-known"
+                  ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg transform scale-105"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200"
+              }`}
+              onClick={() => setTab("partially-known")}
+            >
+              <span>المعروفة جزئياً</span>
+              <span className="ml-2 px-2 py-0.5 text-xs bg-white/30 rounded-full font-bold">
+                {allCategoriesData?.partiallyKnown?.totalWords ||
+                  allCategoriesData?.partiallyKnown?.words?.length ||
+                  0}
+              </span>
+            </button>
+            <button
+              className={`px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-300 focus:outline-none ${
+                tab === "unknown"
+                  ? "bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg transform scale-105"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200"
+              }`}
+              onClick={() => setTab("unknown")}
+            >
+              <span>غير المعروفة</span>
+              <span className="ml-2 px-2 py-0.5 text-xs bg-white/30 rounded-full font-bold">
+                {allCategoriesData?.unknown?.totalWords ||
+                  allCategoriesData?.unknown?.words?.length ||
+                  unknownWords.length}
+              </span>
+            </button>
+            <button
+              className={`px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-300 focus:outline-none ${
                 tab === "private"
-                  ? "bg-purple-600 text-white shadow-md"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg transform scale-105"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200"
               }`}
               onClick={() => setTab("private")}
             >
               <span>كلماتي الخاصة</span>
-              {privateWords && privateWords.length > 0 && (
-                <span className="ml-2 px-2 py-0.5 text-xs bg-white/20 rounded-full">
-                  {privateWords.length}
+              {(allCategoriesData?.private?.totalWords ||
+                privateWords?.length) > 0 && (
+                <span className="ml-2 px-2 py-0.5 text-xs bg-white/30 rounded-full font-bold">
+                  {allCategoriesData?.private?.totalWords ||
+                    allCategoriesData?.private?.words?.length ||
+                    privateWords?.length ||
+                    0}
                 </span>
               )}
             </button>
@@ -486,7 +586,8 @@ export const DailyWordsPage: React.FC = () => {
         {tab === "daily" && (
           <>
             {/* Enhanced empty state */}
-            {!words.length && (
+            {(!allCategoriesData?.daily?.words ||
+              allCategoriesData.daily.words.length === 0) && (
               <div className="mb-6 flex justify-center">
                 <div className="max-w-lg bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 text-center border border-gray-200 dark:border-gray-700">
                   <div className="w-16 h-16 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -516,527 +617,600 @@ export const DailyWordsPage: React.FC = () => {
             )}
 
             {/* رسالة الإكمال أو زر نتعلمها مع AI */}
-            {words.length === 0 && unknownWords.length === 0 && (
-              <div className="mb-6">
-                <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-8 text-center shadow-lg">
-                  <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <svg
-                      className="w-10 h-10 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
+            {(!allCategoriesData?.daily?.words ||
+              allCategoriesData.daily.words.length === 0) &&
+              (!allCategoriesData?.unknown?.words ||
+                allCategoriesData.unknown.words.length === 0) && (
+                <div className="mb-6">
+                  <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-8 text-center shadow-lg">
+                    <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <svg
+                        className="w-10 h-10 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-3xl font-bold text-white mb-4">
+                      🎉 مبروك! لقد أكملت جميع الكلمات لهذا اليوم
+                    </h3>
+                    <p className="text-white/90 text-lg mb-6">
+                      لقد تعلمت جميع الكلمات بنجاح! عد غداً لتعلم كلمات جديدة
+                    </p>
                   </div>
-                  <h3 className="text-3xl font-bold text-white mb-4">
-                    🎉 مبروك! لقد أكملت جميع الكلمات لهذا اليوم
-                  </h3>
-                  <p className="text-white/90 text-lg mb-6">
-                    لقد تعلمت جميع الكلمات بنجاح! عد غداً لتعلم كلمات جديدة
-                  </p>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* زر نتعلمها مع AI - يظهر فقط عند الانتهاء من الكلمات الحالية */}
-            {words.length === 0 && unknownWords.length > 0 && (
-              <div className="mb-6">
-                <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 text-center shadow-lg">
-                  <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <svg
-                      className="w-10 h-10 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-3xl font-bold text-white mb-4">
-                    🎯 لديك {unknownWords.length} كلمة تحتاج تعلمها
-                  </h3>
-                  <p className="text-white/90 text-lg mb-6">
-                    لقد انتهيت من جميع الكلمات! الآن دعنا نتعلم الكلمات المجهولة
-                    مع الذكاء الاصطناعي
-                  </p>
-                  <button
-                    onClick={handleNavigateToChat}
-                    className="bg-white text-purple-600 font-bold py-3 px-8 rounded-xl shadow-lg hover:bg-gray-100 transition-all duration-300 transform hover:scale-105"
-                  >
-                    نتعلمها مع AI 🤖
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {words.length > 0 && (
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Enhanced Progress Card - Sidebar */}
-                <div className="lg:col-span-1 space-y-4">
-                  <div className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        التقدم اليومي
-                      </h2>
+            {(!allCategoriesData?.daily?.words ||
+              allCategoriesData.daily.words.length === 0) &&
+              allCategoriesData?.unknown?.words &&
+              allCategoriesData.unknown.words.length > 0 && (
+                <div className="mb-6">
+                  <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 text-center shadow-lg">
+                    <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <svg
+                        className="w-10 h-10 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                        />
+                      </svg>
                     </div>
-                    <div className="text-center mb-6">
-                      <div className="relative inline-flex items-center justify-center w-32 h-32 mb-4">
-                        <svg
-                          className="w-32 h-32 transform -rotate-90"
-                          viewBox="0 0 120 120"
-                        >
-                          <circle
-                            cx="60"
-                            cy="60"
-                            r="50"
-                            fill="none"
-                            stroke="rgba(156, 163, 175, 0.2)"
-                            strokeWidth="8"
-                          />
-                          <circle
-                            cx="60"
-                            cy="60"
-                            r="50"
-                            fill="none"
-                            stroke="url(#gradient)"
-                            strokeWidth="8"
-                            strokeLinecap="round"
-                            strokeDasharray={`${
-                              (learnedCount / words.length) * 314
-                            } 314`}
-                            style={{
-                              transition: "stroke-dasharray 0.8s ease",
-                            }}
-                          />
-                          <defs>
-                            <linearGradient
-                              id="gradient"
-                              x1="0%"
-                              y1="0%"
-                              x2="100%"
-                              y2="100%"
-                            >
-                              <stop offset="0%" stopColor="#3B82F6" />
-                              <stop offset="100%" stopColor="#6366F1" />
-                            </linearGradient>
-                          </defs>
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                            {Math.round((learnedCount / words.length) * 100)}%
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            مكتمل
-                          </span>
-                        </div>
-                      </div>
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-700">
-                        <p className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
-                          <span className="font-bold text-blue-600 dark:text-blue-400 text-lg">
-                            {learnedCount}
-                          </span>{" "}
-                          من{" "}
-                          <span className="font-bold text-gray-800 dark:text-white text-lg">
-                            {words.length}
-                          </span>{" "}
-                          كلمة
-                        </p>
-                      </div>
-                    </div>
-                    {/* Enhanced word indicators */}
-                    <div className="grid grid-cols-5 gap-2">
-                      {words.map((word, index) => (
-                        <button
-                          key={
-                            (word.id || word.word || word.english) + "-" + index
-                          }
-                          onClick={() => {
-                            setCurrentWordIndex(index);
-                            setShowAnswer(false);
-                          }}
-                          className={`w-full h-10 rounded-xl transition-all duration-300 text-sm font-bold border-2 shadow-md transform hover:scale-105 ${
-                            index === currentWordIndex
-                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-lg scale-110"
-                              : word.isLearned
-                              ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-green-500 shadow-lg"
-                              : "bg-white/80 dark:bg-gray-700/80 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
-                          }`}
-                          title={`كلمة ${index + 1}${
-                            word.isLearned ? " - متعلمة" : ""
-                          }`}
-                        >
-                          {index + 1}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Enhanced Statistics */}
-                  <div className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      إحصائيات سريعة
+                    <h3 className="text-3xl font-bold text-white mb-4">
+                      🎯 لديك {allCategoriesData.unknown.words.length} كلمة
+                      تحتاج تعلمها
                     </h3>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700 shadow-md">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                            <svg
-                              className="w-5 h-5 text-white"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          </div>
-                          <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
-                            الكلمات المتعلمة
-                          </span>
-                        </div>
-                        <span className="text-green-600 dark:text-green-400 font-bold text-lg">
-                          {learnedCount}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl border border-orange-200 dark:border-orange-700 shadow-md">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-                            <svg
-                              className="w-5 h-5 text-white"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                          </div>
-                          <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
-                            الكلمات المتبقية
-                          </span>
-                        </div>
-                        <span className="text-orange-600 dark:text-orange-400 font-bold text-lg">
-                          {words.length - learnedCount}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700 shadow-md">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                            <svg
-                              className="w-5 h-5 text-white"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                              />
-                            </svg>
-                          </div>
-                          <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
-                            إجمالي الكلمات
-                          </span>
-                        </div>
-                        <span className="text-blue-600 dark:text-blue-400 font-bold text-lg">
-                          {words.length}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl border border-purple-200 dark:border-purple-700 shadow-md">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
-                            <svg
-                              className="w-5 h-5 text-white"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                          </div>
-                          <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
-                            الكلمات المجهولة
-                          </span>
-                        </div>
-                        <span className="text-purple-600 dark:text-purple-400 font-bold text-lg">
-                          {unknownWords.length}
-                        </span>
-                      </div>
-                    </div>
+                    <p className="text-white/90 text-lg mb-6">
+                      لقد انتهيت من جميع الكلمات! الآن دعنا نتعلم الكلمات
+                      المجهولة مع الذكاء الاصطناعي
+                    </p>
+                    <button
+                      onClick={handleNavigateToChat}
+                      className="bg-white text-purple-600 font-bold py-3 px-8 rounded-xl shadow-lg hover:bg-gray-100 transition-all duration-300 transform hover:scale-105"
+                    >
+                      نتعلمها مع AI 🤖
+                    </button>
                   </div>
                 </div>
+              )}
 
-                {/* Enhanced Main Content */}
-                <div className="lg:col-span-3">
-                  {/* Enhanced Word Card */}
-                  {currentWord && (
-                    <div className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            {allCategoriesData?.daily?.words &&
+              allCategoriesData.daily.words.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                  {/* Enhanced Progress Card - Sidebar */}
+                  <div className="lg:col-span-1 space-y-6">
+                    <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-3">
+                          <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full animate-pulse"></div>
+                          التقدم اليومي
+                        </h2>
+                      </div>
                       <div className="text-center mb-6">
-                        <div className="flex items-center justify-center gap-3 mb-4">
-                          <button
-                            onClick={prevWord}
-                            disabled={currentWordIndex === 0}
-                            className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                        <div className="relative inline-flex items-center justify-center w-32 h-32 mb-4">
+                          <svg
+                            className="w-32 h-32 transform -rotate-90"
+                            viewBox="0 0 120 120"
                           >
-                            <RiArrowRightLine className="w-6 h-6" />
-                          </button>
-
-                          <div className="text-center flex-1">
-                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700 shadow-lg">
-                              <h2 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">
-                                {currentWord.word}
-                              </h2>
-                              <div className="flex items-center justify-center gap-3">
-                                <button
-                                  onClick={() => speakWord(currentWord.word)}
-                                  className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 transform hover:scale-110"
-                                  title="نطق الكلمة"
-                                >
-                                  <svg
-                                    className="w-6 h-6"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                                    />
-                                  </svg>
-                                </button>
-                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white/80 dark:bg-gray-800/80 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 shadow-md">
-                                  {currentWordIndex + 1} من {words.length}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={nextWord}
-                            disabled={currentWordIndex === words.length - 1}
-                            className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
-                          >
-                            <RiArrowLeftLine className="w-6 h-6" />
-                          </button>
-                        </div>
-
-                        {!showAnswer ? (
-                          <button
-                            onClick={() => setShowAnswer(true)}
-                            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-2xl shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-3 mx-auto"
-                          >
-                            <svg
-                              className="w-6 h-6"
+                            <circle
+                              cx="60"
+                              cy="60"
+                              r="50"
                               fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            عرض المعنى ✨
-                          </button>
-                        ) : (
-                          <div className="space-y-6">
-                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700 shadow-lg">
-                              <h3 className="text-2xl font-bold text-blue-800 dark:text-blue-200 mb-4 flex items-center justify-center gap-3">
-                                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                                  <svg
-                                    className="w-5 h-5 text-white"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                    />
-                                  </svg>
-                                </div>
-                                المعنى
-                              </h3>
-                              <p className="text-xl text-gray-700 dark:text-gray-200 font-semibold text-center leading-relaxed">
-                                {currentWord.meaning}
-                              </p>
-                            </div>
-                            <div className="flex gap-4 justify-center">
-                              <button
-                                onClick={async () => {
-                                  await learnWord(
-                                    currentWord.word ||
-                                      currentWord.english ||
-                                      currentWord.id
-                                  );
-
-                                  // إزالة الكلمة من قائمة الكلمات المجهولة إذا كانت موجودة
-                                  const stored =
-                                    localStorage.getItem("unknownWords");
-                                  let arr = stored ? JSON.parse(stored) : [];
-                                  const key =
-                                    currentWord.id ||
-                                    currentWord.word ||
-                                    currentWord.english;
-
-                                  // إزالة الكلمة من unknownWords
-                                  arr = arr.filter(
-                                    (w: any) =>
-                                      (w.id || w.word || w.english) !== key
-                                  );
-                                  localStorage.setItem(
-                                    "unknownWords",
-                                    JSON.stringify(arr)
-                                  );
-
-                                  // تحديث حالة الكلمة بدلاً من إزالتها
-                                  setWords((prev) =>
-                                    prev.map((word) =>
-                                      word.id === currentWord.id
-                                        ? { ...word, isLearned: true }
-                                        : word
-                                    )
-                                  );
-
-                                  // تحديث unknownWords state
-                                  setUnknownWords(arr);
-
-                                  // الانتقال للكلمة التالية
-                                  if (currentWordIndex < words.length - 1) {
-                                    setCurrentWordIndex(currentWordIndex + 1);
-                                  } else {
-                                    setCurrentWordIndex(0);
-                                  }
-                                  setShowAnswer(false);
-                                }}
-                                className="px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-xl transform hover:scale-105 flex items-center gap-2"
+                              stroke="rgba(156, 163, 175, 0.2)"
+                              strokeWidth="8"
+                            />
+                            <circle
+                              cx="60"
+                              cy="60"
+                              r="50"
+                              fill="none"
+                              stroke="url(#gradient)"
+                              strokeWidth="8"
+                              strokeLinecap="round"
+                              strokeDasharray={`${
+                                (learnedCount / words.length) * 314
+                              } 314`}
+                              style={{
+                                transition: "stroke-dasharray 0.8s ease",
+                              }}
+                            />
+                            <defs>
+                              <linearGradient
+                                id="gradient"
+                                x1="0%"
+                                y1="0%"
+                                x2="100%"
+                                y2="100%"
                               >
-                                <svg
-                                  className="w-6 h-6"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M5 13l4 4L19 7"
-                                  />
-                                </svg>
-                                أعرفها
-                              </button>
-                              <button
-                                onClick={() => {
-                                  // إضافة الكلمة إلى قائمة الكلمات المجهولة
-                                  const stored =
-                                    localStorage.getItem("unknownWords");
-                                  let arr = stored ? JSON.parse(stored) : [];
-                                  const key =
-                                    currentWord.id ||
-                                    currentWord.word ||
-                                    currentWord.english;
-
-                                  // إضافة الكلمة إلى unknownWords إذا لم تكن موجودة
-                                  const exists = arr.some(
-                                    (w: any) =>
-                                      (w.id || w.word || w.english) === key
-                                  );
-                                  if (!exists) {
-                                    arr.push(currentWord);
-                                    localStorage.setItem(
-                                      "unknownWords",
-                                      JSON.stringify(arr)
-                                    );
-                                  }
-
-                                  // تحديث حالة الكلمة بدلاً من إزالتها
-                                  setWords((prev) =>
-                                    prev.map((word) =>
-                                      word.id === currentWord.id
-                                        ? { ...word, isLearned: false }
-                                        : word
-                                    )
-                                  );
-
-                                  // تحديث unknownWords state
-                                  setUnknownWords(arr);
-
-                                  // الانتقال للكلمة التالية
-                                  if (currentWordIndex < words.length - 1) {
-                                    setCurrentWordIndex(currentWordIndex + 1);
-                                  } else {
-                                    setCurrentWordIndex(0);
-                                  }
-                                  setShowAnswer(false);
-                                }}
-                                className="px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white shadow-xl transform hover:scale-105 flex items-center gap-2"
-                              >
-                                <svg
-                                  className="w-6 h-6"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M6 18L18 6M6 6l12 12"
-                                  />
-                                </svg>
-                                لا أعرفها
-                              </button>
-                            </div>
+                                <stop offset="0%" stopColor="#3B82F6" />
+                                <stop offset="100%" stopColor="#6366F1" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                              {Math.round(
+                                (learnedCount /
+                                  (allCategoriesData?.daily?.words?.length ||
+                                    words.length)) *
+                                  100
+                              )}
+                              %
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              مكتمل
+                            </span>
                           </div>
+                        </div>
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-700">
+                          <p className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
+                            <span className="font-bold text-blue-600 dark:text-blue-400 text-lg">
+                              {learnedCount}
+                            </span>{" "}
+                            من{" "}
+                            <span className="font-bold text-gray-800 dark:text-white text-lg">
+                              {allCategoriesData?.daily?.words?.length ||
+                                words.length}
+                            </span>{" "}
+                            كلمة
+                          </p>
+                        </div>
+                      </div>
+                      {/* Enhanced word indicators */}
+                      <div className="grid grid-cols-5 gap-2">
+                        {(allCategoriesData?.daily?.words || words).map(
+                          (word: any, index: number) => (
+                            <button
+                              key={
+                                (word.id || word.word || word.english) +
+                                "-" +
+                                index
+                              }
+                              onClick={() => {
+                                setCurrentWordIndex(index);
+                                setShowAnswer(false);
+                              }}
+                              className={`w-full h-10 rounded-xl transition-all duration-300 text-sm font-bold border-2 shadow-md transform hover:scale-105 ${
+                                index === currentWordIndex
+                                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-lg scale-110"
+                                  : word.isLearned
+                                  ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-green-500 shadow-lg"
+                                  : "bg-white/80 dark:bg-gray-700/80 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600"
+                              }`}
+                              title={`كلمة ${index + 1}${
+                                word.isLearned ? " - متعلمة" : ""
+                              }`}
+                            >
+                              {index + 1}
+                            </button>
+                          )
                         )}
                       </div>
                     </div>
-                  )}
+
+                    {/* Enhanced Statistics */}
+                    <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-gray-200 dark:border-gray-700">
+                      <h3 className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-6 flex items-center gap-3">
+                        <div className="w-3 h-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full animate-pulse"></div>
+                        إحصائيات سريعة
+                      </h3>
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700 shadow-md">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                              <svg
+                                className="w-4 h-4 text-white"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                            </div>
+                            <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
+                              الكلمات المتعلمة
+                            </span>
+                          </div>
+                          <span className="text-green-600 dark:text-green-400 font-bold text-lg">
+                            {allCategoriesData?.known?.totalWords ||
+                              learnedCount}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl border border-orange-200 dark:border-orange-700 shadow-md">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+                              <svg
+                                className="w-4 h-4 text-white"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                            </div>
+                            <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
+                              الكلمات المتبقية
+                            </span>
+                          </div>
+                          <span className="text-orange-600 dark:text-orange-400 font-bold text-lg">
+                            {allCategoriesData?.unknown?.totalWords ||
+                              (allCategoriesData?.daily?.words?.length ||
+                                words.length) - learnedCount}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700 shadow-md">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                              <svg
+                                className="w-4 h-4 text-white"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                />
+                              </svg>
+                            </div>
+                            <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
+                              إجمالي الكلمات
+                            </span>
+                          </div>
+                          <span className="text-blue-600 dark:text-blue-400 font-bold text-lg">
+                            {allCategoriesData?.summary?.totalCount ||
+                              allCategoriesData?.daily?.words?.length ||
+                              words.length}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl border border-purple-200 dark:border-purple-700 shadow-md">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                              <svg
+                                className="w-4 h-4 text-white"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                            </div>
+                            <span className="text-gray-700 dark:text-gray-200 text-sm font-semibold">
+                              الكلمات المجهولة
+                            </span>
+                          </div>
+                          <span className="text-purple-600 dark:text-purple-400 font-bold text-lg">
+                            {allCategoriesData?.unknown?.totalWords ||
+                              unknownWords.length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Enhanced Main Content */}
+                  <div className="lg:col-span-3">
+                    {/* Enhanced Word Card */}
+                    {allCategoriesData?.daily?.words &&
+                      allCategoriesData.daily.words[currentWordIndex] && (
+                        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
+                          <div className="text-center mb-6">
+                            <div className="flex items-center justify-center gap-3 mb-4">
+                              <button
+                                onClick={prevWord}
+                                disabled={currentWordIndex === 0}
+                                className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                              >
+                                <RiArrowRightLine className="w-6 h-6" />
+                              </button>
+
+                              <div className="text-center flex-1">
+                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700 shadow-lg">
+                                  {/* حالة الكلمة */}
+                                  {currentWord.status && (
+                                    <div className="flex justify-center mb-3">
+                                      <span
+                                        className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                          currentWord.status === "KNOWN"
+                                            ? "bg-green-100 text-green-700 border border-green-300"
+                                            : currentWord.status ===
+                                              "PARTIALLY_KNOWN"
+                                            ? "bg-yellow-100 text-yellow-700 border border-yellow-300"
+                                            : "bg-red-100 text-red-700 border border-red-300"
+                                        }`}
+                                      >
+                                        {currentWord.status === "KNOWN"
+                                          ? "معروفة"
+                                          : currentWord.status ===
+                                            "PARTIALLY_KNOWN"
+                                          ? "معروفة جزئياً"
+                                          : "غير معروفة"}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <h2 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">
+                                    {currentWord?.word || currentWord?.english}
+                                  </h2>
+                                  <div className="flex items-center justify-center gap-3">
+                                    <button
+                                      onClick={() =>
+                                        speakWord(
+                                          currentWord?.word ||
+                                            currentWord?.english
+                                        )
+                                      }
+                                      className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 transform hover:scale-110"
+                                      title="نطق الكلمة"
+                                    >
+                                      <svg
+                                        className="w-6 h-6"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+                                        />
+                                      </svg>
+                                    </button>
+                                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white/80 dark:bg-gray-800/80 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 shadow-md">
+                                      {currentWordIndex + 1} من{" "}
+                                      {allCategoriesData?.daily?.words
+                                        ?.length || words.length}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={nextWord}
+                                disabled={
+                                  currentWordIndex ===
+                                  (allCategoriesData?.daily?.words?.length ||
+                                    words.length) -
+                                    1
+                                }
+                                className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+                              >
+                                <RiArrowLeftLine className="w-6 h-6" />
+                              </button>
+                            </div>
+
+                            {!showAnswer ? (
+                              <button
+                                onClick={() => setShowAnswer(true)}
+                                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-2xl shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-3 mx-auto"
+                              >
+                                <svg
+                                  className="w-6 h-6"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                  />
+                                </svg>
+                                عرض المعنى ✨
+                              </button>
+                            ) : (
+                              <div className="space-y-6">
+                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700 shadow-lg">
+                                  <h3 className="text-2xl font-bold text-blue-800 dark:text-blue-200 mb-4 flex items-center justify-center gap-3">
+                                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                                      <svg
+                                        className="w-5 h-5 text-white"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                      </svg>
+                                    </div>
+                                    المعنى
+                                  </h3>
+                                  <p className="text-xl text-gray-700 dark:text-gray-200 font-semibold text-center leading-relaxed mb-4">
+                                    {currentWord?.meaning ||
+                                      currentWord?.arabic}
+                                  </p>
+
+                                  {/* عرض الجملة إذا كانت موجودة */}
+                                  {currentWord?.sentence && (
+                                    <div className="mt-6 p-4 bg-white/80 rounded-xl border border-blue-200">
+                                      <h4 className="text-lg font-bold text-blue-700 mb-2 flex items-center gap-2">
+                                        <svg
+                                          className="w-5 h-5"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                          />
+                                        </svg>
+                                        مثال في جملة
+                                      </h4>
+                                      <p className="text-gray-700 text-center leading-relaxed mb-2">
+                                        {currentWord.sentence}
+                                      </p>
+                                      {currentWord.sentence_ar && (
+                                        <p className="text-gray-600 text-center leading-relaxed text-sm">
+                                          {currentWord.sentence_ar}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex gap-4 justify-center">
+                                  <button
+                                    onClick={async () => {
+                                      await learnWord(
+                                        currentWord?.word ||
+                                          currentWord?.english ||
+                                          currentWord?.id
+                                      );
+
+                                      // تحديث البيانات بعد تعلم الكلمة
+                                      fetchAllCategories();
+
+                                      // الانتقال للكلمة التالية
+                                      const currentWords =
+                                        allCategoriesData?.daily?.words ||
+                                        words;
+                                      if (
+                                        currentWordIndex <
+                                        currentWords.length - 1
+                                      ) {
+                                        setCurrentWordIndex(
+                                          currentWordIndex + 1
+                                        );
+                                      } else {
+                                        setCurrentWordIndex(0);
+                                      }
+                                      setShowAnswer(false);
+                                    }}
+                                    className="px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-xl transform hover:scale-105 flex items-center gap-2"
+                                  >
+                                    <svg
+                                      className="w-6 h-6"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M5 13l4 4L19 7"
+                                      />
+                                    </svg>
+                                    أعرفها
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      // إضافة الكلمة إلى قائمة الكلمات المجهولة
+                                      const stored =
+                                        localStorage.getItem("unknownWords");
+                                      let arr = stored
+                                        ? JSON.parse(stored)
+                                        : [];
+                                      const key =
+                                        currentWord?.id ||
+                                        currentWord?.word ||
+                                        currentWord?.english;
+
+                                      // إضافة الكلمة إلى unknownWords إذا لم تكن موجودة
+                                      const exists = arr.some(
+                                        (w: any) =>
+                                          (w.id || w.word || w.english) === key
+                                      );
+                                      if (!exists) {
+                                        arr.push(currentWord);
+                                        localStorage.setItem(
+                                          "unknownWords",
+                                          JSON.stringify(arr)
+                                        );
+                                      }
+
+                                      // تحديث unknownWords state
+                                      setUnknownWords(arr);
+
+                                      // الانتقال للكلمة التالية
+                                      const currentWords =
+                                        allCategoriesData?.daily?.words ||
+                                        words;
+                                      if (
+                                        currentWordIndex <
+                                        currentWords.length - 1
+                                      ) {
+                                        setCurrentWordIndex(
+                                          currentWordIndex + 1
+                                        );
+                                      } else {
+                                        setCurrentWordIndex(0);
+                                      }
+                                      setShowAnswer(false);
+                                    }}
+                                    className="px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white shadow-xl transform hover:scale-105 flex items-center gap-2"
+                                  >
+                                    <svg
+                                      className="w-6 h-6"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M6 18L18 6M6 6l12 12"
+                                      />
+                                    </svg>
+                                    لا أعرفها
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </>
         )}
 
-        {tab === "learned" && (
+        {tab === "known" && (
           <>
             {/* Enhanced empty state for learned words */}
-            {!learnedWords || learnedWords.length === 0 ? (
+            {!allCategoriesData?.known?.words ||
+            allCategoriesData.known.words.length === 0 ? (
               <div className="mb-8 flex justify-center">
                 <div className="max-w-lg bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl p-10 text-center border border-white/20">
                   <div className="w-20 h-20 bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl animate-bounce">
@@ -1054,24 +1228,23 @@ export const DailyWordsPage: React.FC = () => {
                       />
                     </svg>
                   </div>
-                  <h2 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 via-orange-400 to-red-400 bg-clip-text text-transparent mb-4">
-                    لا توجد كلمات متعلمة
+                  <h2 className="text-4xl font-bold bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 bg-clip-text text-transparent mb-4">
+                    لا توجد كلمات معروفة
                   </h2>
                   <p className="text-gray-200 leading-relaxed text-lg">
-                    لم يتم العثور على كلمات متعلمة. أضف كلمات جديدة لتبدأ في
-                    التعلم.
+                    لم يتم العثور على كلمات معروفة. ابدأ بتعلم الكلمات اليومية.
                   </p>
                 </div>
               </div>
             ) : (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                  {learnedWords
+                  {allCategoriesData.known.words
                     .slice(
                       (learnedPage - 1) * CARDS_PER_PAGE,
                       learnedPage * CARDS_PER_PAGE
                     )
-                    .map((word, index) => (
+                    .map((word: any, index: number) => (
                       <div
                         key={
                           (word.id || word.word || word.english) + "-" + index
@@ -1108,7 +1281,7 @@ export const DailyWordsPage: React.FC = () => {
                             نطق 🔊
                           </button>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               // إضافة الكلمة إلى قائمة الكلمات المجهولة
                               const stored =
                                 localStorage.getItem("unknownWords");
@@ -1139,7 +1312,7 @@ export const DailyWordsPage: React.FC = () => {
                 </div>
 
                 {/* Enhanced Pagination */}
-                {learnedWords.length > CARDS_PER_PAGE && (
+                {allCategoriesData.known.words.length > CARDS_PER_PAGE && (
                   <div className="flex justify-center gap-2 mb-4">
                     <button
                       onClick={() => setLearnedPage((p) => Math.max(1, p - 1))}
@@ -1150,20 +1323,27 @@ export const DailyWordsPage: React.FC = () => {
                     </button>
                     <span className="px-6 py-3 font-bold text-lg text-white bg-white/20 rounded-xl backdrop-blur-sm border border-white/20">
                       {learnedPage} /{" "}
-                      {Math.ceil(learnedWords.length / CARDS_PER_PAGE)}
+                      {Math.ceil(
+                        allCategoriesData.known.words.length / CARDS_PER_PAGE
+                      )}
                     </span>
                     <button
                       onClick={() =>
                         setLearnedPage((p) =>
                           Math.min(
-                            Math.ceil(learnedWords.length / CARDS_PER_PAGE),
+                            Math.ceil(
+                              allCategoriesData.known.words.length /
+                                CARDS_PER_PAGE
+                            ),
                             p + 1
                           )
                         )
                       }
                       disabled={
                         learnedPage ===
-                        Math.ceil(learnedWords.length / CARDS_PER_PAGE)
+                        Math.ceil(
+                          allCategoriesData.known.words.length / CARDS_PER_PAGE
+                        )
                       }
                       className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 backdrop-blur-sm border border-white/20"
                     >
@@ -1176,10 +1356,193 @@ export const DailyWordsPage: React.FC = () => {
           </>
         )}
 
+        {tab === "partially-known" && (
+          <>
+            {/* Enhanced empty state for partially known words */}
+            {!allCategoriesData?.partiallyKnown?.words ||
+            allCategoriesData.partiallyKnown.words.length === 0 ? (
+              <div className="mb-8 flex justify-center">
+                <div className="max-w-lg bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl p-10 text-center border border-white/20">
+                  <div className="w-20 h-20 bg-gradient-to-r from-yellow-500 via-orange-500 to-amber-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl animate-bounce">
+                    <svg
+                      className="w-10 h-10 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 via-orange-400 to-amber-400 bg-clip-text text-transparent mb-4">
+                    لا توجد كلمات معروفة جزئياً
+                  </h2>
+                  <p className="text-gray-200 leading-relaxed text-lg">
+                    لم يتم العثور على كلمات معروفة جزئياً. استمر في التعلم
+                    لتحسين معرفتك.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                  {allCategoriesData.partiallyKnown.words.map(
+                    (word: any, index: number) => (
+                      <div
+                        key={
+                          (word.id || word.word || word.english) + "-" + index
+                        }
+                        className="bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl p-6 border border-white/20 flex flex-col items-center text-center relative overflow-hidden group hover:scale-105 transition-all duration-300"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="w-16 h-16 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full flex items-center justify-center mb-4 shadow-2xl relative z-10 group-hover:scale-110 transition-transform duration-300">
+                          <svg
+                            className="w-8 h-8 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                            />
+                          </svg>
+                        </div>
+                        <h3 className="text-2xl font-bold text-black mb-2 relative z-10">
+                          {word.english || word.word}
+                        </h3>
+                        <p className="text-black text-lg mb-4 relative z-10">
+                          {word.meaning || word.arabic}
+                        </p>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => speakWord(word.english || word.word)}
+                            className="flex-1 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-xl shadow-2xl transition-all duration-300 relative z-10 transform hover:scale-105 text-sm"
+                          >
+                            نطق 🔊
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await learnWord(word.english || word.word);
+                              // تحديث البيانات بعد تعلم الكلمة
+                              fetchAllCategories();
+                            }}
+                            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-2 px-4 rounded-xl shadow-2xl transition-all duration-300 relative z-10 transform hover:scale-105 text-sm"
+                          >
+                            أعرفها ✅
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {tab === "unknown" && (
+          <>
+            {/* Enhanced empty state for unknown words */}
+            {!allCategoriesData?.unknown?.words ||
+            allCategoriesData.unknown.words.length === 0 ? (
+              <div className="mb-8 flex justify-center">
+                <div className="max-w-lg bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl p-10 text-center border border-white/20">
+                  <div className="w-20 h-20 bg-gradient-to-r from-red-500 via-pink-500 to-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl animate-bounce">
+                    <svg
+                      className="w-10 h-10 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-4xl font-bold bg-gradient-to-r from-red-400 via-pink-400 to-rose-400 bg-clip-text text-transparent mb-4">
+                    لا توجد كلمات غير معروفة
+                  </h2>
+                  <p className="text-gray-200 leading-relaxed text-lg">
+                    ممتاز! جميع الكلمات معروفة لديك. استمر في التعلم للحفاظ على
+                    تقدمك.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                  {allCategoriesData.unknown.words.map(
+                    (word: any, index: number) => (
+                      <div
+                        key={
+                          (word.id || word.word || word.english) + "-" + index
+                        }
+                        className="bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl p-6 border border-white/20 flex flex-col items-center text-center relative overflow-hidden group hover:scale-105 transition-all duration-300"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center mb-4 shadow-2xl relative z-10 group-hover:scale-110 transition-transform duration-300">
+                          <svg
+                            className="w-8 h-8 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                            />
+                          </svg>
+                        </div>
+                        <h3 className="text-2xl font-bold text-black mb-2 relative z-10">
+                          {word.english || word.word}
+                        </h3>
+                        <p className="text-black text-lg mb-4 relative z-10">
+                          {word.meaning || word.arabic}
+                        </p>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => speakWord(word.english || word.word)}
+                            className="flex-1 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-xl shadow-2xl transition-all duration-300 relative z-10 transform hover:scale-105 text-sm"
+                          >
+                            نطق 🔊
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await learnWord(word.english || word.word);
+                              // تحديث البيانات بعد تعلم الكلمة
+                              fetchAllCategories();
+                            }}
+                            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-2 px-4 rounded-xl shadow-2xl transition-all duration-300 relative z-10 transform hover:scale-105 text-sm"
+                          >
+                            أعرفها ✅
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
         {tab === "private" && (
           <>
             {/* Enhanced empty state for private words */}
-            {!privateWords || privateWords.length === 0 ? (
+            {!allCategoriesData?.private?.words ||
+            allCategoriesData.private.words.length === 0 ? (
               <div className="mb-8 flex justify-center">
                 <div className="max-w-lg bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl p-10 text-center border border-white/20">
                   <div className="w-20 h-20 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl animate-bounce">
@@ -1209,12 +1572,12 @@ export const DailyWordsPage: React.FC = () => {
             ) : (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                  {privateWords
+                  {allCategoriesData.private.words
                     .slice(
                       (privatePage - 1) * CARDS_PER_PAGE,
                       privatePage * CARDS_PER_PAGE
                     )
-                    .map((word, index) => (
+                    .map((word: any, index: number) => (
                       <div
                         key={
                           (word.id || word.word || word.english) + "-" + index
@@ -1251,7 +1614,7 @@ export const DailyWordsPage: React.FC = () => {
                             نطق 🔊
                           </button>
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               // إضافة الكلمة إلى قائمة الكلمات المجهولة
                               const stored =
                                 localStorage.getItem("unknownWords");
@@ -1282,7 +1645,7 @@ export const DailyWordsPage: React.FC = () => {
                 </div>
 
                 {/* Enhanced Pagination */}
-                {privateWords.length > CARDS_PER_PAGE && (
+                {allCategoriesData.private.words.length > CARDS_PER_PAGE && (
                   <div className="flex justify-center gap-2 mb-4">
                     <button
                       onClick={() => setPrivatePage((p) => Math.max(1, p - 1))}
@@ -1293,20 +1656,28 @@ export const DailyWordsPage: React.FC = () => {
                     </button>
                     <span className="px-6 py-3 font-bold text-lg text-white bg-white/20 rounded-xl backdrop-blur-sm border border-white/20">
                       {privatePage} /{" "}
-                      {Math.ceil(privateWords.length / CARDS_PER_PAGE)}
+                      {Math.ceil(
+                        allCategoriesData.private.words.length / CARDS_PER_PAGE
+                      )}
                     </span>
                     <button
                       onClick={() =>
                         setPrivatePage((p) =>
                           Math.min(
-                            Math.ceil(privateWords.length / CARDS_PER_PAGE),
+                            Math.ceil(
+                              allCategoriesData.private.words.length /
+                                CARDS_PER_PAGE
+                            ),
                             p + 1
                           )
                         )
                       }
                       disabled={
                         privatePage ===
-                        Math.ceil(privateWords.length / CARDS_PER_PAGE)
+                        Math.ceil(
+                          allCategoriesData.private.words.length /
+                            CARDS_PER_PAGE
+                        )
                       }
                       className="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 backdrop-blur-sm border border-white/20"
                     >

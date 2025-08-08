@@ -10,6 +10,7 @@ import {
   getDailyStory,
   requestDailyStory,
 } from "@/core/utils/api";
+import { Loading } from "@/presentation/components";
 import { FaBookOpen, FaFire, FaStar, FaChartLine } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import type { DailyStory } from "@/core/types";
@@ -40,15 +41,15 @@ interface StreakData {
 }
 
 // Components
+
 const LoadingSpinner: React.FC = () => (
   <div className="flex flex-col items-center justify-center py-12 sm:py-20">
-    <div className="relative">
-      <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-blue-200 rounded-full animate-pulse"></div>
-      <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0"></div>
-    </div>
-    <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 font-medium mt-4 sm:mt-6 text-center px-4">
-      جاري تحميل بياناتك الشخصية...
-    </div>
+    <Loading
+      size="lg"
+      variant="default"
+      text="جاري تحميل بياناتك الشخصية..."
+      className="mb-0"
+    />
   </div>
 );
 
@@ -2084,38 +2085,6 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Debug Section - Only show in development */}
-              {process.env.NODE_ENV === "development" && (
-                <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
-                  <h3 className="text-lg font-bold text-yellow-800 dark:text-yellow-200 mb-2">
-                    🐛 Debug Info
-                  </h3>
-                  <div className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
-                    <div>Streak: {streak}</div>
-                    <div>
-                      Streak Added Today: {streakAddedToday ? "Yes" : "No"}
-                    </div>
-                    <div>Has Streak: {hasStreak() ? "Yes" : "No"}</div>
-                    <div>
-                      Welcome Shown:{" "}
-                      {localStorage.getItem("welcomeShown") || "No"}
-                    </div>
-                    <div>
-                      Last Streak Date:{" "}
-                      {localStorage.getItem("lastStreakAddedDate") || "None"}
-                    </div>
-                    <div>
-                      Last Story Date:{" "}
-                      {localStorage.getItem("lastStoryShownDate") || "None"}
-                    </div>
-                    <div>Is Loading Story: {isLoadingStory ? "Yes" : "No"}</div>
-                    <div>
-                      Daily Story Completed:{" "}
-                      {dailyStoryCompleted ? "Yes" : "No"}
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Quick Actions Section */}
               <div className="mb-6 sm:mb-8">

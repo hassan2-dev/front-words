@@ -2,11 +2,7 @@ import React, { useState, useEffect } from "react";
 import { apiClient } from "../../../core/utils/api";
 import { API_ENDPOINTS } from "../../../core/config/api";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  completeStory,
-  generateStoryFromWords,
-  getAIRemainingRequests,
-} from "../../../core/utils/api";
+
 import { useAuth } from "../../../core/providers/AuthProvider";
 
 // Loader component
@@ -35,9 +31,9 @@ const ErrorDisplay: React.FC<{ error: string; onRetry?: () => void }> = ({
 );
 
 export const StoriesPage: React.FC = () => {
-  const [selectedLevel, setSelectedLevel] = useState<string>("All");
   const [stories, setStories] = useState<any[]>([]);
   const [dailyStory, setDailyStory] = useState<any>(null);
+  const [isNewStory, setIsNewStory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,35 +60,6 @@ export const StoriesPage: React.FC = () => {
   const [wordsError, setWordsError] = useState<string | null>(null);
 
   const { user } = useAuth();
-
-  // Level mapping
-  const levelDescriptions = {
-    L1: "beginner English, simple sentences, basic vocabulary",
-    L2: "elementary English, simple present and past tense",
-    L3: "pre-intermediate English, various tenses, everyday vocabulary",
-    L4: "intermediate English, complex sentences, descriptive vocabulary",
-    L5: "upper-intermediate English, complex sentences, rich vocabulary",
-    L6: "advanced English, sophisticated language, academic vocabulary",
-    L7: "very advanced English, professional language, nuanced expressions",
-    L8: "native-like English, fluent and natural, idiomatic expressions",
-  };
-
-  const levelArabicNames = {
-    L1: "مبتدئ",
-    L2: "ابتدائي",
-    L3: "قبل متوسط",
-    L4: "متوسط",
-    L5: "فوق متوسط",
-    L6: "متقدم",
-    L7: "متقدم جداً",
-    L8: "مستوى متحدث أصلي",
-  };
-
-  function getLevelString(level?: number): string {
-    if (!level) return "L1";
-    if (level >= 1 && level <= 8) return `L${level}`;
-    return "L1";
-  }
 
   // جلب الكلمات المتعلمة
   const fetchLearnedWords = async () => {
@@ -123,13 +90,23 @@ export const StoriesPage: React.FC = () => {
     setDailyStoryLoading(true);
     setDailyStoryError(null);
     try {
-      const response = await apiClient.get(API_ENDPOINTS.DAILY_STORIES.GET);
-      if (response.success && response.data) {
-        setDailyStory(response.data);
+      // أولاً: التحقق من وجود قصة محفوظة
+      const checkResponse = await apiClient.get("/stories/daily/story/check");
+
+      if (checkResponse.success && (checkResponse.data as any)?.hasStory) {
+        // القصة موجودة - جلبها فوراً
+        const storyResponse = await apiClient.get("/stories/daily/story");
+        if (storyResponse.success && storyResponse.data) {
+          setDailyStory(storyResponse.data);
+        } else {
+          setDailyStoryError("تعذر جلب القصة المحفوظة");
+        }
       } else {
-        setDailyStoryError("تعذر جلب القصة اليومية");
+        // لا توجد قصة - عرض رسالة
+        setDailyStoryError("لا توجد قصة متاحة للقراءة");
       }
     } catch (err) {
+      console.error("خطأ في جلب القصة اليومية:", err);
       setDailyStoryError("حدث خطأ أثناء جلب القصة اليومية");
     } finally {
       setDailyStoryLoading(false);
@@ -203,19 +180,35 @@ export const StoriesPage: React.FC = () => {
       setError(null);
       try {
         // محاولة جلب القصص من API
-        const response = await apiClient.get("/daily/stories");
-        if (response.success && Array.isArray(response.data)) {
-          setStories(response.data);
+        const response = await apiClient.get(API_ENDPOINTS.DAILY_STORIES.GET);
+        if (response.success && response.data) {
+          // التحقق من وجود stories في البيانات
+          const data = response.data as any;
+          if (data.stories && Array.isArray(data.stories)) {
+            // عرض جميع القصص في قسم القصص المشهورة
+            setStories(data.stories);
+            setPopularStories(data.stories);
+          } else if (Array.isArray(data)) {
+            setStories(data);
+            setPopularStories(data);
+          } else {
+            console.log("لا توجد قصص في الاستجابة:", data);
+            setStories([]);
+            setPopularStories([]);
+          }
         } else {
-          // إذا لم توجد قصص في API، استخدم قصص افتراضية
-          console.log(response.data);
+          console.log("استجابة غير صحيحة:", response);
+          setStories([]);
+          setPopularStories([]);
         }
       } catch (err) {
         console.error("خطأ في جلب القصص:", err);
         setError("تعذر جلب القصص");
-       
+        setStories([]);
+        setPopularStories([]);
       } finally {
         setLoading(false);
+        setPopularLoading(false);
       }
     };
 
@@ -225,39 +218,11 @@ export const StoriesPage: React.FC = () => {
   const [dailyStoryCompleted, setDailyStoryCompleted] = useState<any[]>([]);
 
   const fetchDailyStoryCompleted = async () => {
-    const response = await apiClient.get("/daily/stories/completed");
+    const response = await apiClient.get(API_ENDPOINTS.DAILY_STORIES.COMPLETE);
     if (response.success && Array.isArray(response.data)) {
       setDailyStoryCompleted(response.data);
-    }else{
+    } else {
       setDailyStoryCompleted([]);
-    }
-  };
-
-  const filteredStories =
-    selectedLevel === "All"
-      ? stories
-      : stories.filter((story) => story.level === selectedLevel);
-
-  const getLevelColor = (level: string) => {
-    switch (level) {
-      case "L1":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
-      case "L2":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
-      case "L3":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
-      case "L4":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300";
-      case "L5":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
-      case "L6":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
-      case "L7":
-        return "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300";
-      case "L8":
-        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
     }
   };
 
@@ -284,7 +249,7 @@ export const StoriesPage: React.FC = () => {
                 القصة اليومية
               </h2>
               <p className="text-gray-600 dark:text-gray-400 text-sm">
-                قصة جديدة كل يوم لتحسين مهاراتك
+                اقرأ القصص المحفوظة لتحسين مهاراتك
               </p>
             </div>
           </div>
@@ -424,13 +389,13 @@ export const StoriesPage: React.FC = () => {
         )}
       </div>
 
-      {/* Popular Stories Section */}
+      {/* All Stories Section */}
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-purple-700 dark:text-purple-300 mb-4 flex items-center gap-2">
-          <span>🔥</span> القصص المشهورة
+          <span>📚</span> القصص المحفوظة
         </h2>
         {popularLoading && (
-          <div className="text-gray-500">جاري تحميل القصص المشهورة...</div>
+          <div className="text-gray-500">جاري تحميل القصص...</div>
         )}
         {popularError && <div className="text-red-600">{popularError}</div>}
         {!popularLoading && !popularError && popularStories.length > 0 && (
@@ -443,25 +408,25 @@ export const StoriesPage: React.FC = () => {
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-4">
-                    <div className="text-4xl">{story.image}</div>
+                    <div className="text-4xl">📖</div>
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-200 text-yellow-900 dark:bg-yellow-800 dark:text-yellow-200">
-                        مشهور
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-200 text-green-900 dark:bg-green-800 dark:text-green-200">
+                        محفوظة
                       </span>
                     </div>
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-                    {story.title?.arabic || story.titleArabic || story.title}
+                    {story.title?.split(" - ")?.[0] || story.title}
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                    {story.title?.english || story.title}
+                    {story.title?.split(" - ")?.[1] || story.title}
                   </p>
                   <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
-                    {story.descriptionArabic || story.description}
+                    {story.content?.substring(0, 100)}...
                   </p>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                      ⏱️ {story.duration}
+                      📝 {story.words?.length || 0} كلمة
                     </span>
                   </div>
                 </div>
@@ -470,79 +435,9 @@ export const StoriesPage: React.FC = () => {
           </div>
         )}
         {!popularLoading && !popularError && popularStories.length === 0 && (
-          <div className="text-gray-500">لا توجد قصص مشهورة حالياً.</div>
+          <div className="text-gray-500">لا توجد قصص متاحة حالياً.</div>
         )}
       </div>
-
-      {/* Stories Grid */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-          جميع القصص
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredStories.map((story) => (
-            <div
-              key={story.id}
-              className="group bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => handleStoryClick(story)}
-            >
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="text-4xl">{story.image}</div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${getLevelColor(
-                        story.level
-                      )}`}
-                    >
-                      {levelArabicNames[
-                        story.level as keyof typeof levelArabicNames
-                      ] || story.levelArabic}
-                    </span>
-                    {story.isCompleted && (
-                      <span className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                        <span className="text-green-600 text-sm">✓</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-                  {story.title?.arabic || story.titleArabic || story.title}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  {story.title?.english || story.title}
-                </p>
-
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
-                  {story.descriptionArabic}
-                </p>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    ⏱️ {story.duration}
-                  </span>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors">
-                    {story.isCompleted ? "إعادة القراءة" : "ابدأ القراءة"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {filteredStories.length === 0 && (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">📚</div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            لا توجد قصص في هذا المستوى
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400">
-            جرب اختيار مستوى آخر أو عد لاحقاً للمزيد من القصص
-          </p>
-        </div>
-      )}
 
       {/* Progress Summary */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-8">

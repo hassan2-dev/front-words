@@ -136,7 +136,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
 
   // Initialize word statuses and fetch all words
   useEffect(() => {
-    if (currentStory?.words) {
+    if (currentStory?.words && currentStory.words.length > 0) {
       const initialStatus: Record<
         string,
         "KNOWN" | "PARTIALLY_KNOWN" | "NOT_LEARNED"
@@ -151,7 +151,9 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       });
       setWordStatus(initialStatus);
       setWordsLearned(knownCount);
-      setReadingProgress((knownCount / currentStory.words.length) * 100);
+      setReadingProgress(
+        (knownCount / (currentStory?.words?.length || 1)) * 100
+      );
 
       // جلب الطلبات المتبقية
       fetchRemainingRequests();
@@ -399,14 +401,16 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                   <ArrowRight className="w-5 h-5" />
                 </button>
                 <h1 className="text-lg font-bold text-gray-900 dark:text-white">
-                  {currentStory.title.split(" - ")[0]}
+                  {currentStory?.title
+                    ? currentStory.title.split(" - ")[0]
+                    : "القصة"}
                 </h1>
               </div>
               <div></div>
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => speakText(currentStory.content)}
+                onClick={() => speakText(currentStory?.content || "")}
                 className={`p-2 rounded-lg transition-colors ${
                   isSpeaking
                     ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
@@ -439,7 +443,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
             <div className="max-w-none">
               <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-xl font-normal text-justify">
-                {renderContent(currentStory.content)}
+                {renderContent(currentStory?.content || "")}
               </div>
             </div>
           </div>
@@ -453,14 +457,16 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                 الترجمة العربية
               </h3>
               <button
-                onClick={() => speakText(currentStory.translation, "ar-SA")}
+                onClick={() =>
+                  speakText(currentStory?.translation || "", "ar-SA")
+                }
                 className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
               >
                 <Mic className="w-5 h-5" />
               </button>
             </div>
             <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg text-right text-justify">
-              {currentStory.translation}
+              {currentStory?.translation || ""}
             </div>
           </div>
           {/* Learning Progress */}
@@ -638,7 +644,9 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
               </div>
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                  {Math.round((wordsLearned / currentStory.words.length) * 100)}
+                  {Math.round(
+                    (wordsLearned / (currentStory?.words?.length || 1)) * 100
+                  )}
                   %
                 </div>
                 <div className="text-xs text-blue-600 dark:text-blue-400">

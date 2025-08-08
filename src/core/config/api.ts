@@ -37,7 +37,7 @@ export const API_ENDPOINTS = {
     // طلب قصة جديدة
     REQUEST: '/stories/daily/story/request',
     // الحصول على القصة الحالية
-    GET: '/stories/daily/story',
+    GET: '/stories',
     // الحصول على كل الكلمات
     GET_ALL_WORDS: '/stories/daily/story/all-words',
     GET_COMPLEMENTARY_WORDS: '/stories/daily/story/complementary-words',
@@ -99,64 +99,12 @@ export const API_ENDPOINTS = {
 
   // ===== Notifications =====
   NOTIFICATIONS: {
-    LIST: '/notifications',
-    UNREAD_COUNT: '/notifications/unread-count',
-    MARK_AS_READ: (id: string) => `/notifications/${id}/read`,
-    MARK_ALL_READ: '/notifications/mark-all-read',
-    DELETE: (id: string) => `/notifications/${id}`,
-    STATS: '/notifications/stats',
-    SEND: '/notifications/send',
-
-    // Student Notifications
-    WELCOME_STUDENT: '/notifications/welcome-student',
-    DAILY_LOGIN_REMINDER: '/notifications/daily-login-reminder',
-    STORY_COMPLETED: '/notifications/story-completed',
-    WORD_LEARNED: '/notifications/word-learned',
-    LEVEL_UP: '/notifications/level-up',
-    ACHIEVEMENT_UNLOCKED: '/notifications/achievement-unlocked',
-    DAILY_GOAL: '/notifications/daily-goal',
-    DAILY_WORDS_GOAL_COMPLETED: '/notifications/daily-words-goal-completed',
-    ALL_DAILY_WORDS_COMPLETED: '/notifications/all-daily-words-completed',
-    WEEKLY_REPORT: '/notifications/weekly-report',
-    DAILY_REMINDER: '/notifications/daily-reminder',
-    NEW_DAILY_STORY: '/notifications/new-daily-story',
-    LEVEL_CHANGED: '/notifications/level-changed',
-    CONGRATULATIONS: '/notifications/congratulations',
-    DAILY_WORDS_COMPLETED: '/notifications/daily-words-completed',
-    NEW_LEARNING_DAY: '/notifications/new-learning-day',
-    WEEKLY_GOAL_ACHIEVED: '/notifications/weekly-goal-achieved',
-    COMPETITION_REMINDER: '/notifications/competition-reminder',
-    NEW_LESSON: '/notifications/new-lesson',
-    PRONUNCIATION_REVIEW: '/notifications/pronunciation-review',
-
-    // Trainer Notifications
-    TRAINER_NEW_STUDENT: '/notifications/trainer/new-student',
-    TRAINER_STUDENT_COMPLETED_STORY: '/notifications/trainer/student-completed-story',
-    TRAINER_STUDENT_COMPLETED_DAILY_WORDS: '/notifications/trainer/student-completed-daily-words',
-    TRAINER_STUDENT_COMPLETED_LESSON: '/notifications/trainer/student-completed-lesson',
-    TRAINER_STUDENT_LEVEL_UP: '/notifications/trainer/student-level-up',
-
-    // Admin Notifications
-    ADMIN_HUNDRED_REQUESTS: '/notifications/admin/hundred-requests',
-    ADMIN_API_KEY_EXPIRED: '/notifications/admin/api-key-expired',
-    ADMIN_REQUEST_MILESTONE: '/notifications/admin/request-milestone',
-    ADMIN_NEW_TRAINER: '/notifications/admin/new-trainer',
-    ADMIN_NEW_STORY: '/notifications/admin/new-story',
-    ADMIN_NEW_WORD: '/notifications/admin/new-word',
-
-    // General Notifications
-    COMPETITION_JOINED: '/notifications/competition-joined',
-    COMPETITION_RESULT: '/notifications/competition-result',
-    STREAK_MILESTONE: '/notifications/streak-milestone',
-
-    // Bulk Notifications
-    SEND_DAILY_REMINDERS_TO_ALL: '/notifications/send-daily-reminders-to-all',
-    SEND_NEW_DAY_NOTIFICATIONS_TO_ALL: '/notifications/send-new-day-notifications-to-all',
-    SEND_CONGRATULATIONS_FOR_MILESTONE: '/notifications/send-congratulations-for-milestone',
-    DAILY_WORDS_COMPLETION: '/notifications/daily-words-completion',
-    LEVEL_UP_WITH_CONGRATULATIONS: '/notifications/level-up-with-congratulations',
-    NOTIFY_NEW_LESSON_TO_LEVEL: '/notifications/notify-new-lesson-to-level',
-    NOTIFY_COMPETITION_REMINDER_TO_PARTICIPANTS: '/notifications/notify-competition-reminder-to-participants',
+    GET: '/notifications/my',
+    UNREAD_COUNT: '/notifications/my/unread-count',
+    STATS: '/notifications/my/stats',
+    MARK_AS_READ: (notificationId: string) => `notifications/my/${notificationId}/read`,
+    MARK_ALL_AS_READ: '/notifications/my/mark-all-as-read',
+    DELETE: (notificationId: string) => `notifications/my/${notificationId}`,
   },
 
   // ===== Activities =====

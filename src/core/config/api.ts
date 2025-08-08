@@ -32,15 +32,26 @@ export const API_ENDPOINTS = {
 
   // ===== Daily Stories =====
   DAILY_STORIES: {
+    // التحقق من وجود قصة
+    CHECK: '/stories/daily/story/check',
+    // طلب قصة جديدة
+    REQUEST: '/stories/daily/story/request',
+    // الحصول على القصة الحالية
     GET: '/stories/daily/story',
+    // الحصول على كل الكلمات
     GET_ALL_WORDS: '/stories/daily/story/all-words',
     GET_COMPLEMENTARY_WORDS: '/stories/daily/story/complementary-words',
     GET_LEARNED_WORDS: '/stories/daily/story/learned-words',
     GET_STORY_WORDS: (storyId: string) => `/stories/daily/story/${storyId}/words`,
+    // الطلبات المتبقية
     REMAINING: '/stories/daily/story/remaining',
+    // التفاعل مع الكلمات
     WORD_INTERACTION: '/stories/daily/story/word-interaction',
+    // إحصائيات الكلمات
     WORD_STATISTICS: '/stories/daily/story/word-statistics',
+    // إكمال القصة
     COMPLETE: '/stories/daily/story/complete',
+    // التحقق من إمكانية المتابعة
     CAN_PROCEED: '/stories/daily/story/can-proceed',
   },
 

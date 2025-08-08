@@ -33,10 +33,12 @@ class ApiClient {
     private timeout: number;
 
     constructor() {
-        // For Vite, we'll use a simple fallback approach
-        this.baseURL = 'http://localhost:3000';
-        this.timeout = 30000; // 30 seconds default timeout (محسن للإندبوينت الجديد)
+        // استخدام متغيرات البيئة أو القيم الافتراضية
+        this.baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
+        this.timeout = parseInt((import.meta as any).env?.VITE_API_TIMEOUT || '180000'); // 180 ثانية (3 دقائق) للـ GPT-4 (دقيقة ونصف + buffer)
     }
+
+
 
     // Get auth token from storage
     private getAuthToken(): string | null {
@@ -256,6 +258,28 @@ export const getLearnedWords = () =>
 // --- DAILY STORIES ---
 export const getDailyStory = () =>
     apiClient.get<ApiResponse<DailyStory>>(API_ENDPOINTS.DAILY_STORIES.GET);
+
+// التحقق من وجود قصة لهذا اليوم
+export const checkDailyStory = () =>
+    apiClient.get<ApiResponse<{ hasStory: boolean; canGenerate: boolean }>>(API_ENDPOINTS.DAILY_STORIES.CHECK);
+
+// طلب قصة جديدة
+export const requestDailyStory = () =>
+    apiClient.post<ApiResponse<DailyStory>>(API_ENDPOINTS.DAILY_STORIES.REQUEST, {});
+
+// الحصول على إحصائيات الكلمات
+export const getDailyStoryWordStatistics = () =>
+    apiClient.get<ApiResponse<{
+        totalWords: number;
+        knownWords: number;
+        partiallyKnownWords: number;
+        unknownWords: number;
+        progressPercentage: number;
+    }>>(API_ENDPOINTS.DAILY_STORIES.WORD_STATISTICS);
+
+// الحصول على الطلبات المتبقية
+export const getDailyStoryRemaining = () =>
+    apiClient.get<ApiResponse<{ remaining: number }>>(API_ENDPOINTS.DAILY_STORIES.REMAINING);
 
 export const getAllDailyStoryWords = () =>
     apiClient.get<ApiResponse<{

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../../core/providers/AuthProvider";
 import {
   getProgress,
@@ -8,6 +8,7 @@ import {
   initializeStreak,
   getLearnedWords,
   getDailyStory,
+  requestDailyStory,
 } from "@/core/utils/api";
 import { FaBookOpen, FaFire, FaStar, FaChartLine } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -263,8 +264,9 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
  * 6. إضافة localStorage للتحقق من عرض القصة في نفس اليوم
  * 7. إضافة timeout لمنع infinite loop (30 ثانية للقصة - محسن للإندبوينت الجديد)
  * 8. منع المحاولات المتكررة للقصة والستريك
+ * 9. إضافة handleAddStreakAndCreateStory() لطلب قصة جديدة مباشرة
  *
- * الإندبوينت الجديد: GET /api/stories/daily/story
+ * الإندبوينت الجديد: POST /api/stories/daily/story/request
  * - يدعم Rate Limiting (قصة واحدة يومياً)
  * - يدعم AI Story Generation (15-25 ثانية)
  * - يدعم Fallback Stories (0.5 ثانية)
@@ -272,14 +274,14 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
  *
  * الرسائل المتوقعة:
  * - "جاري التحقق من القصة اليومية..."
- * - "جاري تحميل القصة اليومية..."
+ * - "جاري طلب القصة اليومية..."
  * - "جاري إنشاء قصة احتياطية..."
- * - "تم تحميل القصة بنجاح!"
+ * - "تم إنشاء القصة بنجاح!"
  * - "تم إنشاء قصة احتياطية!"
  *
  * رسائل الخطأ:
- * - "انتهت مهلة الطلب. يرجى المحاولة مرة أخرى."
- * - "حدث خطأ في تحميل القصة. يرجى المحاولة مرة أخرى."
+ * - "انتهت مهلة طلب القصة. يرجى المحاولة مرة أخرى."
+ * - "حدث خطأ في طلب القصة. يرجى المحاولة مرة أخرى."
  * - "لقد استخدمت حد القصة اليومي. يمكنك طلب قصة جديدة غداً."
  */
 
@@ -473,14 +475,19 @@ export const DashboardPage: React.FC = () => {
     fetchDashboardData();
   };
 
+  // استخدام useRef لتتبع تشغيل useEffect
+  const welcomeModalChecked = useRef(false);
+  const storyLoadingRef = useRef(false);
+
   // دالة للتحقق من وجود ستريك
   const hasStreak = (): boolean => {
-    console.log("hasStreak check:", {
+    const result = streak > 0 || streakAddedToday;
+    console.log("🔍 hasStreak check:", {
       streak,
       streakAddedToday,
-      result: streak > 0 || streakAddedToday,
+      result,
     });
-    return streak > 0 || streakAddedToday;
+    return result;
   };
 
   // دالة للتحقق من الستريك في قاعدة البيانات
@@ -488,10 +495,17 @@ export const DashboardPage: React.FC = () => {
     try {
       console.log("🔍 Verifying streak in database...");
       const streakResponse = await getStreak();
+      console.log("📊 Full streak response:", streakResponse);
+
       if (streakResponse.success && streakResponse.data) {
         const data = streakResponse.data as any;
-        const currentStreak = data.currentStreak || data.streak || 0;
+        console.log("📊 Streak data structure:", data);
+
+        // Check multiple possible field names for streak count
+        const currentStreak =
+          data.currentStreak || data.streak || data.streakCount || 0;
         console.log("📊 Current streak in database:", currentStreak);
+
         const hasValidStreak = currentStreak > 0;
         console.log(
           hasValidStreak
@@ -524,15 +538,32 @@ export const DashboardPage: React.FC = () => {
   const checkAndLoadDailyStory = async () => {
     console.log("=== checkAndLoadDailyStory called ===");
 
+    // بداية قياس الوقت
+    const startTime = performance.now();
+    console.log("⏱️ Starting story loading timer...");
+
+    // منع الاستدعاءات المتكررة
+    if (storyLoadingRef.current) {
+      console.log("⏳ Story loading already in progress, skipping...");
+      return;
+    }
+
+    storyLoadingRef.current = true;
+
     // التحقق من وجود ستريك في قاعدة البيانات مباشرة
+    console.log("🔍 Verifying streak in database...");
     const streakVerified = await verifyStreakInDatabase();
+    console.log("📊 Streak verification result:", streakVerified);
+
     if (!streakVerified) {
-      console.log("Streak not verified in database, retrying...");
+      console.log("❌ Streak not verified in database, retrying...");
       // انتظار إضافي وإعادة المحاولة
       await new Promise((resolve) => setTimeout(resolve, 500)); // تقليل الوقت إلى 500ms
       const retryVerification = await verifyStreakInDatabase();
+      console.log("📊 Retry verification result:", retryVerification);
+
       if (!retryVerification) {
-        console.log("Streak still not verified, showing welcome modal");
+        console.log("❌ Streak still not verified, showing welcome modal");
         setShowWelcomeModal(true);
         return;
       }
@@ -551,34 +582,34 @@ export const DashboardPage: React.FC = () => {
 
     const lastStoryDate = localStorage.getItem("lastStoryShownDate");
 
-    console.log("Story check conditions:", {
+    console.log("📊 Story check conditions:", {
       today,
       lastStoryDate,
       isSameDay: lastStoryDate === today,
       shouldSkip: lastStoryDate === today,
-      hasStreak: hasStreak(),
+      hasStreak: streak > 0 || streakAddedToday,
     });
 
     // إذا تم عرض القصة اليوم، لا نحتاج لتحميلها مرة أخرى
     if (lastStoryDate === today) {
-      console.log("Story already shown today, skipping...");
+      console.log("📝 Story already shown today, skipping...");
       setDailyStoryCompleted(true);
       return;
     }
 
     // منع المحاولات المتكررة
     if (isLoadingStory) {
-      console.log("Story is already being loaded, skipping...");
+      console.log("⏳ Story is already being loaded, skipping...");
       return;
     }
 
-    console.log("About to start loading story...");
+    console.log("🚀 About to start loading story...");
 
-    console.log("Setting isLoadingStory to true");
+    console.log("📝 Setting isLoadingStory to true");
     setIsLoadingStory(true);
     setStoryLoadingError(null);
-    setLoadingMessage("جاري التحقق من القصة اليومية...");
-    console.log("Setting loading message: جاري التحقق من القصة اليومية...");
+    setLoadingMessage("جاري التحقق من القصة...");
+    console.log("📝 Setting loading message: جاري التحقق من القصة...");
 
     // تأخير قصير
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -587,59 +618,76 @@ export const DashboardPage: React.FC = () => {
       // محاولة الحصول على القصة من الإندبوينت الجديد مع timeout محسن
       let response;
       try {
-        console.log("Attempting to fetch daily story from new endpoint...");
+        console.log("📝 Attempting to request story from endpoint...");
 
-        // إضافة رسائل تحميل تفصيلية
-        const loadingMessages = [
-          "جاري التحقق من القصة اليومية...",
-          "جاري البحث في قاعدة البيانات...",
-          "جاري جلب بيانات المستخدم...",
-          "جاري توليد الكلمات اليومية...",
-          "جاري اختيار الكلمات المناسبة...",
-          "جاري توليد القصة بالذكاء الاصطناعي...",
-          "جاري ترجمة القصة...",
-          "جاري إثراء الكلمات...",
-          "جاري حفظ القصة...",
-          "جاري إعداد القصة للعرض...",
+        // إضافة رسائل تحميل تفصيلية مع توقيتات واقعية (90-120 ثانية)
+        const loadingSteps = [
+          { message: "جاري التحقق من القصة اليومية...", duration: 2000 },
+          { message: "جاري البحث في قاعدة البيانات...", duration: 2000 },
+          { message: "جاري جلب بيانات المستخدم...", duration: 2000 },
+          { message: "جاري توليد الكلمات اليومية...", duration: 3000 },
+          { message: "جاري اختيار الكلمات المناسبة...", duration: 3000 },
+          {
+            message: "جاري توليد القصة بالذكاء الاصطناعي (150 كلمة)...",
+            duration: 35000,
+          },
+          { message: "جاري ترجمة القصة...", duration: 25000 },
+          { message: "جاري إثراء الكلمات (150 كلمة)...", duration: 45000 },
+          { message: "جاري حفظ القصة...", duration: 3000 },
+          { message: "جاري إعداد القصة للعرض...", duration: 2000 },
         ];
 
-        let messageIndex = 0;
-        const messageInterval = setInterval(() => {
-          if (messageIndex < loadingMessages.length) {
-            setLoadingMessage(loadingMessages[messageIndex]);
-            messageIndex++;
-          }
-        }, 3000); // تغيير الرسالة كل 3 ثوانٍ
+        let currentStep = 0;
+        let totalTime = 0;
 
+        const messageInterval = setInterval(() => {
+          if (currentStep < loadingSteps.length) {
+            const step = loadingSteps[currentStep];
+            setLoadingMessage(step.message);
+            totalTime += step.duration;
+            currentStep++;
+          }
+        }, 3000); // تحديث كل 3 ثانية ليتناسب مع الوقت الأطول
+
+        console.log("📝 Calling requestDailyStory()...");
+        const apiStartTime = performance.now();
         response = (await Promise.race([
-          getDailyStory(),
+          requestDailyStory(),
           new Promise(
             (_, reject) =>
-              setTimeout(() => reject(new Error("StoryFetchTimeout")), 30000) // 30 ثانية للجلب (محسن للإندبوينت الجديد)
+              setTimeout(() => reject(new Error("StoryRequestTimeout")), 150000) // 150 ثانية للطلب (90-120 ثانية + buffer)
           ),
         ])) as any;
+        const apiEndTime = performance.now();
+        const apiDuration = apiEndTime - apiStartTime;
 
         clearInterval(messageInterval);
-        console.log("Daily story fetch response:", response);
+        console.log("📊 Story request response:", response);
+        console.log(`⏱️ API Request Time: ${apiDuration.toFixed(2)}ms`);
       } catch (apiError) {
-        console.log("Story fetch failed, creating fallback story:", apiError);
+        console.log(
+          "❌ Story request failed, creating fallback story:",
+          apiError
+        );
         // إذا فشل الـ API، ننتقل لإنشاء قصة احتياطية
         await createFallbackStory();
         return;
       }
 
       if (response.success && response.data) {
-        console.log("Daily story exists, loading...");
-        setLoadingMessage("جاري تحميل القصة اليومية...");
-        console.log("Setting loading message: جاري تحميل القصة اليومية...");
+        console.log("✅ Story exists, loading...");
+        setLoadingMessage("جاري تحميل القصة...");
+        console.log("📝 Setting loading message: جاري تحميل القصة...");
 
         // تأخير قصير لمحاكاة التحميل
         await new Promise((resolve) => setTimeout(resolve, 150));
 
         setDailyStory(response.data as unknown as DailyStory);
-        setLoadingMessage("تم إنشاء القصة بنجاح! 🎉");
-        console.log("Setting loading message: تم إنشاء القصة بنجاح! 🎉");
-        console.log("Story loaded successfully, navigating...");
+        setLoadingMessage("تم إنشاء القصة بنجاح! 🎉 (150 كلمة مع جمل ومعاني)");
+        console.log(
+          "📝 Setting loading message: تم إنشاء القصة بنجاح! 🎉 (150 كلمة مع جمل ومعاني)"
+        );
+        console.log("✅ Story loaded successfully, navigating...");
 
         // تأخير قصير لإظهار رسالة النجاح
         await new Promise((resolve) => setTimeout(resolve, 150));
@@ -686,13 +734,14 @@ export const DashboardPage: React.FC = () => {
         setLoadingMessage("");
       } else {
         // القصة غير موجودة، نحتاج لإنشاء قصة احتياطية
-        console.log("Daily story doesn't exist, creating fallback...");
-        await createFallbackStory();
+        console.log("Story doesn't exist, creating fallback...");
       }
     } catch (error: any) {
-      console.error("Error checking daily story:", error);
-      if (error.message === "Timeout") {
-        setStoryLoadingError("انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.");
+      console.error("Error requesting story:", error);
+      if (error.message === "StoryRequestTimeout") {
+        setStoryLoadingError(
+          "انتهت مهلة إنشاء القصة (150 ثانية). يرجى المحاولة مرة أخرى."
+        );
       } else if (
         error.message?.includes("Rate Limit") ||
         error.message?.includes("limit")
@@ -701,12 +750,13 @@ export const DashboardPage: React.FC = () => {
           "لقد استخدمت حد القصة اليومي. يمكنك طلب قصة جديدة غداً."
         );
       } else {
-        setStoryLoadingError("حدث خطأ في تحميل القصة. يرجى المحاولة مرة أخرى.");
+        setStoryLoadingError("حدث خطأ في طلب القصة. يرجى المحاولة مرة أخرى.");
       }
     } finally {
       console.log("Setting isLoadingStory to false");
       setIsLoadingStory(false);
       setLoadingMessage("");
+      storyLoadingRef.current = false; // إعادة تعيين ref
     }
     console.log("checkAndLoadDailyStory finished");
   };
@@ -1337,15 +1387,25 @@ export const DashboardPage: React.FC = () => {
   // دالة جديدة تجمع بين إضافة الستريك وإنشاء القصة
   const handleAddStreakAndCreateStory = async () => {
     console.log("🚀 handleAddStreakAndCreateStory called");
-    setLoadingMessage("جاري إضافة اليوم وإنشاء القصة...");
+    setIsLoadingStory(true);
+    setLoadingMessage("جاري إضافة اليوم...");
 
     try {
       // إضافة الستريك أولاً
-      console.log("Adding streak...");
-      const streakResponse = await addStreak({ action: "daily_login" });
+      console.log("📝 Adding streak with data:", {
+        action: "add",
+        date: new Date().toISOString().split("T")[0],
+      });
+
+      const streakResponse = await addStreak({
+        action: "add",
+        date: new Date().toISOString().split("T")[0],
+      });
+
+      console.log("📊 Full streak response:", streakResponse);
 
       if (streakResponse.success) {
-        console.log("Streak added successfully:", streakResponse.data);
+        console.log("✅ Streak added successfully:", streakResponse.data);
 
         // تحديث الـ state المحلي
         const now = new Date();
@@ -1355,39 +1415,56 @@ export const DashboardPage: React.FC = () => {
           String(now.getMonth() + 1).padStart(2, "0") +
           "-" +
           String(now.getDate()).padStart(2, "0");
-        localStorage.setItem("lastStreakDate", today);
+        localStorage.setItem("lastStreakAddedDate", today);
         localStorage.setItem("streakAddedToday", "true");
 
         // تحديث الـ state
         setStreakAddedToday(true);
-        // تحديث الستريك في الـ state
-        if (
-          streakResponse?.data &&
-          typeof streakResponse.data === "object" &&
-          "streak" in streakResponse.data
-        ) {
-          setStreak((streakResponse.data as any).streak);
+
+        // تحديث الستريك في الـ state - check multiple possible field names
+        if (streakResponse?.data && typeof streakResponse.data === "object") {
+          const data = streakResponse.data as any;
+          const streakCount =
+            data.streakCount || data.currentStreak || data.streak || 0;
+          console.log("📊 Updating streak state with:", streakCount);
+          setStreak(streakCount);
         }
 
         // تأخير قصير للتأكد من تحديث الـ state
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        console.log("Streak added, now checking for daily story...");
-        setLoadingMessage("جاري التحقق من القصة اليومية...");
+        console.log("📝 Streak added, now requesting daily story...");
+        setLoadingMessage(
+          "جاري إنشاء القصة اليومية... ⏱️ (قد يستغرق دقيقة ونصف إلى دقيقتين)"
+        );
 
-        // محاولة الحصول على القصة اليومية من الإندبوينت الجديد
+        // طلب قصة جديدة من الإندبوينت
         try {
+          console.log("📝 Calling requestDailyStory()...");
           const storyResponse = (await Promise.race([
-            getDailyStory(),
+            requestDailyStory(),
             new Promise(
               (_, reject) =>
-                setTimeout(() => reject(new Error("StoryFetchTimeout")), 30000) // 30 ثانية للجلب (محسن للإندبوينت الجديد)
+                setTimeout(
+                  () => reject(new Error("StoryRequestTimeout")),
+                  180000
+                ) // 180 ثانية للطلب (دقيقة ونصف إلى دقيقتين + buffer)
             ),
           ])) as any;
 
+          console.log("📊 Story response:", storyResponse);
+
           if (storyResponse.success && storyResponse.data) {
-            console.log("Daily story found:", storyResponse.data);
-            setLoadingMessage("تم إنشاء القصة اليومية! 🎉");
+            console.log(
+              "✅ Daily story created successfully:",
+              storyResponse.data
+            );
+            setLoadingMessage(
+              "تم إنشاء القصة اليومية بنجاح! 🎉 (150 كلمة مع جمل ومعاني)"
+            );
+
+            // تأخير قصير لإظهار رسالة النجاح
+            await new Promise((resolve) => setTimeout(resolve, 150));
 
             // توجيه المستخدم إلى القصة
             navigate("/story-reader", {
@@ -1401,26 +1478,29 @@ export const DashboardPage: React.FC = () => {
             localStorage.setItem("lastStoryShownDate", today);
             setDailyStoryCompleted(true);
           } else {
-            console.log("No daily story found, creating fallback...");
+            console.log(
+              "❌ Failed to create daily story, creating fallback..."
+            );
             setLoadingMessage("جاري إنشاء قصة احتياطية...");
             await createFallbackStory();
           }
         } catch (storyError) {
           console.log(
-            "Error fetching daily story, creating fallback:",
+            "❌ Error requesting daily story, creating fallback:",
             storyError
           );
           setLoadingMessage("جاري إنشاء قصة احتياطية...");
           await createFallbackStory();
         }
       } else {
-        console.error("Failed to add streak:", streakResponse);
+        console.error("❌ Failed to add streak:", streakResponse);
         setStoryLoadingError("فشل في إضافة الستريك. يرجى المحاولة مرة أخرى.");
       }
     } catch (error) {
-      console.error("Error in handleAddStreakAndCreateStory:", error);
+      console.error("❌ Error in handleAddStreakAndCreateStory:", error);
       setStoryLoadingError("حدث خطأ. يرجى المحاولة مرة أخرى.");
     } finally {
+      setIsLoadingStory(false);
       setLoadingMessage("");
     }
   };
@@ -1438,7 +1518,14 @@ export const DashboardPage: React.FC = () => {
 
   // دمج useEffect للتحقق من الستريك والترحيب في واحد
   useEffect(() => {
+    // منع التشغيل المتكرر
+    if (welcomeModalChecked.current) {
+      return;
+    }
+
     if (user && isAuthenticated && !loading && !authLoading) {
+      welcomeModalChecked.current = true;
+
       const now = new Date();
       const today =
         now.getFullYear() +
@@ -1451,11 +1538,17 @@ export const DashboardPage: React.FC = () => {
       const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
       const alreadyAddedTodayLocal = lastAddedDate === today;
 
+      console.log("🔍 Welcome modal check - localStorage:", {
+        lastAddedDate,
+        today,
+        alreadyAddedTodayLocal,
+      });
+
       if (alreadyAddedTodayLocal) {
         setStreakAddedToday(true);
         // تحديث streakDates إذا لم يكن اليوم موجود
         if (!streakDates.includes(today)) {
-          console.log("Adding today to streakDates from localStorage check");
+          console.log("📝 Adding today to streakDates from localStorage check");
           const updatedStreakDates = [...streakDates, today].sort();
           setStreakDates(updatedStreakDates);
         }
@@ -1463,16 +1556,17 @@ export const DashboardPage: React.FC = () => {
         setStreakAddedToday(false);
       }
 
-      // التحقق من وجود ستريك للترحيب
-      const hasAnyStreak = hasStreak();
+      // التحقق من وجود ستريك للترحيب - استخدام القيم مباشرة بدلاً من استدعاء hasStreak()
+      const hasAnyStreak = streak > 0 || streakAddedToday;
       const isFirstTime = !localStorage.getItem("welcomeShown");
 
-      console.log("Welcome modal check:", {
+      console.log("🔍 Welcome modal check:", {
         hasAnyStreak,
         isFirstTime,
         streak,
         streakAddedToday,
         user: user.name,
+        welcomeShown: localStorage.getItem("welcomeShown"),
       });
 
       // إذا كان المستخدم جديد أو ليس لديه ستريك، اعرض البوب الترحيبي
@@ -1482,14 +1576,14 @@ export const DashboardPage: React.FC = () => {
         (!hasAnyStreak && !isProcessingStreak && !alreadyAddedTodayLocal)
       ) {
         console.log(
-          "Showing welcome modal for new user or user without streak"
+          "🎉 Showing welcome modal for new user or user without streak"
         );
         setIsNewUser(true);
         setShowWelcomeModal(true);
         localStorage.setItem("welcomeShown", "true");
       } else if (hasAnyStreak || alreadyAddedTodayLocal) {
         // إذا كان هناك ستريك، تأكد من إخفاء البوب الترحيبي
-        console.log("User has streak, hiding welcome modal");
+        console.log("✅ User has streak, hiding welcome modal");
         setShowWelcomeModal(false);
       }
     }
@@ -1554,6 +1648,47 @@ export const DashboardPage: React.FC = () => {
     "loadingMessage:",
     loadingMessage
   );
+
+  // Add a debug button to clear localStorage for testing
+  const debugClearStorage = () => {
+    console.log("🧹 Clearing localStorage for debugging...");
+    localStorage.removeItem("welcomeShown");
+    localStorage.removeItem("lastStreakAddedDate");
+    localStorage.removeItem("lastStoryShownDate");
+    localStorage.removeItem("streakAddedToday");
+    console.log("✅ localStorage cleared");
+    // Force re-render
+    window.location.reload();
+  };
+
+  // Add a debug function to show welcome modal
+  const debugShowWelcomeModal = () => {
+    console.log("🎉 Manually showing welcome modal for debugging...");
+    setShowWelcomeModal(true);
+    setIsNewUser(true);
+  };
+
+  // Add a debug function to test streak and story creation
+  const debugTestStreakAndStory = async () => {
+    console.log("🧪 Testing streak and story creation...");
+    try {
+      console.log("📝 Testing addStreak...");
+      const streakResponse = await addStreak({
+        action: "add",
+        date: new Date().toISOString().split("T")[0],
+      });
+      console.log("📊 Streak response:", streakResponse);
+
+      console.log("📝 Testing requestDailyStory...");
+      const storyResponse = await requestDailyStory();
+      console.log("📊 Story response:", storyResponse);
+
+      console.log("✅ Debug test completed");
+    } catch (error) {
+      console.error("❌ Debug test failed:", error);
+    }
+  };
+
   return (
     <>
       <style>{fadeInAnimation}</style>
@@ -1623,8 +1758,19 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               <h2 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-gray-900 dark:text-white">
-                {storyLoadingError ? "حدث خطأ" : "جاري تحميل القصة اليومية"}
+                {storyLoadingError ? "حدث خطأ" : "جاري إنشاء القصة اليومية"}
               </h2>
+
+              {!storyLoadingError && (
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                  <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 text-sm">
+                    <span className="text-lg">⚠️</span>
+                    <span>
+                      لا تغلق الصفحة أثناء التوليد - الوقت طبيعي (90-120 ثانية)
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {storyLoadingError ? (
                 <div className="text-red-600 dark:text-red-400 mb-6 text-base sm:text-lg">
@@ -1659,8 +1805,14 @@ export const DashboardPage: React.FC = () => {
                       style={{ animationDelay: "0.2s" }}
                     ></div>
                   </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    يرجى الانتظار، هذا قد يستغرق بضع دقائق...
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                    يرجى الانتظار، هذا قد يستغرق 90-120 ثانية...
+                  </div>
+                  <div className="text-xs text-gray-400 dark:text-gray-500 mb-2">
+                    القصة ستتضمن 150 كلمة مع جمل ومعاني من الذكاء الاصطناعي
+                  </div>
+                  <div className="text-xs text-red-500 dark:text-red-400 font-medium">
+                    ⚠️ لا تغلق الصفحة أو تنتقل لأي مكان حتى تنتهي القصة
                   </div>
                 </div>
               )}
@@ -1683,6 +1835,16 @@ export const DashboardPage: React.FC = () => {
                   ? "مرحباً بك في منصة التعلم الذكية! ابدأ رحلتك التعليمية بإضافة أول يوم في سلسلة النجاح."
                   : "لقراءة قصة اليوم، يجب عليك أولاً إضافة يوم في سلسلة النجاح."}
               </p>
+
+              <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+                <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300 text-sm">
+                  <span className="text-lg">⏱️</span>
+                  <span>
+                    إنشاء القصة يستغرق دقيقة ونصف إلى دقيقتين (150 كلمة مع جمل
+                    ومعاني)
+                  </span>
+                </div>
+              </div>
 
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <button
@@ -1717,7 +1879,8 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-                إضافة اليوم تتيح لك الوصول للقصة اليومية المخصصة
+                إضافة اليوم تتيح لك الوصول للقصة اليومية المخصصة (150 كلمة مع
+                جمل ومعاني)
               </p>
             </div>
           </div>
@@ -1921,6 +2084,39 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Debug Section - Only show in development */}
+              {process.env.NODE_ENV === "development" && (
+                <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+                  <h3 className="text-lg font-bold text-yellow-800 dark:text-yellow-200 mb-2">
+                    🐛 Debug Info
+                  </h3>
+                  <div className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
+                    <div>Streak: {streak}</div>
+                    <div>
+                      Streak Added Today: {streakAddedToday ? "Yes" : "No"}
+                    </div>
+                    <div>Has Streak: {hasStreak() ? "Yes" : "No"}</div>
+                    <div>
+                      Welcome Shown:{" "}
+                      {localStorage.getItem("welcomeShown") || "No"}
+                    </div>
+                    <div>
+                      Last Streak Date:{" "}
+                      {localStorage.getItem("lastStreakAddedDate") || "None"}
+                    </div>
+                    <div>
+                      Last Story Date:{" "}
+                      {localStorage.getItem("lastStoryShownDate") || "None"}
+                    </div>
+                    <div>Is Loading Story: {isLoadingStory ? "Yes" : "No"}</div>
+                    <div>
+                      Daily Story Completed:{" "}
+                      {dailyStoryCompleted ? "Yes" : "No"}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Quick Actions Section */}
               <div className="mb-6 sm:mb-8">
                 <div className="text-center mb-6 sm:mb-8">
@@ -1944,7 +2140,7 @@ export const DashboardPage: React.FC = () => {
 
                   <ActionButton
                     title="إضافة يوم + قصة"
-                    description="أضف يوم جديد واحصل على قصة مخصصة"
+                    description="أضف يوم جديد واحصل على قصة مخصصة (90-120 ثانية)"
                     icon="🚀"
                     gradientFrom="from-green-500/10"
                     gradientTo="to-emerald-500/10"
@@ -1956,7 +2152,7 @@ export const DashboardPage: React.FC = () => {
                     title="قصة اليوم"
                     description={
                       hasStreak()
-                        ? "اقرأ قصة مخصصة بكلماتك"
+                        ? "اقرأ قصة مخصصة بكلماتك (90-120 ثانية للإنشاء)"
                         : "أضف يوم أولاً لقراءة القصة"
                     }
                     icon="📚"
@@ -2009,7 +2205,41 @@ export const DashboardPage: React.FC = () => {
                     gradientFrom="from-emerald-500/10"
                     gradientTo="to-teal-500/10"
                     hoverBorder="hover:border-emerald-200 dark:hover:border-emerald-600"
+                    onClick={() => navigate("/achievements")}
                   />
+
+                  {/* Debug Button - Only show in development */}
+                  {process.env.NODE_ENV === "development" && (
+                    <>
+                      <ActionButton
+                        title="Debug - Clear Storage"
+                        description="Clear localStorage for testing"
+                        icon="🧹"
+                        gradientFrom="from-red-500/10"
+                        gradientTo="to-pink-500/10"
+                        hoverBorder="hover:border-red-200 dark:hover:border-red-600"
+                        onClick={debugClearStorage}
+                      />
+                      <ActionButton
+                        title="Debug - Show Welcome"
+                        description="Manually show welcome modal"
+                        icon="🎉"
+                        gradientFrom="from-blue-500/10"
+                        gradientTo="to-cyan-500/10"
+                        hoverBorder="hover:border-blue-200 dark:hover:border-blue-600"
+                        onClick={debugShowWelcomeModal}
+                      />
+                      <ActionButton
+                        title="Debug - Test API"
+                        description="Test streak and story APIs"
+                        icon="🧪"
+                        gradientFrom="from-green-500/10"
+                        gradientTo="to-emerald-500/10"
+                        hoverBorder="hover:border-green-200 dark:hover:border-green-600"
+                        onClick={debugTestStreakAndStory}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
             </>

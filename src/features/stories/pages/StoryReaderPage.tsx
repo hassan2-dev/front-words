@@ -12,17 +12,23 @@ import {
   ArrowLeft,
   Home,
   Sparkles,
-  Settings,
   Star,
-  Copy,
-  Target,
   Brain,
-  Award,
-  Clock,
+  Target,
+  RefreshCw,
+  ArrowRight,
 } from "lucide-react";
 import type { DailyStory, DailyStoryWord } from "@/core/types";
 import { enhanceStory, enhanceWords } from "@/core/utils/storyEnhancer";
-import { apiClient, getAllDailyStoryWords } from "@/core/utils/api";
+import {
+  apiClient,
+  checkDailyStory,
+  requestDailyStory,
+  getDailyStoryWordStatistics,
+  getDailyStoryRemaining,
+  updateWordStatus,
+  completeDailyStory,
+} from "@/core/utils/api";
 
 interface StoryReaderProps {
   story?: DailyStory;
@@ -59,6 +65,15 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
   const [readingTime, setReadingTime] = useState(0);
   const [readingProgress, setReadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [wordStatistics, setWordStatistics] = useState({
+    totalWords: 0,
+    knownWords: 0,
+    partiallyKnownWords: 0,
+    unknownWords: 0,
+    progressPercentage: 0,
+  });
+  const [remainingRequests, setRemainingRequests] = useState(0);
 
   // Load story from location if not provided
   useEffect(() => {
@@ -74,33 +89,52 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       }
 
       try {
-        const enhancedStory = {
+        // استخدام القصة الأصلية بدون إضافة محتوى
+        const originalStory = {
           ...location.state.story,
-          ...enhanceStory(location.state.story),
-          words: enhanceWords(location.state.story.words || []),
+          words: location.state.story.words || [],
         };
-        setCurrentStory(enhancedStory as DailyStory);
+        setCurrentStory(originalStory as DailyStory);
       } catch (error) {
-        console.error("Error enhancing story:", error);
+        console.error("Error loading story:", error);
         setError("حدث خطأ في تحميل القصة. يرجى المحاولة مرة أخرى.");
       }
     }
   }, [location.state, currentStory]);
 
-  // جلب كل الكلمات من القصة اليومية
-  const fetchAllStoryWords = async () => {
+  // جلب إحصائيات الكلمات
+  const fetchWordStatistics = async () => {
     try {
-      const response = await getAllDailyStoryWords();
+      const response = await getDailyStoryWordStatistics();
       if (response.success && response.data) {
-        console.log("All story words:", response.data);
-        // يمكن استخدام البيانات هنا إذا لزم الأمر
+        const stats = response.data as any;
+        setWordStatistics({
+          totalWords: stats.totalWords || 0,
+          knownWords: stats.knownWords || 0,
+          partiallyKnownWords: stats.partiallyKnownWords || 0,
+          unknownWords: stats.unknownWords || 0,
+          progressPercentage: stats.progressPercentage || 0,
+        });
       }
     } catch (error) {
-      console.error("Error fetching all story words:", error);
+      console.error("Error fetching word statistics:", error);
     }
   };
 
-  // Initialize word statuses
+  // جلب الطلبات المتبقية
+  const fetchRemainingRequests = async () => {
+    try {
+      const response = await getDailyStoryRemaining();
+      if (response.success && response.data) {
+        const data = response.data as any;
+        setRemainingRequests(data.remaining || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching remaining requests:", error);
+    }
+  };
+
+  // Initialize word statuses and fetch all words
   useEffect(() => {
     if (currentStory?.words) {
       const initialStatus: Record<
@@ -118,6 +152,9 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       setWordStatus(initialStatus);
       setWordsLearned(knownCount);
       setReadingProgress((knownCount / currentStory.words.length) * 100);
+
+      // جلب الطلبات المتبقية
+      fetchRemainingRequests();
     }
   }, [currentStory]);
 
@@ -157,6 +194,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
 
   // Word interaction
   const handleWordClick = async (word: DailyStoryWord) => {
+    console.log("Word clicked:", word);
     setSelectedWord(word);
     setShowWordModal(true);
     speakText(word.word, "en-US");
@@ -182,14 +220,42 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       );
       return newStatus;
     });
+
     try {
-      await apiClient.post("/stories/daily/story/word-interaction", {
+      if (!currentStory?.id) {
+        console.error("No story ID available");
+        addNotification("خطأ: لا يوجد معرف للقصة", "error");
+        return;
+      }
+
+      if (!word || word.trim() === "") {
+        console.error("Invalid word");
+        addNotification("خطأ: كلمة غير صحيحة", "error");
+        return;
+      }
+
+      console.log("Sending word interaction:", {
         word: word,
         status: status,
-        storyId: currentStory?.id,
+        storyId: currentStory.id,
       });
-      addNotification("تم تحديث حالة الكلمة بنجاح", "success");
+
+      const response = await updateWordStatus({
+        word: word,
+        status: status,
+      });
+
+      console.log("Word interaction response:", response);
+
+      if (response.success) {
+        addNotification("تم تحديث حالة الكلمة بنجاح", "success");
+        // تحديث الإحصائيات بعد تغيير حالة الكلمة
+        fetchWordStatistics();
+      } else {
+        addNotification("خطأ في تحديث حالة الكلمة", "error");
+      }
     } catch (error) {
+      console.error("Error updating word status:", error);
       addNotification("خطأ في تحديث حالة الكلمة", "error");
     }
     setShowWordModal(false);
@@ -198,46 +264,36 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
   // Word coloring based on status
   const getWordColor = (word: DailyStoryWord) => {
     const status = wordStatus[word.word] || word.status;
-    let baseClasses =
-      "inline-block px-2 py-1 mx-0.5 my-0.5 rounded-lg cursor-pointer transition-all duration-300 hover:scale-110 font-semibold text-sm border-2 shadow-sm ";
-    if (word.isDailyWord) {
-      baseClasses +=
-        "ring-2 ring-blue-400 ring-opacity-50 shadow-blue-200 dark:shadow-blue-900/30 ";
-    }
+
+    // Return only text color classes without backgrounds
     switch (status) {
       case "KNOWN":
-        return (
-          baseClasses +
-          "text-emerald-800 bg-gradient-to-r from-emerald-200 to-emerald-100 dark:from-emerald-800/50 dark:to-emerald-700/30 dark:text-emerald-200 border-emerald-400 dark:border-emerald-600 hover:from-emerald-300 hover:to-emerald-200 shadow-emerald-200 hover:shadow-emerald-300"
-        );
+        return "text-green-600 dark:text-green-400 cursor-pointer hover:underline";
       case "PARTIALLY_KNOWN":
-        return (
-          baseClasses +
-          "text-amber-800 bg-gradient-to-r from-amber-200 to-amber-100 dark:from-amber-800/50 dark:to-amber-700/30 dark:text-amber-200 border-amber-400 dark:border-amber-600 hover:from-amber-300 hover:to-amber-200 shadow-amber-200"
-        );
+        return "text-yellow-600 dark:text-yellow-400 cursor-pointer hover:underline";
       case "NOT_LEARNED":
-        return (
-          baseClasses +
-          "text-rose-800 bg-gradient-to-r from-rose-200 to-rose-100 dark:from-rose-800/50 dark:to-rose-700/30 dark:text-rose-200 border-rose-400 dark:border-rose-600 hover:from-rose-300 hover:to-rose-200 shadow-rose-200"
-        );
+        return "text-gray-800 dark:text-gray-200 cursor-pointer hover:underline";
       default:
-        return (
-          baseClasses +
-          "text-blue-800 bg-gradient-to-r from-blue-200 to-blue-100 dark:from-blue-800/50 dark:to-blue-700/30 dark:text-blue-200 border-blue-400 dark:border-blue-600 hover:from-blue-300 hover:to-blue-200 shadow-blue-200"
-        );
+        return "text-gray-800 dark:text-gray-200 cursor-pointer hover:underline";
     }
   };
 
   // Complete story
   const handleCompleteStory = async () => {
     try {
-      await apiClient.post("/stories/daily/story/complete", {
-        storyId: currentStory?.id,
-        completedAt: new Date().toISOString(),
+      const response = await completeDailyStory({
+        storyId: currentStory?.id || "",
+        level: "beginner",
+        points: wordsLearned * 10,
       });
-      setShowCompletionModal(true);
-      addNotification("🎉 تم إكمال القصة بنجاح!", "success");
-      if (onComplete) onComplete();
+
+      if (response.success) {
+        setShowCompletionModal(true);
+        addNotification("🎉 تم إكمال القصة بنجاح!", "success");
+        if (onComplete) onComplete();
+      } else {
+        addNotification("خطأ في إكمال القصة", "error");
+      }
     } catch (error) {
       addNotification("خطأ في إكمال القصة", "error");
     }
@@ -301,28 +357,24 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                 // إنشاء كلمة مؤقتة للكلمات غير الموجودة في القائمة
                 const tempWord: DailyStoryWord = {
                   word: cleanWord,
-                  meaning: "لم يتم العثور على المعنى",
+                  meaning: cleanWord,
                   sentence: `"${word}"`,
                   sentenceAr: `"${word}"`,
                   sentence_ar: `"${word}"`,
                   status: "NOT_LEARNED",
                   type: "unknown",
-                  color: "red",
+                  color: "blue",
                   isDailyWord: false,
                 };
                 handleWordClick(tempWord);
               }
             }}
-            className={`inline-block px-1 py-0.5 mx-0.5 my-0.5 rounded cursor-pointer transition-all duration-200 hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:scale-105 ${
+            className={`${
               storyWord
                 ? getWordColor(storyWord)
-                : "text-gray-800 dark:text-gray-200"
+                : "text-gray-800 dark:text-gray-200 cursor-pointer hover:underline"
             }`}
-            title={
-              storyWord
-                ? `${storyWord.meaning} - انقر للتفاصيل`
-                : `انقر لمعرفة المزيد عن "${cleanWord}"`
-            }
+            title={`انقر لمعرفة المزيد عن "${cleanWord}"`}
           >
             {word}
           </span>
@@ -339,20 +391,18 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate("/stories")}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => navigate("/stories")}
+                  className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                >
+                  <ArrowRight className="w-5 h-5" />
+                </button>
                 <h1 className="text-lg font-bold text-gray-900 dark:text-white">
                   {currentStory.title.split(" - ")[0]}
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {currentStory.words.length} كلمة • {wordsLearned} كلمة معروفة
-                </p>
               </div>
+              <div></div>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -362,6 +412,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                     ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
                     : "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"
                 }`}
+                title="استمع للقصة"
               >
                 {isSpeaking ? (
                   <Pause className="w-5 h-5" />
@@ -369,13 +420,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                   <Play className="w-5 h-5" />
                 )}
               </button>
-              <button
-                onClick={fetchAllStoryWords}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 mr-2"
-              >
-                <Target className="w-4 h-4" />
-                جلب كل الكلمات
-              </button>
+
               <button
                 onClick={handleCompleteStory}
                 className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
@@ -391,9 +436,9 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-8">
           {/* Story Content */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <div className="prose prose-lg dark:prose-invert max-w-none">
-              <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-lg">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
+            <div className="max-w-none">
+              <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-xl font-normal text-justify">
                 {renderContent(currentStory.content)}
               </div>
             </div>
@@ -414,7 +459,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                 <Mic className="w-5 h-5" />
               </button>
             </div>
-            <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg text-right">
+            <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg text-right text-justify">
               {currentStory.translation}
             </div>
           </div>
@@ -427,10 +472,9 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center p-4 bg-white/60 dark:bg-gray-800/60 rounded-lg">
                 <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {
+                  {wordStatistics.knownWords ||
                     Object.values(wordStatus).filter((s) => s === "KNOWN")
-                      .length
-                  }
+                      .length}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   معروفة
@@ -438,11 +482,10 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
               </div>
               <div className="text-center p-4 bg-white/60 dark:bg-gray-800/60 rounded-lg">
                 <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                  {
+                  {wordStatistics.partiallyKnownWords ||
                     Object.values(wordStatus).filter(
                       (s) => s === "PARTIALLY_KNOWN"
-                    ).length
-                  }
+                    ).length}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   جزئية
@@ -450,15 +493,46 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
               </div>
               <div className="text-center p-4 bg-white/60 dark:bg-gray-800/60 rounded-lg">
                 <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                  {
+                  {wordStatistics.unknownWords ||
                     Object.values(wordStatus).filter((s) => s === "NOT_LEARNED")
-                      .length
-                  }
+                      .length}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   جديدة
                 </div>
               </div>
+            </div>
+            {/* Progress Bar */}
+            <div className="mt-4">
+              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
+                <span>التقدم</span>
+                <span>
+                  {wordStatistics.progressPercentage ||
+                    Math.round(
+                      (wordsLearned / currentStory.words.length) * 100
+                    )}
+                  %
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${
+                      wordStatistics.progressPercentage ||
+                      Math.round(
+                        (wordsLearned / currentStory.words.length) * 100
+                      )
+                    }%`,
+                  }}
+                ></div>
+              </div>
+            </div>
+            {/* Remaining Requests */}
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                الطلبات المتبقية: {remainingRequests}
+              </p>
             </div>
           </div>
         </div>
@@ -466,7 +540,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       {/* Word Modal */}
       {showWordModal && selectedWord && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 max-w-lg w-full">
             <div className="text-center">
               {selectedWord.isDailyWord && (
                 <div className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-sm mb-4">
@@ -474,64 +548,64 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                   كلمة يومية
                 </div>
               )}
-              <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
                 {selectedWord.word}
               </h3>
-              <p className="text-xl text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">
                 {selectedWord.meaning}
               </p>
               {selectedWord.sentence && (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
-                  <p className="text-gray-800 dark:text-gray-200 mb-2">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 mb-6">
+                  <p className="text-gray-800 dark:text-gray-200 mb-3 text-lg">
                     "{selectedWord.sentence}"
                   </p>
                   {selectedWord.sentence_ar && (
-                    <p className="text-gray-600 dark:text-gray-400 text-sm text-right">
+                    <p className="text-gray-600 dark:text-gray-400 text-base text-right">
                       "{selectedWord.sentence_ar}"
                     </p>
                   )}
                 </div>
               )}
-              <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="grid grid-cols-3 gap-3 mb-6">
                 <button
                   onClick={() =>
                     handleWordStatusChange(selectedWord.word, "KNOWN")
                   }
-                  className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm flex items-center justify-center gap-1"
+                  className="px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                 >
-                  <Check className="w-3 h-3" />
+                  <Check className="w-4 h-4" />
                   أعرفها
                 </button>
                 <button
                   onClick={() =>
                     handleWordStatusChange(selectedWord.word, "PARTIALLY_KNOWN")
                   }
-                  className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm flex items-center justify-center gap-1"
+                  className="px-4 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                 >
-                  <HelpCircle className="w-3 h-3" />
+                  <HelpCircle className="w-4 h-4" />
                   جزئياً
                 </button>
                 <button
                   onClick={() =>
                     handleWordStatusChange(selectedWord.word, "NOT_LEARNED")
                   }
-                  className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm flex items-center justify-center gap-1"
+                  className="px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-4 h-4" />
                   لا أعرف
                 </button>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <button
                   onClick={() => speakText(selectedWord.word)}
-                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 font-medium"
                 >
-                  <Mic className="w-4 h-4" />
+                  <Mic className="w-5 h-5" />
                   استمع
                 </button>
                 <button
                   onClick={() => setShowWordModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                  className="flex-1 px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
                 >
                   إغلاق
                 </button>

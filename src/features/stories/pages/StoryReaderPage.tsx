@@ -78,7 +78,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
 
   if (isLoading) {
     return (
-      <Loading size="lg" variant="default" text="جاري تحميل القصة..." />
+      <Loading size="lg" variant="video" text="جاري تحميل القصة..." isOverlay />
     );
   }
 

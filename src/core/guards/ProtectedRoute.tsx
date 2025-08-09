@@ -7,7 +7,7 @@ import { Loading } from "@/presentation/components";
 // Loading Component
 const LoadingSpinner: React.FC = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-    <Loading size="lg" variant="default" text="جاري التحميل..." />
+    <Loading size="lg" variant="video" text="جاري التحميل..." isOverlay />
   </div>
 );
 

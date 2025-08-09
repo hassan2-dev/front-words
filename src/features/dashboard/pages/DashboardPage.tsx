@@ -91,10 +91,11 @@ const LoadingSpinner: React.FC = () => (
   <div className="flex flex-col items-center justify-center py-12 sm:py-20">
     <Loading
       size="lg"
-      variant="default"
+      variant="video"
       text="جاري تحميل بياناتك الشخصية..."
       className="mb-0"
-    />
+      isOverlay
+      />
   </div>
 );
 
@@ -1702,10 +1703,8 @@ export const DashboardPage: React.FC = () => {
 
             return null;
           })()}
-          {authLoading ? (
-            <Loading size="xl" variant="video" text="جاري التحميل..." />
-          ) : loading ? (
-            <Loading size="xl" variant="video" text="جاري التحميل..." />
+          {authLoading  || loading ? (
+            <Loading isOverlay variant="video" size="xl" text="جاري التحميل..." />
           ) : error ? (
             <ErrorDisplay error={error} onRetry={fetchDashboardData} />
           ) : user && isAuthenticated ? (
@@ -1778,42 +1777,7 @@ export const DashboardPage: React.FC = () => {
                     <p className="text-gray-600 dark:text-gray-400 text-center mb-2 text-sm sm:text-base">
                       {streak > 7 ? "إنجاز رائع! 🎉" : "استمر في التعلم"}
                     </p>
-                    <div className="text-center mt-2">
-                      {streakAddedToday ? (
-                        <span className="text-green-600 dark:text-green-400 text-xs font-medium">
-                          ✅ تم إضافة اليوم
-                        </span>
-                      ) : (
-                        user &&
-                        isAuthenticated &&
-                        !isProcessingStreak && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (streak === 0) {
-                                handleInitializeStreak();
-                              } else {
-                                handleAddStreak();
-                              }
-                            }}
-                            disabled={isProcessingStreak || addingStreak}
-                            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-xs font-medium px-3 py-1 rounded-full shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                          >
-                            {isProcessingStreak || addingStreak ? (
-                              <div className="flex items-center gap-1">
-                                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                                جاري الإضافة...
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <FaFire className="text-xs" />
-                                إضافة اليوم
-                              </div>
-                            )}
-                          </button>
-                        )
-                      )}
-                    </div>
+                   
                   </StatCard>
                 </div>
 

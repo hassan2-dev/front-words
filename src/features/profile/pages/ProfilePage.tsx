@@ -205,7 +205,7 @@ export const ProfilePage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loading size="lg" variant="default" text="جاري تحميل البيانات..." />
+        <Loading size="lg" variant="video" text="جاري تحميل البيانات..." isOverlay   />
       </div>
     );
   }

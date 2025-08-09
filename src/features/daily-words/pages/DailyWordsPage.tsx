@@ -412,6 +412,7 @@ export const DailyWordsPage: React.FC = () => {
             size="xl"
             text="جاري تحميل الكلمات..."
             className="text-white"
+            isOverlay
           />
         </div>
       </div>
@@ -1181,7 +1182,6 @@ export const DailyWordsPage: React.FC = () => {
             allCategoriesData.known.words.length === 0 ? (
               <div className="mb-8 flex justify-center">
                 <div className="max-w-lg bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl p-10 text-center border border-white/20">
-                 <Loading isOverlay variant="video"  />
                   <h2 className="text-4xl font-bold bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 bg-clip-text text-transparent mb-4">
                     لا توجد كلمات معروفة
                   </h2>

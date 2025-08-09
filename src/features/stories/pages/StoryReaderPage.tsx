@@ -294,11 +294,13 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
         storyId: currentStory?.id || "",
         level: "beginner",
         points: wordsLearned * 10,
+
       });
 
       if (response.success) {
         setShowCompletionModal(true);
         addNotification("🎉 تم إكمال القصة بنجاح!", "success");
+        localStorage.setItem("dailyStoryCompleted", "true");
         if (onComplete) onComplete();
       } else {
         addNotification("خطأ في إكمال القصة", "error");

@@ -225,7 +225,7 @@ export const StoriesPage: React.FC = () => {
 
   if (loading)
     return (
-      <Loading size="xl" variant="video" text="جاري تحميل القصص..." />
+      <Loading size="xl" variant="video" text="جاري تحميل القصص..." isOverlay />
     );
 
   return (
@@ -264,7 +264,7 @@ export const StoriesPage: React.FC = () => {
         </div>
 
           {dailyStoryLoading && (
-          <Loading size="xl" variant="video" text="جاري تحميل القصة اليومية..." />
+          <Loading size="xl" variant="video" text="جاري تحميل القصة اليومية..." isOverlay />
         )}
         {dailyStoryError && (
           <ErrorDisplay error={dailyStoryError} onRetry={fetchDailyStory} />
@@ -397,7 +397,7 @@ export const StoriesPage: React.FC = () => {
           <span>📚</span> القصص المحفوظة
         </h2>
         {popularLoading && (
-          <div className="text-gray-500">جاري تحميل القصص...</div>
+          <Loading size="xl" variant="video" text="جاري تحميل القصص..." isOverlay />
         )}
         {popularError && <div className="text-red-600">{popularError}</div>}
         {!popularLoading && !popularError && popularStories.length > 0 && (

@@ -132,22 +132,11 @@ const ChatWithAIPage: React.FC = () => {
       {
         id: "welcome",
         message: "مرحباً",
-        response: `مرحباً بك في تطبيق تعلم الكلمات مع الذكاء الاصطناعي! 🌟
+        response: `مرحباً بك في منصة الذكاء الاصطناعي   لتعلم الكلمات! 🌟
 
-أهلاً وسهلاً بك في رحلة تعلم ممتعة وتفاعلية. يمكنك الاستفادة من المميزات التالية:
+ابدأ رحلتك في تعلم اللغة الإنجليزية بطريقة تفاعلية وسهلة. يمكنك طرح أي سؤال أو طلب أمثلة وجمل جديدة، وسأكون هنا لمساعدتك في كل خطوة.
 
-• اختيار أي كلمة من القائمة الجانبية للحصول على شرح مفصل
-• طرح أي سؤال تريده حول اللغة الإنجليزية
-• الاستماع للنطق الصحيح للجمل الإنجليزية
-• تعلم الكلمات وحفظها في قائمتك الشخصية${
-          stored && JSON.parse(stored).length
-            ? `\n\n📚 لديك ${
-                JSON.parse(stored).length
-              } كلمات جديدة تنتظر التعلم!`
-            : ""
-        }
-
-كيف يمكنني مساعدتك اليوم؟ 😊`,
+ما الذي ترغب في تعلمه اليوم؟ 😊`,
         timestamp: new Date().toISOString(),
         type: "system",
       },
@@ -197,9 +186,15 @@ const ChatWithAIPage: React.FC = () => {
     fetchInitialData();
   }, []);
 
-  // التمرير التلقائي للأسفل
+  // التمرير التلقائي للأسفل (تجاهل رسالة الترحيب الأولية)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!messages.length) return;
+    const last = messages[messages.length - 1];
+    if (last.id === "welcome" || last.type === "system") return;
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
   }, [messages]);
 
   const handleSendMessage = async (message: string) => {
@@ -514,17 +509,12 @@ const ChatWithAIPage: React.FC = () => {
   // Loading Screen
   if (isPageLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 flex items-center justify-center">
-        <div className="text-center bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-2xl p-8 shadow-2xl">
-          <div className="w-20 h-20 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-3">
-            جاري تحميل البيانات...
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-lg">
-            يرجى الانتظار قليلاً ✨
-          </p>
-        </div>
-      </div>
+      <Loading
+        isOverlay
+        variant="video"
+        size="xl"
+        text="جاري تحميل البيانات..."
+      />
     );
   }
 
@@ -535,20 +525,21 @@ const ChatWithAIPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4 rtl:space-x-reverse">
-              
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                   دردشة مع الذكاء الاصطناعي
-                </h1>
+                </h3>
                 <p className="text-slate-600 dark:text-slate-400 mt-1 font-medium">
-                  تعلم الكلمات الجديدة بطريقة تفاعلية وممتعة 🚀
+                  تعلم الكلمات  بطريقة تفاعلية وممتعة 
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-3 rtl:space-x-reverse">
-              <div className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-full text-sm font-bold shadow-lg">
-                {isLoadingRemaining ? "..." : remainingRequests} طلبات متبقية
-              </div>
+              <p className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-full text-xs md:text-sm font-bold shadow-lg min-w-[90px] text-center md:px-4 md:py-2">
+                {isLoadingRemaining ? "..." : remainingRequests}
+                <span className="hidden sm:inline">&nbsp;طلبات متبقية</span>
+                <span className="inline sm:hidden">&nbsp;متبقي</span>
+              </p>
             </div>
           </div>
         </div>
@@ -557,6 +548,206 @@ const ChatWithAIPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* Chat Area */}
+          <div className="lg:col-span-3">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 h-[600px] flex flex-col relative">
+              {/* Watermark Logo */}
+              <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center">
+                <div className="flex flex-col items-center select-none">
+                  <img
+                    src="/logo.png"
+                    alt="logo"
+                    className="w-32 h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 object-contain"
+                    style={{ opacity: 0.12 }}
+                  />
+                  <p
+                    className="mt-2 text-xl font-bold text-orange-500 dark:text-orange-400"
+                    style={{ opacity: 0.12 }}
+                  >
+                    LetSpeak
+                  </p>
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 relative z-10">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${
+                      msg.type === "user" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    <div
+                      className={`max-w-[80%] p-3 rounded-lg ${
+                        msg.type === "user"
+                          ? "bg-blue-600 text-white"
+                          : msg.type === "error"
+                          ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700"
+                          : "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+                      }`}
+                    >
+                      {msg.type === "user" ? (
+                        <p className="text-sm">{msg.message}</p>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="text-sm leading-relaxed">
+                            {formatMessageText(msg.response)}
+                          </div>
+                          {msg.type === "ai" &&
+                            msg.response &&
+                            msg.response.match(/[A-Z][^.!?]*[.!?]/g) && (
+                              <div className="flex gap-2 mt-2">
+                                <button
+                                  onClick={() =>
+                                    handleReadSentence(msg.response)
+                                  }
+                                  disabled={isReading}
+                                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                                    isReading &&
+                                    currentSentence === msg.response
+                                      ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                      : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                                  }`}
+                                >
+                                  {isReading &&
+                                  currentSentence === msg.response ? (
+                                    <span className="flex items-center gap-1">
+                                      <svg
+                                        className="w-3 h-3 animate-pulse"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                      إيقاف
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1">
+                                      <svg
+                                        className="w-3 h-3"
+                                        fill="currentColor"
+                                        viewBox="0 0 20 20"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                      استمع للجمل الإنجليزية
+                                    </span>
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {isLoading && (
+                  <Loading size="xl" variant="video" text="جاري التحميل..." isOverlay />
+                )}
+
+                <div ref={messagesEndRef} />
+
+                {/* أزرار الرد */}
+                {showResponseButtons && (
+                  <div className="flex justify-center gap-3 p-4">
+                    <button
+                      onClick={() => handleUserResponse("نعم")}
+                      className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                    >
+                      نعم
+                    </button>
+                    <button
+                      onClick={() => handleUserResponse("لا")}
+                      className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                    >
+                      لا
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Input Area */}
+              <div className="p-4 border-t border-slate-200 dark:border-slate-700 relative z-10">
+                {remainingRequests <= 0 ? (
+                  <div className="text-center py-4">
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4">
+                      <p className="text-red-700 dark:text-red-300 text-sm">
+                        ⚠️ لقد استخدمت جميع طلبات الدردشة اليومية. يمكنك إرسال
+                        رسائل جديدة غداً.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        onKeyPress={(e) =>
+                          e.key === "Enter" && handleSendMessage(inputMessage)
+                        }
+                        placeholder="اكتب رسالتك هنا..."
+                        className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        disabled={isLoading}
+                      />
+                      <button
+                        onClick={() => handleSendMessage(inputMessage)}
+                        disabled={!inputMessage.trim() || isLoading}
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+                      >
+                        {isLoading ? (
+                          <Loading
+                            size="xl"
+                            variant="video"
+                            text="جاري التحميل..."
+                            isOverlay
+                          />
+                        ) : (
+                          "إرسال"
+                        )}
+                      </button>
+                    </div>
+
+                    {/* أزرار إضافية */}
+                    <div className="flex gap-2">
+                      {isReading && (
+                        <button
+                          onClick={handleStopReading}
+                          className="flex-1 px-4 py-2 text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-lg transition-colors"
+                        >
+                          <span className="flex items-center justify-center gap-2">
+                            <svg
+                              className="w-4 h-4 animate-pulse"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            إيقاف القراءة
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
           <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-slate-200/50 dark:border-slate-700/50 hover:shadow-2xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
@@ -814,211 +1005,6 @@ const ChatWithAIPage: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Chat Area */}
-          <div className="lg:col-span-3">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 h-[600px] flex flex-col relative">
-              {/* Background Logo - Clearer and More Visible */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
-                <div
-                  className="w-full h-full bg-gradient-to-br from-purple-100 via-blue-50 to-pink-100 dark:from-slate-700 dark:via-slate-800 dark:to-purple-800 absolute inset-0 rounded-xl"
-                  style={{ filter: "blur(4px)", opacity: 0.6 }}
-                ></div>
-                <div className="relative z-10 flex flex-col items-center">
-                  <img
-                    src="/logo.png"
-                    alt="logo"
-                    className="w-32 h-32 md:w-40 md:h-40 lg:w-48 lg:h-48 object-contain drop-shadow-2xl"
-                    style={{ opacity: 0.95 }}
-                  />
-                  <p className="mt-2 text-xl font-bold text-orange-500 dark:text-orange-400 flex items-center gap-1">
-                    LetSpeak
-                  </p>
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 relative z-10">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${
-                      msg.type === "user" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    <div
-                      className={`max-w-[80%] p-3 rounded-lg ${
-                        msg.type === "user"
-                          ? "bg-blue-600 text-white"
-                          : msg.type === "error"
-                          ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700"
-                          : "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200"
-                      }`}
-                    >
-                      {msg.type === "user" ? (
-                        <p className="text-sm">{msg.message}</p>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="text-sm leading-relaxed">
-                            {formatMessageText(msg.response)}
-                          </div>
-                          {msg.type === "ai" &&
-                            msg.response &&
-                            msg.response.match(/[A-Z][^.!?]*[.!?]/g) && (
-                              <div className="flex gap-2 mt-2">
-                                <button
-                                  onClick={() =>
-                                    handleReadSentence(msg.response)
-                                  }
-                                  disabled={isReading}
-                                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                                    isReading &&
-                                    currentSentence === msg.response
-                                      ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                                      : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50"
-                                  }`}
-                                >
-                                  {isReading &&
-                                  currentSentence === msg.response ? (
-                                    <span className="flex items-center gap-1">
-                                      <svg
-                                        className="w-3 h-3 animate-pulse"
-                                        fill="currentColor"
-                                        viewBox="0 0 20 20"
-                                      >
-                                        <path
-                                          fillRule="evenodd"
-                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                                          clipRule="evenodd"
-                                        />
-                                      </svg>
-                                      إيقاف
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center gap-1">
-                                      <svg
-                                        className="w-3 h-3"
-                                        fill="currentColor"
-                                        viewBox="0 0 20 20"
-                                      >
-                                        <path
-                                          fillRule="evenodd"
-                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                                          clipRule="evenodd"
-                                        />
-                                      </svg>
-                                      استمع للجمل الإنجليزية
-                                    </span>
-                                  )}
-                                </button>
-                              </div>
-                            )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-100"></div>
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-200"></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div ref={messagesEndRef} />
-
-                {/* أزرار الرد */}
-                {showResponseButtons && (
-                  <div className="flex justify-center gap-3 p-4">
-                    <button
-                      onClick={() => handleUserResponse("نعم")}
-                      className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                    >
-                      نعم
-                    </button>
-                    <button
-                      onClick={() => handleUserResponse("لا")}
-                      className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-                    >
-                      لا
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Input Area */}
-              <div className="p-4 border-t border-slate-200 dark:border-slate-700 relative z-10">
-                {remainingRequests <= 0 ? (
-                  <div className="text-center py-4">
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4">
-                      <p className="text-red-700 dark:text-red-300 text-sm">
-                        ⚠️ لقد استخدمت جميع طلبات الدردشة اليومية. يمكنك إرسال
-                        رسائل جديدة غداً.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex gap-3">
-                      <input
-                        type="text"
-                        value={inputMessage}
-                        onChange={(e) => setInputMessage(e.target.value)}
-                        onKeyPress={(e) =>
-                          e.key === "Enter" && handleSendMessage(inputMessage)
-                        }
-                        placeholder="اكتب رسالتك هنا..."
-                        className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        disabled={isLoading}
-                      />
-                      <button
-                        onClick={() => handleSendMessage(inputMessage)}
-                        disabled={!inputMessage.trim() || isLoading}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
-                      >
-                        {isLoading ? (
-                          <Loading size="xl" variant="video" text="جاري التحميل..." />    
-                        ) : (
-                          "إرسال"
-                        )}
-                      </button>
-                    </div>
-
-                    {/* أزرار إضافية */}
-                    <div className="flex gap-2">
-                      {isReading && (
-                        <button
-                          onClick={handleStopReading}
-                          className="flex-1 px-4 py-2 text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-lg transition-colors"
-                        >
-                          <span className="flex items-center justify-center gap-2">
-                            <svg
-                              className="w-4 h-4 animate-pulse"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                            إيقاف القراءة
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -1170,7 +1156,11 @@ const ChatWithAIPage: React.FC = () => {
                       : "bg-blue-600 hover:bg-blue-700 text-white"
                   }`}
                 >
-                    {isLoading ? <Loading size="xl" variant="video" text="جاري التحميل..." />  : "اسأل AI"}
+                  {isLoading ? (
+                    <Loading size="xl" variant="video" text="جاري التحميل..." />
+                  ) : (
+                    "اسأل AI"
+                  )}
                 </button>
                 <button
                   onClick={() => {

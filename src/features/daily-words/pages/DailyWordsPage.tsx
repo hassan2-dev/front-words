@@ -13,7 +13,8 @@ import {
 } from "../../../core/utils/api";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Loading } from "../../../presentation/components";
-import { FaBookOpen } from "react-icons/fa";
+import { FaBookOpen, FaVolumeUp } from "react-icons/fa";
+import { SpeakerIcon } from "lucide-react";
 
 // تعريف AllWordsResponse أعلى الملف
 export type AllWordsResponse = { public: any[]; private: any[] };
@@ -405,7 +406,6 @@ export const DailyWordsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screenrelative overflow-hidden flex items-center justify-center">
-        
         <div className="text-center relative z-10">
           <Loading
             variant="video"
@@ -421,9 +421,6 @@ export const DailyWordsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-slate-800 dark:to-gray-900 relative overflow-hidden">
-
-
-
       <div className="w-full h-full px-0 py-0 relative z-10">
         {/* Enhanced Header Section */}
         <div className="mb-8">
@@ -657,6 +654,269 @@ export const DailyWordsPage: React.FC = () => {
                 </div>
               )}
 
+            {/* Enhanced Main Content - Mobile Optimized */}
+<div className="lg:col-span-3 mb-8">
+  {/* Enhanced Word Card */}
+  {allCategoriesData?.daily?.words &&
+    allCategoriesData.daily.words[currentWordIndex] && (
+      <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-xl lg:rounded-2xl shadow-lg lg:shadow-xl p-4 lg:p-8 border border-gray-200 dark:border-gray-700">
+        <div className="text-center mb-4 lg:mb-6">
+          <div className="flex items-center justify-between lg:justify-center lg:gap-3 mb-4 lg:mb-6">
+            <button
+              onClick={prevWord}
+              disabled={currentWordIndex === 0}
+              className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-lg lg:rounded-xl flex items-center justify-center shadow-md lg:shadow-lg transition-all duration-300 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+            >
+              <RiArrowRightLine className="w-5 h-5 lg:w-6 lg:h-6" />
+            </button>
+
+            <div className="text-center flex-1 lg:flex-initial lg:min-w-0">
+              <div className="mx-2 lg:mx-0">
+                {/* حالة الكلمة */}
+                {currentWord.status && (
+                  <div className="flex justify-center mb-2 lg:mb-3">
+                    <span
+                      className={`px-2 py-1 lg:px-3 lg:py-1 rounded-full text-xs font-medium lg:font-bold ${
+                        currentWord.status === "KNOWN"
+                          ? "bg-green-100/80 text-green-700 border border-green-300/50"
+                          : currentWord.status === "PARTIALLY_KNOWN"
+                          ? "bg-yellow-100/80 text-yellow-700 border border-yellow-300/50"
+                          : "bg-red-100/80 text-red-700 border border-red-300/50"
+                      }`}
+                    >
+                      {currentWord.status === "KNOWN"
+                        ? "معروفة"
+                        : currentWord.status === "PARTIALLY_KNOWN"
+                        ? "معروفة جزئياً"
+                        : "غير معروفة"}
+                    </span>
+                  </div>
+                )}
+                 
+                 
+                  <div className="flex items-center justify-center gap-3 lg:gap-4 text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-extrabold bg-gradient-to-r from-blue-700 via-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2 lg:mb-3 break-words">
+                    <span className="text-center select-text">
+                      {currentWord?.word || currentWord?.english}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="استمع إلى الكلمة"
+                      className="p-2 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      onClick={() =>
+                        speakWord(currentWord?.word || currentWord?.english)
+                      }
+                    >
+                      <FaVolumeUp size={24} className="text-blue-700" />
+                    </button>
+                  </div>
+
+                <div className="flex items-center justify-center gap-2 lg:gap-3">
+                  
+                  <span className="text-xs lg:text-sm font-medium lg:font-semibold text-gray-700 dark:text-gray-300 bg-white/60 dark:bg-gray-800/60 px-2 py-1 lg:px-4 lg:py-2 rounded-lg lg:rounded-xl border border-gray-200/50 dark:border-gray-600/50 shadow-sm lg:shadow-md">
+                    {currentWordIndex + 1} من{" "}
+                    {allCategoriesData?.daily?.words?.length ||
+                      words.length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={nextWord}
+              disabled={
+                currentWordIndex ===
+                (allCategoriesData?.daily?.words?.length ||
+                  words.length) -
+                  1
+              }
+              className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-lg lg:rounded-xl flex items-center justify-center shadow-md lg:shadow-lg transition-all duration-300 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
+            >
+              <RiArrowLeftLine className="w-5 h-5 lg:w-6 lg:h-6" />
+            </button>
+          </div>
+
+          {!showAnswer ? (
+            <button
+              onClick={() => setShowAnswer(true)}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 lg:py-4 lg:px-8 rounded-xl lg:rounded-2xl shadow-lg lg:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-2 lg:gap-3 mx-auto text-sm lg:text-base"
+            >
+              <svg
+                className="w-5 h-5 lg:w-6 lg:h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              عرض المعنى ✨
+            </button>
+          ) : (
+            <div className="space-y-4 lg:space-y-6">
+              <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/10 dark:to-indigo-900/10 rounded-xl lg:rounded-2xl p-4 lg:p-6 border border-blue-200/50 dark:border-blue-700/50 shadow-sm lg:shadow-lg">
+                <h3 className="text-xl lg:text-2xl font-bold text-blue-800 dark:text-blue-200 mb-3 lg:mb-4 flex items-center justify-center gap-2 lg:gap-3">
+                  <div className="w-6 h-6 lg:w-8 lg:h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                    <svg
+                      className="w-4 h-4 lg:w-5 lg:h-5 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  المعنى
+                </h3>
+                <p className="text-lg lg:text-xl text-gray-700 dark:text-gray-200 font-medium lg:font-semibold text-center leading-relaxed mb-3 lg:mb-4">
+                  {currentWord?.meaning || currentWord?.arabic}
+                </p>
+
+                {/* عرض الجملة إذا كانت موجودة */}
+                {currentWord?.sentence && (
+                  <div className="mt-4 lg:mt-6 p-3 lg:p-4 bg-white/60 dark:bg-gray-800/30 rounded-lg lg:rounded-xl border border-blue-200/50 dark:border-blue-700/50">
+                    <h4 className="text-base lg:text-lg font-bold text-blue-700 dark:text-blue-300 mb-2 flex items-center gap-2">
+                      <svg
+                        className="w-4 h-4 lg:w-5 lg:h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                        />
+                      </svg>
+                      مثال في جملة
+                    </h4>
+                    <p className="text-gray-700 dark:text-gray-300 text-center leading-relaxed mb-2 text-sm lg:text-base">
+                      {currentWord.sentence}
+                    </p>
+                    {currentWord.sentence_ar && (
+                      <p className="text-gray-600 dark:text-gray-400 text-center leading-relaxed text-xs lg:text-sm">
+                        {currentWord.sentence_ar}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 lg:gap-4 justify-center px-2 lg:px-0">
+                <button
+                  onClick={async () => {
+                    await learnWord(
+                      currentWord?.word ||
+                        currentWord?.english ||
+                        currentWord?.id
+                    );
+
+                    // تحديث البيانات بعد تعلم الكلمة
+                    fetchAllCategories();
+
+                    // الانتقال للكلمة التالية
+                    const currentWords =
+                      allCategoriesData?.daily?.words || words;
+                    if (
+                      currentWordIndex <
+                      currentWords.length - 1
+                    ) {
+                      setCurrentWordIndex(currentWordIndex + 1);
+                    } else {
+                      setCurrentWordIndex(0);
+                    }
+                    setShowAnswer(false);
+                  }}
+                  className="flex-1 sm:flex-none px-6 py-3 lg:px-8 lg:py-4 rounded-xl lg:rounded-2xl font-bold text-base lg:text-lg transition-all duration-300 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg lg:shadow-xl transform hover:scale-105 flex items-center justify-center gap-2"
+                >
+                  <svg
+                    className="w-5 h-5 lg:w-6 lg:h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  أعرفها
+                </button>
+                <button
+                  onClick={async () => {
+                    // إضافة الكلمة إلى قائمة الكلمات المجهولة
+                    const stored =
+                      localStorage.getItem("unknownWords");
+                    let arr = stored ? JSON.parse(stored) : [];
+                    const key =
+                      currentWord?.id ||
+                      currentWord?.word ||
+                      currentWord?.english;
+
+                    // إضافة الكلمة إلى unknownWords إذا لم تكن موجودة
+                    const exists = arr.some(
+                      (w: any) =>
+                        (w.id || w.word || w.english) === key
+                    );
+                    if (!exists) {
+                      arr.push(currentWord);
+                      localStorage.setItem(
+                        "unknownWords",
+                        JSON.stringify(arr)
+                      );
+                    }
+
+                    // تحديث unknownWords state
+                    setUnknownWords(arr);
+
+                    // الانتقال للكلمة التالية
+                    const currentWords =
+                      allCategoriesData?.daily?.words || words;
+                    if (
+                      currentWordIndex <
+                      currentWords.length - 1
+                    ) {
+                      setCurrentWordIndex(currentWordIndex + 1);
+                    } else {
+                      setCurrentWordIndex(0);
+                    }
+                    setShowAnswer(false);
+                  }}
+                  className="flex-1 sm:flex-none px-6 py-3 lg:px-8 lg:py-4 rounded-xl lg:rounded-2xl font-bold text-base lg:text-lg transition-all duration-300 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white shadow-lg lg:shadow-xl transform hover:scale-105 flex items-center justify-center gap-2"
+                >
+                  <svg
+                    className="w-5 h-5 lg:w-6 lg:h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                  لا أعرفها
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+</div>
+
             {allCategoriesData?.daily?.words &&
               allCategoriesData.daily.words.length > 0 && (
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -887,288 +1147,6 @@ export const DailyWordsPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Enhanced Main Content */}
-                  <div className="lg:col-span-3">
-                    {/* Enhanced Word Card */}
-                    {allCategoriesData?.daily?.words &&
-                      allCategoriesData.daily.words[currentWordIndex] && (
-                        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
-                          <div className="text-center mb-6">
-                            <div className="flex items-center justify-center gap-3 mb-4">
-                              <button
-                                onClick={prevWord}
-                                disabled={currentWordIndex === 0}
-                                className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
-                              >
-                                <RiArrowRightLine className="w-6 h-6" />
-                              </button>
-
-                              <div className="text-center flex-1">
-                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700 shadow-lg">
-                                  {/* حالة الكلمة */}
-                                  {currentWord.status && (
-                                    <div className="flex justify-center mb-3">
-                                      <span
-                                        className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                          currentWord.status === "KNOWN"
-                                            ? "bg-green-100 text-green-700 border border-green-300"
-                                            : currentWord.status ===
-                                              "PARTIALLY_KNOWN"
-                                            ? "bg-yellow-100 text-yellow-700 border border-yellow-300"
-                                            : "bg-red-100 text-red-700 border border-red-300"
-                                        }`}
-                                      >
-                                        {currentWord.status === "KNOWN"
-                                          ? "معروفة"
-                                          : currentWord.status ===
-                                            "PARTIALLY_KNOWN"
-                                          ? "معروفة جزئياً"
-                                          : "غير معروفة"}
-                                      </span>
-                                    </div>
-                                  )}
-                                  <h2 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">
-                                    {currentWord?.word || currentWord?.english}
-                                  </h2>
-                                  <div className="flex items-center justify-center gap-3">
-                                    <button
-                                      onClick={() =>
-                                        speakWord(
-                                          currentWord?.word ||
-                                            currentWord?.english
-                                        )
-                                      }
-                                      className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 transform hover:scale-110"
-                                      title="نطق الكلمة"
-                                    >
-                                      <svg
-                                        className="w-6 h-6"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                                        />
-                                      </svg>
-                                    </button>
-                                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white/80 dark:bg-gray-800/80 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 shadow-md">
-                                      {currentWordIndex + 1} من{" "}
-                                      {allCategoriesData?.daily?.words
-                                        ?.length || words.length}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <button
-                                onClick={nextWord}
-                                disabled={
-                                  currentWordIndex ===
-                                  (allCategoriesData?.daily?.words?.length ||
-                                    words.length) -
-                                    1
-                                }
-                                className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl flex items-center justify-center shadow-lg transition-all duration-300 disabled:cursor-not-allowed transform hover:scale-105 disabled:hover:scale-100"
-                              >
-                                <RiArrowLeftLine className="w-6 h-6" />
-                              </button>
-                            </div>
-
-                            {!showAnswer ? (
-                              <button
-                                onClick={() => setShowAnswer(true)}
-                                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-2xl shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-3 mx-auto"
-                              >
-                                <svg
-                                  className="w-6 h-6"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  />
-                                </svg>
-                                عرض المعنى ✨
-                              </button>
-                            ) : (
-                              <div className="space-y-6">
-                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700 shadow-lg">
-                                  <h3 className="text-2xl font-bold text-blue-800 dark:text-blue-200 mb-4 flex items-center justify-center gap-3">
-                                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                                      <svg
-                                        className="w-5 h-5 text-white"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                        />
-                                      </svg>
-                                    </div>
-                                    المعنى
-                                  </h3>
-                                  <p className="text-xl text-gray-700 dark:text-gray-200 font-semibold text-center leading-relaxed mb-4">
-                                    {currentWord?.meaning ||
-                                      currentWord?.arabic}
-                                  </p>
-
-                                  {/* عرض الجملة إذا كانت موجودة */}
-                                  {currentWord?.sentence && (
-                                    <div className="mt-6 p-4 bg-white/80 rounded-xl border border-blue-200">
-                                      <h4 className="text-lg font-bold text-blue-700 mb-2 flex items-center gap-2">
-                                        <svg
-                                          className="w-5 h-5"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                                          />
-                                        </svg>
-                                        مثال في جملة
-                                      </h4>
-                                      <p className="text-gray-700 text-center leading-relaxed mb-2">
-                                        {currentWord.sentence}
-                                      </p>
-                                      {currentWord.sentence_ar && (
-                                        <p className="text-gray-600 text-center leading-relaxed text-sm">
-                                          {currentWord.sentence_ar}
-                                        </p>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex gap-4 justify-center">
-                                  <button
-                                    onClick={async () => {
-                                      await learnWord(
-                                        currentWord?.word ||
-                                          currentWord?.english ||
-                                          currentWord?.id
-                                      );
-
-                                      // تحديث البيانات بعد تعلم الكلمة
-                                      fetchAllCategories();
-
-                                      // الانتقال للكلمة التالية
-                                      const currentWords =
-                                        allCategoriesData?.daily?.words ||
-                                        words;
-                                      if (
-                                        currentWordIndex <
-                                        currentWords.length - 1
-                                      ) {
-                                        setCurrentWordIndex(
-                                          currentWordIndex + 1
-                                        );
-                                      } else {
-                                        setCurrentWordIndex(0);
-                                      }
-                                      setShowAnswer(false);
-                                    }}
-                                    className="px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-xl transform hover:scale-105 flex items-center gap-2"
-                                  >
-                                    <svg
-                                      className="w-6 h-6"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M5 13l4 4L19 7"
-                                      />
-                                    </svg>
-                                    أعرفها
-                                  </button>
-                                  <button
-                                    onClick={async () => {
-                                      // إضافة الكلمة إلى قائمة الكلمات المجهولة
-                                      const stored =
-                                        localStorage.getItem("unknownWords");
-                                      let arr = stored
-                                        ? JSON.parse(stored)
-                                        : [];
-                                      const key =
-                                        currentWord?.id ||
-                                        currentWord?.word ||
-                                        currentWord?.english;
-
-                                      // إضافة الكلمة إلى unknownWords إذا لم تكن موجودة
-                                      const exists = arr.some(
-                                        (w: any) =>
-                                          (w.id || w.word || w.english) === key
-                                      );
-                                      if (!exists) {
-                                        arr.push(currentWord);
-                                        localStorage.setItem(
-                                          "unknownWords",
-                                          JSON.stringify(arr)
-                                        );
-                                      }
-
-                                      // تحديث unknownWords state
-                                      setUnknownWords(arr);
-
-                                      // الانتقال للكلمة التالية
-                                      const currentWords =
-                                        allCategoriesData?.daily?.words ||
-                                        words;
-                                      if (
-                                        currentWordIndex <
-                                        currentWords.length - 1
-                                      ) {
-                                        setCurrentWordIndex(
-                                          currentWordIndex + 1
-                                        );
-                                      } else {
-                                        setCurrentWordIndex(0);
-                                      }
-                                      setShowAnswer(false);
-                                    }}
-                                    className="px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white shadow-xl transform hover:scale-105 flex items-center gap-2"
-                                  >
-                                    <svg
-                                      className="w-6 h-6"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M6 18L18 6M6 6l12 12"
-                                      />
-                                    </svg>
-                                    لا أعرفها
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
                   </div>
                 </div>
               )}

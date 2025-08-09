@@ -144,6 +144,8 @@ const DarkModeToggle: React.FC = () => {
     }
   }, [isDark]);
 
+
+  const dailyStoryCompleted = localStorage.getItem("dailyStoryCompleted");
   return (
     <button
       onClick={() => setIsDark((v) => !v)}
@@ -1711,40 +1713,7 @@ export const DashboardPage: React.FC = () => {
             <>
               {/* Statistics Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12">
-                {/* Progress Card */}
-                <StatCard
-                  title="تقدمك الشخصي"
-                  subtitle="مسيرتك التعليمية"
-                  value={progress ? `${progress.progressPercent}%` : "0%"}
-                  icon={<FaChartLine color="#fff" size={24} />}
-                  gradientFrom="from-blue-500/10"
-                  gradientTo="to-cyan-500/10"
-                  hoverBorder="hover:border-blue-200 dark:hover:border-blue-600"
-                >
-                  <div className="mb-3 sm:mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 rounded-full">
-                        اليوم
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 sm:h-3 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 sm:h-3 rounded-full transition-all duration-1000 ease-out shadow-sm"
-                        style={{
-                          width: progress
-                            ? `${progress.progressPercent}%`
-                            : "0%",
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-400 text-center text-sm sm:text-base">
-                    {progress
-                      ? `${progress.completedLessons} من ${progress.totalLessons} درساً مكتملاً`
-                      : "لم تبدأ بعد"}
-                  </p>
-                </StatCard>
-
+               
                 {/* Streak Card */}
                 <div
                   role="button"
@@ -1814,7 +1783,62 @@ export const DashboardPage: React.FC = () => {
                     </p>
                   </StatCard>
                 </div>
+
+                <div
+                
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    if (!dailyStoryCompleted) {
+                      navigate("/stories/daily");
+                    }
+                  }}
+                  onKeyDown={e => {
+                    if ((e.key === "Enter" || e.key === " ") && !dailyStoryCompleted) {
+                      navigate("/stories/daily");
+                    }
+                  }}
+                  className="group outline-none focus:ring-2 focus:ring-green-400 rounded-2xl sm:rounded-3xl transition-all duration-200 hover:shadow-2xl hover:scale-[1.03] cursor-pointer"
+                  style={{ minHeight: 120 }}
+                >
+                  <StatCard
+                    title="اكمل القصة اليومية"
+                    subtitle="القصة اليومية"
+                    value={dailyStoryCompleted ? "قصة مكتملة" : "ابدأ اليوم"}
+                    icon={<FaBookOpen color="#fff" size={24} />}
+                    gradientFrom="from-green-500/10"
+                    gradientTo="to-emerald-500/10"
+                    hoverBorder="hover:border-green-200 dark:hover:border-green-600"
+                  >
+                      {dailyStoryCompleted ? (
+                      <div className="flex justify-center items-center gap-2 my-4">
+                        <span className="text-2xl ">
+                          {["🎉", "🏆", "✅", "🥇", "👏", "🌟"][Math.floor(Math.random() * 6)]}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 sm:h-3 overflow-hidden mb-2">
+                          <div
+                            className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 sm:h-3 rounded-full transition-all duration-1000 ease-out shadow-sm"
+                            style={{
+                              width: "40%",
+                            }}
+                          />
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 text-center text-sm sm:text-base">
+                          منتظر التعلم
+                        </p>
+                      </>
+                    )}
+                  </StatCard>
+                </div>
+
+
               </div>
+
+
+
 
               {/* Quick Actions Section */}
               <div className="mb-6 sm:mb-8">

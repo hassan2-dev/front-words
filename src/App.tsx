@@ -4,7 +4,6 @@ import {
   Routes,
   Route,
   Navigate,
-  Link,
 } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 
@@ -69,6 +68,7 @@ const App: React.FC = () => {
                 <Route path="stories" element={<StoriesPage />} />
                 <Route path="story-reader" element={<StoryReaderPage />} />
                 <Route path="story-exam" element={<StoryExamPage />} />
+                <Route path="stories/daily" element={<StoryReaderPage />} />
                 <Route path="stories/:storyId" element={<StoryReaderPage />} />
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="profile" element={<ProfilePage />} />

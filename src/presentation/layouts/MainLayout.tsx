@@ -513,14 +513,7 @@ export const MainLayout: React.FC = () => {
                       <User className="w-4 h-4" />
                       الملف الشخصي
                     </Link>
-                    <Link
-                      to={ROUTES.SETTINGS}
-                      className="flex items-center gap-3 py-3 px-4 rounded-lg mx-2 hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-700 dark:text-gray-200 font-medium text-sm transition-colors"
-                      onClick={() => setIsProfileOpen(false)}
-                    >
-                      <Settings className="w-4 h-4" />
-                      الإعدادات
-                    </Link>
+                   
                     <div className="h-px bg-gray-200 dark:bg-gray-700 mx-4 my-2"></div>
                     <button
                       onClick={handleLogout}
@@ -582,7 +575,7 @@ export const MainLayout: React.FC = () => {
           </header>
 
           {/* Main Page Content */}
-          <main className="p-4 min-h-[calc(100vh-4rem)]">
+          <main className="md:p-4 p-2 min-h-[calc(100vh-4rem)]">
             <Outlet />
           </main>
         </div>

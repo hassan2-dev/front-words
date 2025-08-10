@@ -75,6 +75,34 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     progressPercentage: 0,
   });
   const [remainingRequests, setRemainingRequests] = useState(0);
+  const [modalCountdown, setModalCountdown] = useState(10);
+
+  // دالة تنظيف الكلمات المكررة
+  const cleanDuplicateWords = (words: DailyStoryWord[]) => {
+    const uniqueWords = new Map();
+
+    words.forEach((word) => {
+      const key = word.word.toLowerCase();
+      const existingWord = uniqueWords.get(key);
+
+      // إذا لم توجد الكلمة، أو الكلمة الجديدة لها حالة أفضل، استبدلها
+      if (
+        !existingWord ||
+        (word.status !== "NOT_LEARNED" &&
+          existingWord.status === "NOT_LEARNED") ||
+        (word.status === "KNOWN" && existingWord.status !== "KNOWN")
+      ) {
+        uniqueWords.set(key, {
+          ...word,
+          // تحسين المعاني الفارغة أو المكررة
+          meaning:
+            word.meaning === word.word ? `معنى ${word.word}` : word.meaning,
+        });
+      }
+    });
+
+    return Array.from(uniqueWords.values());
+  };
 
   if (isLoading) {
     return (
@@ -96,10 +124,10 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       }
 
       try {
-        // استخدام القصة الأصلية بدون إضافة محتوى
+        // تنظيف وتحسين البيانات
         const originalStory = {
           ...location.state.story,
-          words: location.state.story.words || [],
+          words: cleanDuplicateWords(location.state.story.words || []),
         };
         setCurrentStory(originalStory as DailyStory);
       } catch (error) {
@@ -141,6 +169,48 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     }
   };
 
+  // تحديث تلقائي للإحصائيات كل 30 ثانية
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchWordStatistics();
+      fetchRemainingRequests();
+    }, 30000); // تحديث كل 30 ثانية
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // تحديث تلقائي عند تغيير حالة الكلمات
+  useEffect(() => {
+    if (Object.keys(wordStatus).length > 0) {
+      // تحديث الإحصائيات بعد 2 ثانية من تغيير حالة الكلمة
+      const timeout = setTimeout(() => {
+        fetchWordStatistics();
+      }, 2000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [wordStatus]);
+
+  // تحديث تلقائي عند تغيير وقت القراءة
+  useEffect(() => {
+    if (readingTime > 0 && readingTime % 60 === 0) {
+      // كل دقيقة
+      fetchRemainingRequests();
+    }
+  }, [readingTime]);
+
+  // تحديث خلفي عند تغيير التقدم
+  useEffect(() => {
+    if (readingProgress > 0) {
+      // تحديث الإحصائيات كل 10% من التقدم
+      if (readingProgress % 10 === 0) {
+        setTimeout(() => {
+          fetchWordStatistics();
+        }, 1000);
+      }
+    }
+  }, [readingProgress]);
+
   // Initialize word statuses and fetch all words
   useEffect(() => {
     if (currentStory?.words && currentStory.words.length > 0) {
@@ -162,8 +232,11 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
         (knownCount / (currentStory?.words?.length || 1)) * 100
       );
 
-      // جلب الطلبات المتبقية
-      fetchRemainingRequests();
+      // تحديثات خلفية عند تحميل القصة
+      setTimeout(() => {
+        fetchWordStatistics();
+        fetchRemainingRequests();
+      }, 2000);
     }
   }, [currentStory]);
 
@@ -178,6 +251,33 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     return () => clearInterval(interval);
   }, [currentStory]);
 
+  // تحديث خلفي عند إغلاق الصفحة أو تغيير التبويب
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // تحديث نهائي قبل إغلاق الصفحة
+      fetchWordStatistics();
+      fetchRemainingRequests();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        // تحديث عند العودة للصفحة
+        setTimeout(() => {
+          fetchWordStatistics();
+          fetchRemainingRequests();
+        }, 1000);
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
   // Speech synthesis
   const speakText = (text: string, lang: string = "en-US") => {
     if ("speechSynthesis" in window) {
@@ -188,12 +288,19 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       utterance.pitch = 1;
       utterance.volume = 1;
       utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        // تحديث خلفي بعد انتهاء التحدث
+        setTimeout(() => {
+          fetchRemainingRequests();
+        }, 500);
+      };
       utterance.onerror = () => setIsSpeaking(false);
       speechRef.current = utterance;
       window.speechSynthesis.speak(utterance);
     }
   };
+
   const stopSpeaking = () => {
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
@@ -211,6 +318,31 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       ...prev,
       [word.word]: (prev[word.word] || 0) + 1,
     }));
+
+    // إغلاق تلقائي للنافذة بعد 10 ثوانٍ إذا لم ينقر المستخدم
+    setModalCountdown(10);
+    const countdownInterval = setInterval(() => {
+      setModalCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          setShowWordModal(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    setTimeout(() => {
+      clearInterval(countdownInterval);
+      if (showWordModal) {
+        setShowWordModal(false);
+      }
+    }, 10000);
+
+    // تحديث خلفي للإحصائيات بعد تفاعل الكلمة
+    setTimeout(() => {
+      fetchWordStatistics();
+    }, 1000);
   };
 
   // Word status change
@@ -218,6 +350,9 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     word: string,
     status: "KNOWN" | "PARTIALLY_KNOWN" | "NOT_LEARNED"
   ) => {
+    // إغلاق النافذة فوراً عند النقر
+    setShowWordModal(false);
+
     setWordStatus((prev) => {
       const newStatus = { ...prev, [word]: status };
       const knownCount = Object.values(newStatus).filter(
@@ -267,7 +402,6 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       console.error("Error updating word status:", error);
       addNotification("خطأ في تحديث حالة الكلمة", "error");
     }
-    setShowWordModal(false);
   };
 
   // Word coloring based on status
@@ -277,11 +411,11 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     // Return only text color classes without backgrounds
     switch (status) {
       case "KNOWN":
-        return "text-green-600 dark:text-green-400 cursor-pointer hover:underline";
+        return "text-green-600 dark:text-green-400 cursor-pointer hover:underline font-medium";
       case "PARTIALLY_KNOWN":
-        return "text-yellow-600 dark:text-yellow-400 cursor-pointer hover:underline";
+        return "text-yellow-600 dark:text-yellow-400 cursor-pointer hover:underline font-medium";
       case "NOT_LEARNED":
-        return "text-gray-800 dark:text-gray-200 cursor-pointer hover:underline";
+        return "text-red-600 dark:text-red-400 cursor-pointer hover:underline font-medium";
       default:
         return "text-gray-800 dark:text-gray-200 cursor-pointer hover:underline";
     }
@@ -294,13 +428,19 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
         storyId: currentStory?.id || "",
         level: "beginner",
         points: wordsLearned * 10,
-
       });
 
       if (response.success) {
         setShowCompletionModal(true);
         addNotification("🎉 تم إكمال القصة بنجاح!", "success");
         localStorage.setItem("dailyStoryCompleted", "true");
+
+        // تحديثات خلفية بعد إكمال القصة
+        setTimeout(() => {
+          fetchWordStatistics();
+          fetchRemainingRequests();
+        }, 1000);
+
         if (onComplete) onComplete();
       } else {
         addNotification("خطأ في إكمال القصة", "error");
@@ -321,8 +461,95 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       setNotifications((prev) => prev.filter((n) => n.id !== id));
     }, 3000);
   };
+
   const removeNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  // دالة محسنة لعرض المحتوى مع الكلمات القابلة للضغط
+  const renderContent = (content: string) => {
+    const words = content.split(/(\s+)/);
+
+    return words.map((word, index) => {
+      const cleanWord = word.toLowerCase().replace(/[.,!?;:"*()[\]]/g, "");
+
+      // تجاهل المسافات والكلمات الفارغة
+      if (!cleanWord.trim()) {
+        return <span key={index}>{word}</span>;
+      }
+
+      // البحث عن تطابق دقيق أولاً
+      let storyWord = currentStory?.words.find(
+        (w) => w.word.toLowerCase() === cleanWord
+      );
+
+      // إذا لم نجد تطابق دقيق، نبحث بشروط أكثر صرامة
+      if (!storyWord) {
+        storyWord = currentStory?.words.find((w) => {
+          const wordLower = w.word.toLowerCase();
+          const cleanWordLower = cleanWord.toLowerCase();
+
+          // تجنب التطابقات الخاطئة للكلمات القصيرة
+          if (wordLower.length <= 3 || cleanWordLower.length <= 3) {
+            return wordLower === cleanWordLower;
+          }
+
+          // للكلمات الطويلة، نسمح بالتطابق الجزئي المنطقي فقط
+          if (wordLower.length >= 4 && cleanWordLower.length >= 4) {
+            return (
+              (wordLower.includes(cleanWordLower) &&
+                Math.abs(wordLower.length - cleanWordLower.length) <= 2) ||
+              (cleanWordLower.includes(wordLower) &&
+                Math.abs(wordLower.length - cleanWordLower.length) <= 2)
+            );
+          }
+
+          return false;
+        });
+      }
+
+      // جعل كل كلمة قابلة للضغط
+      if (word.trim()) {
+        return (
+          <span
+            key={index}
+            onClick={() => {
+              if (storyWord) {
+                handleWordClick(storyWord);
+              } else {
+                // إنشاء كلمة مؤقتة للكلمات غير الموجودة في القائمة
+                const tempWord: DailyStoryWord = {
+                  word: cleanWord,
+                  meaning: `معنى "${cleanWord}"`,
+                  sentence: `"${word}" is used in context.`,
+                  sentenceAr: `"${word}" تستخدم في السياق.`,
+                  sentence_ar: `"${word}" تستخدم في السياق.`,
+                  status: "NOT_LEARNED",
+                  type: "unknown",
+                  color: "blue",
+                  isDailyWord: false,
+                };
+                handleWordClick(tempWord);
+              }
+
+              // تحديث خلفي بعد التفاعل مع الكلمة
+              setTimeout(() => {
+                fetchWordStatistics();
+              }, 1500);
+            }}
+            className={`${
+              storyWord
+                ? getWordColor(storyWord)
+                : "text-gray-800 dark:text-gray-200 cursor-pointer hover:underline hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-1 transition-colors"
+            }`}
+            title={`انقر لمعرفة المزيد عن "${cleanWord}"`}
+          >
+            {word}
+          </span>
+        );
+      }
+      return <span key={index}>{word}</span>;
+    });
   };
 
   if (!currentStory) {
@@ -344,57 +571,6 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     );
   }
 
-  // Render clickable words in content
-  const renderContent = (content: string) => {
-    const words = content.split(/(\s+)/);
-    return words.map((word, index) => {
-      const cleanWord = word.toLowerCase().replace(/[.,!?;:"*]/g, "");
-      const storyWord = currentStory.words.find(
-        (w) =>
-          w.word.toLowerCase() === cleanWord ||
-          w.word.toLowerCase().includes(cleanWord) ||
-          cleanWord.includes(w.word.toLowerCase())
-      );
-
-      // جعل كل كلمة قابلة للضغط
-      if (word.trim()) {
-        return (
-          <span
-            key={index}
-            onClick={() => {
-              if (storyWord) {
-                handleWordClick(storyWord);
-              } else {
-                // إنشاء كلمة مؤقتة للكلمات غير الموجودة في القائمة
-                const tempWord: DailyStoryWord = {
-                  word: cleanWord,
-                  meaning: cleanWord,
-                  sentence: `"${word}"`,
-                  sentenceAr: `"${word}"`,
-                  sentence_ar: `"${word}"`,
-                  status: "NOT_LEARNED",
-                  type: "unknown",
-                  color: "blue",
-                  isDailyWord: false,
-                };
-                handleWordClick(tempWord);
-              }
-            }}
-            className={`${
-              storyWord
-                ? getWordColor(storyWord)
-                : "text-gray-800 dark:text-gray-200 cursor-pointer hover:underline"
-            }`}
-            title={`انقر لمعرفة المزيد عن "${cleanWord}"`}
-          >
-            {word}
-          </span>
-        );
-      }
-      return <span key={index}>{word}</span>;
-    });
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
@@ -404,7 +580,14 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => navigate("/stories")}
+                  onClick={() => {
+                    // تحديث خلفي قبل العودة
+                    fetchWordStatistics();
+                    fetchRemainingRequests();
+                    setTimeout(() => {
+                      navigate("/stories");
+                    }, 500);
+                  }}
                   className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                 >
                   <ArrowRight className="w-5 h-5" />
@@ -419,7 +602,13 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => speakText(currentStory?.content || "")}
+                onClick={() => {
+                  speakText(currentStory?.content || "");
+                  // تحديث خلفي عند بدء التحدث
+                  setTimeout(() => {
+                    fetchRemainingRequests();
+                  }, 2000);
+                }}
                 className={`p-2 rounded-lg transition-colors ${
                   isSpeaking
                     ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
@@ -445,17 +634,19 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
           </div>
         </div>
       </header>
+
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-8">
           {/* Story Content */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
             <div className="max-w-none">
-              <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-xl font-normal text-justify">
+              <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-xl   text-justify">
                 {renderContent(currentStory?.content || "")}
               </div>
             </div>
           </div>
+
           {/* Translation */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
             <div className="flex items-center justify-between mb-4">
@@ -466,18 +657,23 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                 الترجمة العربية
               </h3>
               <button
-                onClick={() =>
-                  speakText(currentStory?.translation || "", "ar-SA")
-                }
-                className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                onClick={() => {
+                  speakText(currentStory?.translation || "", "ar-SA");
+                  // تحديث خلفي عند بدء التحدث بالعربية
+                  setTimeout(() => {
+                    fetchRemainingRequests();
+                  }, 2000);
+                }}
+                className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
               >
                 <Mic className="w-5 h-5" />
               </button>
             </div>
-            <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg text-right text-justify">
+            <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg text-right ">
               {currentStory?.translation || ""}
             </div>
           </div>
+
           {/* Learning Progress */}
           <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-6">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -517,6 +713,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                 </div>
               </div>
             </div>
+
             {/* Progress Bar */}
             <div className="mt-4">
               <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -524,7 +721,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                 <span>
                   {wordStatistics.progressPercentage ||
                     Math.round(
-                      (wordsLearned / currentStory.words.length) * 100
+                      (wordsLearned / (currentStory.words?.length || 1)) * 100
                     )}
                   %
                 </span>
@@ -536,13 +733,14 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                     width: `${
                       wordStatistics.progressPercentage ||
                       Math.round(
-                        (wordsLearned / currentStory.words.length) * 100
+                        (wordsLearned / (currentStory.words?.length || 1)) * 100
                       )
                     }%`,
                   }}
                 ></div>
               </div>
             </div>
+
             {/* Remaining Requests */}
             <div className="mt-4 text-center">
               <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -552,6 +750,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
           </div>
         </div>
       </main>
+
       {/* Word Modal */}
       {showWordModal && selectedWord && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -563,11 +762,19 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                   كلمة يومية
                 </div>
               )}
-              <h3 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
-                {selectedWord.word}
-              </h3>
-              <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <h3 className="text-4xl font-bold text-gray-900 dark:text-white">
+                  {selectedWord.word}
+                </h3>
+                <div className="bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
+                  {modalCountdown}
+                </div>
+              </div>
+              <p className="text-xl text-gray-600 dark:text-gray-400 mb-4">
                 {selectedWord.meaning}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                اختر حالة الكلمة قبل انتهاء الوقت
               </p>
               {selectedWord.sentence && (
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 mb-6">
@@ -581,54 +788,55 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                   )}
                 </div>
               )}
-              <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="grid grid-cols-3 gap-4 mb-6">
                 <button
                   onClick={() =>
                     handleWordStatusChange(selectedWord.word, "KNOWN")
                   }
-                  className="px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                  className="px-6 py-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-base font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
-                  <Check className="w-4 h-4" />
+                  <Check className="w-5 h-5" />
                   أعرفها
                 </button>
                 <button
                   onClick={() =>
                     handleWordStatusChange(selectedWord.word, "PARTIALLY_KNOWN")
                   }
-                  className="px-4 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                  className="px-6 py-4 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-base font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
-                  <HelpCircle className="w-4 h-4" />
+                  <HelpCircle className="w-5 h-5" />
                   جزئياً
                 </button>
                 <button
                   onClick={() =>
                     handleWordStatusChange(selectedWord.word, "NOT_LEARNED")
                   }
-                  className="px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                  className="px-6 py-4 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-base font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                   لا أعرف
                 </button>
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => speakText(selectedWord.word)}
+                  onClick={() => {
+                    speakText(selectedWord.word);
+                    // تحديث خلفي عند الاستماع للكلمة
+                    setTimeout(() => {
+                      fetchRemainingRequests();
+                    }, 1500);
+                  }}
                   className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 font-medium"
                 >
                   <Mic className="w-5 h-5" />
                   استمع
-                </button>
-                <button
-                  onClick={() => setShowWordModal(false)}
-                  className="flex-1 px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
-                >
-                  إغلاق
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
       {/* Completion Modal */}
       {showCompletionModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -685,6 +893,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
           </div>
         </div>
       )}
+
       {/* Notifications */}
       <div className="fixed top-4 right-4 z-50 space-y-2">
         {notifications.map((notification) => (

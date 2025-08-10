@@ -95,7 +95,7 @@ const LoadingSpinner: React.FC = () => (
       text="جاري تحميل بياناتك الشخصية..."
       className="mb-0"
       isOverlay
-      />
+    />
   </div>
 );
 
@@ -143,7 +143,6 @@ const DarkModeToggle: React.FC = () => {
       localStorage.setItem("theme", "light");
     }
   }, [isDark]);
-
 
   const dailyStoryCompleted = localStorage.getItem("dailyStoryCompleted");
   return (
@@ -552,6 +551,7 @@ export const DashboardPage: React.FC = () => {
     localStorage.removeItem("lastStoryShownDate");
     localStorage.removeItem("lastDailyStoryDate");
     localStorage.removeItem("welcomeShown");
+    localStorage.removeItem("lastWelcomeShownDate");
     console.log("LocalStorage cleared successfully");
 
     // إعادة تعيين الحالة
@@ -1038,7 +1038,6 @@ export const DashboardPage: React.FC = () => {
       } else {
         setWordsCount(0);
       }
-
     } catch (err) {
       console.error("Dashboard fetch error:", err);
       setError("حدث خطأ أثناء جلب البيانات");
@@ -1135,7 +1134,6 @@ export const DashboardPage: React.FC = () => {
           setTimeout(() => setShowStreakError(false), 5000);
         }
       } catch (apiError) {
-
         setStreakError("خطأ في الاتصال بالخادم، لكن تم حفظ الستريك محلياً");
         setShowStreakError(true);
         setTimeout(() => setShowStreakError(false), 5000);
@@ -1322,9 +1320,7 @@ export const DashboardPage: React.FC = () => {
         date: new Date().toISOString().split("T")[0],
       });
 
-
       if (streakResponse.success) {
-
         // تحديث الـ state المحلي
         const now = new Date();
         const today =
@@ -1409,7 +1405,6 @@ export const DashboardPage: React.FC = () => {
 
   // Effects
   useEffect(() => {
-
     // Only fetch data if user is authenticated and not loading
     if (isAuthenticated && !authLoading && user) {
       fetchDashboardData();
@@ -1418,6 +1413,9 @@ export const DashboardPage: React.FC = () => {
   }, [isAuthenticated, authLoading, user]);
 
   // دمج useEffect للتحقق من الستريك والترحيب في واحد
+  // التحديث: إضافة منطق للتحقق من التاريخ اليومي للبوب الترحيبي
+  // المشكلة السابقة: البوب الترحيبي كان يظهر مرة واحدة فقط بسبب localStorage
+  // الحل: إضافة lastWelcomeShownDate للتحقق من التاريخ اليومي
   useEffect(() => {
     // منع التشغيل المتكرر
     if (welcomeModalChecked.current) {
@@ -1439,7 +1437,6 @@ export const DashboardPage: React.FC = () => {
       const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
       const alreadyAddedTodayLocal = lastAddedDate === today;
 
-
       if (alreadyAddedTodayLocal) {
         setStreakAddedToday(true);
         // تحديث streakDates إذا لم يكن اليوم موجود
@@ -1455,18 +1452,43 @@ export const DashboardPage: React.FC = () => {
       const hasAnyStreak = streak > 0 || streakAddedToday;
       const isFirstTime = !localStorage.getItem("welcomeShown");
 
-      // إذا كان المستخدم جديد أو ليس لديه ستريك، اعرض البوب الترحيبي
-      // تحقق من الستريك في قاعدة البيانات أيضاً
+      // تحقق من آخر مرة تم فيها عرض البوب الترحيبي
+      const lastWelcomeShown = localStorage.getItem("lastWelcomeShownDate");
+      const shouldShowWelcomeToday = lastWelcomeShown !== today;
+
+      console.log("🔍 Welcome Modal Logic Check:", {
+        today,
+        hasAnyStreak,
+        isFirstTime,
+        lastWelcomeShown,
+        shouldShowWelcomeToday,
+        isProcessingStreak,
+        alreadyAddedTodayLocal,
+        streak,
+        streakAddedToday,
+      });
+
+      // إذا كان المستخدم جديد أو يحتاج لإضافة ستريك اليوم، اعرض البوب الترحيبي
       if (
         isFirstTime ||
-        (!hasAnyStreak && !isProcessingStreak && !alreadyAddedTodayLocal)
+        (!hasAnyStreak &&
+          !isProcessingStreak &&
+          !alreadyAddedTodayLocal &&
+          shouldShowWelcomeToday)
       ) {
-        setIsNewUser(true);
+        console.log("✅ Showing welcome modal - conditions met");
+        setIsNewUser(isFirstTime);
         setShowWelcomeModal(true);
         localStorage.setItem("welcomeShown", "true");
+        localStorage.setItem("lastWelcomeShownDate", today);
       } else if (hasAnyStreak || alreadyAddedTodayLocal) {
         // إذا كان هناك ستريك، تأكد من إخفاء البوب الترحيبي
+        console.log(
+          "❌ Hiding welcome modal - user has streak or already added today"
+        );
         setShowWelcomeModal(false);
+      } else {
+        console.log("❌ Not showing welcome modal - other conditions not met");
       }
     }
   }, [
@@ -1500,6 +1522,7 @@ export const DashboardPage: React.FC = () => {
   // Add a debug button to clear localStorage for testing
   const debugClearStorage = () => {
     localStorage.removeItem("welcomeShown");
+    localStorage.removeItem("lastWelcomeShownDate");
     localStorage.removeItem("lastStreakAddedDate");
     localStorage.removeItem("lastStoryShownDate");
     localStorage.removeItem("streakAddedToday");
@@ -1513,6 +1536,23 @@ export const DashboardPage: React.FC = () => {
     setIsNewUser(true);
   };
 
+  // Add a debug function to reset welcome modal for today
+  const debugResetWelcomeForToday = () => {
+    const now = new Date();
+    const today =
+      now.getFullYear() +
+      "-" +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(now.getDate()).padStart(2, "0");
+
+    localStorage.removeItem("lastWelcomeShownDate");
+    localStorage.removeItem("lastStreakAddedDate");
+    setStreakAddedToday(false);
+    setShowWelcomeModal(true);
+    setIsNewUser(false);
+  };
+
   // Add a debug function to test streak and story creation
   const debugTestStreakAndStory = async () => {
     try {
@@ -1521,8 +1561,7 @@ export const DashboardPage: React.FC = () => {
         date: new Date().toISOString().split("T")[0],
       });
       const storyResponse = await requestDailyStory();
-    } catch (error) {
-    }
+    } catch (error) {}
   };
 
   return (
@@ -1537,7 +1576,7 @@ export const DashboardPage: React.FC = () => {
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
             سلسلة الأيام الأسبوعية
           </h2>
-          {(() => {     
+          {(() => {
             return null;
           })()}
 
@@ -1702,24 +1741,27 @@ export const DashboardPage: React.FC = () => {
 
           {/* Content */}
           {(() => {
-
             return null;
           })()}
-          {authLoading  || loading ? (
-            <Loading isOverlay variant="video" size="xl" text="جاري التحميل..." />
+          {authLoading || loading ? (
+            <Loading
+              isOverlay
+              variant="video"
+              size="xl"
+              text="جاري التحميل..."
+            />
           ) : error ? (
             <ErrorDisplay error={error} onRetry={fetchDashboardData} />
           ) : user && isAuthenticated ? (
             <>
               {/* Statistics Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-8 sm:mb-12">
-               
                 {/* Streak Card */}
                 <div
                   role="button"
                   tabIndex={0}
                   onClick={() => {
-                    console.log("Streak card clicked");       
+                    console.log("Streak card clicked");
                     setShowStreakModal(true);
                   }}
                   onKeyDown={(e) =>
@@ -1746,7 +1788,6 @@ export const DashboardPage: React.FC = () => {
                     <p className="text-gray-600 dark:text-gray-400 text-center mb-2 text-sm sm:text-base">
                       {streak > 7 ? "إنجاز رائع! 🎉" : "استمر في التعلم"}
                     </p>
-                   
                   </StatCard>
                 </div>
 
@@ -1785,7 +1826,6 @@ export const DashboardPage: React.FC = () => {
                 </div>
 
                 <div
-                
                   role="button"
                   tabIndex={0}
                   onClick={() => {
@@ -1793,8 +1833,11 @@ export const DashboardPage: React.FC = () => {
                       navigate("/stories/daily");
                     }
                   }}
-                  onKeyDown={e => {
-                    if ((e.key === "Enter" || e.key === " ") && !dailyStoryCompleted) {
+                  onKeyDown={(e) => {
+                    if (
+                      (e.key === "Enter" || e.key === " ") &&
+                      !dailyStoryCompleted
+                    ) {
                       navigate("/stories/daily");
                     }
                   }}
@@ -1810,10 +1853,14 @@ export const DashboardPage: React.FC = () => {
                     gradientTo="to-emerald-500/10"
                     hoverBorder="hover:border-green-200 dark:hover:border-green-600"
                   >
-                      {dailyStoryCompleted ? (
+                    {dailyStoryCompleted ? (
                       <div className="flex justify-center items-center gap-2 my-4">
                         <span className="text-2xl ">
-                          {["🎉", "🏆", "✅", "🥇", "👏", "🌟"][Math.floor(Math.random() * 6)]}
+                          {
+                            ["🎉", "🏆", "✅", "🥇", "👏", "🌟"][
+                              Math.floor(Math.random() * 6)
+                            ]
+                          }
                         </span>
                       </div>
                     ) : (
@@ -1833,12 +1880,7 @@ export const DashboardPage: React.FC = () => {
                     )}
                   </StatCard>
                 </div>
-
-
               </div>
-
-
-
 
               {/* Quick Actions Section */}
               <div className="mb-6 sm:mb-8">
@@ -1930,10 +1972,56 @@ export const DashboardPage: React.FC = () => {
                     hoverBorder="hover:border-emerald-200 dark:hover:border-emerald-600"
                     onClick={() => navigate("/achievements")}
                   />
-
-                
                 </div>
               </div>
+
+              {/* Debug Section - Only show in development */}
+              {process.env.NODE_ENV === "development" && (
+                <div className="mt-8 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+                  <h3 className="text-lg font-bold text-yellow-800 dark:text-yellow-200 mb-3">
+                    🛠️ أدوات التطوير (Development Tools)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    <button
+                      onClick={debugResetWelcomeForToday}
+                      className="px-3 py-2 bg-yellow-500 text-white rounded-lg text-sm hover:bg-yellow-600 transition-colors"
+                    >
+                      إعادة تعيين البوب الترحيبي لليوم
+                    </button>
+                    <button
+                      onClick={debugShowWelcomeModal}
+                      className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors"
+                    >
+                      عرض البوب الترحيبي
+                    </button>
+                    <button
+                      onClick={debugClearStorage}
+                      className="px-3 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors"
+                    >
+                      مسح التخزين المحلي
+                    </button>
+                    <button
+                      onClick={debugTestStreakAndStory}
+                      className="px-3 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors"
+                    >
+                      اختبار الستريك والقصة
+                    </button>
+                  </div>
+                  <div className="mt-3 text-xs text-yellow-700 dark:text-yellow-300">
+                    <p>الحالة الحالية:</p>
+                    <p>• الستريك: {streak}</p>
+                    <p>• تم إضافة اليوم: {streakAddedToday ? "نعم" : "لا"}</p>
+                    <p>
+                      • البوب الترحيبي: {showWelcomeModal ? "مُعرض" : "مخفي"}
+                    </p>
+                    <p>
+                      • آخر تاريخ للترحيب:{" "}
+                      {localStorage.getItem("lastWelcomeShownDate") ||
+                        "غير محدد"}
+                    </p>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 sm:py-20">

@@ -339,8 +339,22 @@ export const getLearnedWordsFromStory = () =>
 export const getStoryWords = (storyId: string) =>
     apiClient.get<ApiResponse<{ words: DailyStoryWord[] }>>(API_ENDPOINTS.DAILY_STORIES.GET_STORY_WORDS(storyId));
 
-export const updateWordStatus = (data: WordStatusUpdate) =>
-    apiClient.post<ApiResponse>(API_ENDPOINTS.DAILY_STORIES.WORD_INTERACTION, data);
+export const updateWordStatus = (data: WordStatusUpdate) => {
+    // Normalize frontend statuses to backend expectations
+    // Frontend may use: 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN' | 'LEARNED'
+    // Backend expects: 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN'
+    const mapStatus = (status: WordStatusUpdate['status']): 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN' => {
+        if (status === 'LEARNED') return 'KNOWN';
+        return status as 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN';
+    };
+
+    const payload = {
+        word: data.word,
+        status: mapStatus(data.status),
+    };
+
+    return apiClient.post<ApiResponse>(API_ENDPOINTS.DAILY_STORIES.WORD_INTERACTION, payload);
+};
 
 export const completeDailyStory = (data: DailyStoryComplete) =>
     apiClient.post<ApiResponse<any>>(API_ENDPOINTS.DAILY_STORIES.COMPLETE, data);

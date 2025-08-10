@@ -16,6 +16,7 @@ import type {
   AchievementType,
   UserAchievement,
 } from "../../core/types";
+import { Loading } from "@/presentation/components";
 
 export const AchievementsAdminPage: React.FC = () => {
   const { user } = useAuth();
@@ -393,44 +394,85 @@ export const AchievementsAdminPage: React.FC = () => {
   );
 
   return (
-    <div className="max-w-6xl mx-auto py-10 px-4">
-      <h1 className="text-3xl font-bold mb-6 text-center text-blue-700 dark:text-blue-300">
-        إدارة الإنجازات
-      </h1>
-
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2 mb-8 justify-center">
-        {[
-          { key: "achievements", label: "الإنجازات", icon: "🏆" },
-          { key: "stats", label: "الإحصائيات", icon: "📊" },
-          { key: "types", label: "أنواع الإنجازات", icon: "📋" },
-          { key: "users", label: "إدارة المستخدمين", icon: "👥" },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === tab.key
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-            }`}
-          >
-            <span className="mr-2">{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="text-center py-12">جاري تحميل البيانات...</div>
-      ) : (
-        <div className="min-h-[400px]">
-          {activeTab === "achievements" && renderAchievements()}
-          {activeTab === "stats" && renderStats()}
-          {activeTab === "types" && renderTypes()}
-          {activeTab === "users" && renderUsers()}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        {/* Header */}
+        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-8 border border-white/30 dark:border-gray-700/30">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <span className="text-2xl">🛠️</span>
+            </div>
+            <div>
+              <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-600 to-purple-600 dark:from-white dark:via-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+                إدارة الإنجازات
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                أنشئ، عدّل، واحذف تعريفات الإنجازات. المنح يتم تلقائياً من
+                الخادم.
+              </p>
+            </div>
+          </div>
         </div>
-      )}
+
+        {/* Tabs */}
+        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-3xl shadow-2xl p-6 mb-8 border border-white/30 dark:border-gray-700/30">
+          <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
+            {[
+              {
+                key: "achievements",
+                label: "الإنجازات",
+                icon: "🏆",
+                color: "from-yellow-500 to-orange-600",
+              },
+              {
+                key: "stats",
+                label: "الإحصائيات",
+                icon: "📊",
+                color: "from-green-500 to-emerald-600",
+              },
+              {
+                key: "types",
+                label: "أنواع الإنجازات",
+                icon: "📋",
+                color: "from-blue-500 to-indigo-600",
+              },
+              {
+                key: "users",
+                label: "إدارة المستخدمين",
+                icon: "👥",
+                color: "from-purple-500 to-pink-600",
+              },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as any)}
+                className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl ${
+                  activeTab === tab.key
+                    ? `bg-gradient-to-r ${tab.color} text-white`
+                    : "bg-white/70 dark:bg-gray-700/60 text-gray-700 dark:text-gray-300 hover:bg-white"
+                }`}
+              >
+                <span className="text-lg">{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loading size="xl" variant="video" text="جاري تحميل البيانات..." />
+          </div>
+        ) : (
+          <div className="min-h-[420px]">
+            {activeTab === "achievements" && renderAchievements()}
+            {activeTab === "stats" && renderStats()}
+            {activeTab === "types" && renderTypes()}
+            {activeTab === "users" && renderUsers()}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

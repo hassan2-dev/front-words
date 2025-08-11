@@ -3,6 +3,11 @@ import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../core/providers/AuthProvider";
 import { useTheme } from "../../core/providers/ThemeProvider";
 import { ROUTES, USER_ROLES } from "../../core/constants/app";
+import {
+  validateAuthentication,
+  validateRouteAccess,
+  getRedirectPath,
+} from "../../core/utils/routeGuard";
 import type { NavItem } from "../../core/types";
 import {
   Home,
@@ -26,27 +31,38 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-// Get navigation items based on user role
+// Get navigation items based on user role with strict authentication
 const getNavItems = (
   role: string | undefined,
-  unreadCount: number
-): NavItem[] => {
+  unreadCount: number,
+  isAuthenticated: boolean
+): NavItem[] | any[] => {
+  // If not authenticated, return empty array
+  if (!isAuthenticated) {
+    return [];
+  }
+
   if (role === USER_ROLES.ADMIN) {
     return [
       {
-        name: "لوحة التحكم",
         href: ROUTES.ADMIN_DASHBOARD,
+        name: "لوحة التحكم",
         icon: <Crown size={20} />,
       },
       {
-        name: "المستخدمون",
         href: ROUTES.ADMIN_USERS,
+        name: "المستخدمين",
         icon: <Users size={20} />,
       },
       {
-        name: "الإحصائيات",
-        href: ROUTES.ADMIN_ANALYTICS,
-        icon: <BarChart3 size={20} />,
+        href: ROUTES.ADMIN_CONTENT,
+        name: "المحتوى",
+        icon: <BookMarked size={20} />,
+      },
+      {
+        href: ROUTES.ADMIN_ACHIEVEMENTS,
+        name: "الإنجازات",
+        icon: <Trophy size={20} />,
       },
     ];
   }
@@ -54,36 +70,37 @@ const getNavItems = (
   if (role === USER_ROLES.TRAINER) {
     return [
       {
-        name: "لوحة المدرب",
         href: ROUTES.TRAINER_DASHBOARD,
+        name: "لوحة التحكم",
         icon: <GraduationCap size={20} />,
       },
       {
-        name: "الطلاب",
         href: ROUTES.TRAINER_STUDENTS,
+        name: "الطلاب",
         icon: <Users size={20} />,
       },
       {
-        name: "المحتوى",
         href: ROUTES.TRAINER_CONTENT,
+        name: "المحتوى",
         icon: <BookMarked size={20} />,
       },
     ];
   }
 
   return [
-    { name: "الرئيسية", href: ROUTES.DASHBOARD, icon: <Home size={20} /> },
+    { href: ROUTES.DASHBOARD, name: "الرئيسية", icon: <Home size={20} /> },
     {
-      name: "كلمات اليوم",
       href: ROUTES.DAILY_WORDS,
+      name: "الكلمات اليومية",
       icon: <BookOpen size={20} />,
     },
     {
-      name: "الجات مع AI",
       href: ROUTES.CHAT_WITH_AI,
+      name: "المحادثة مع الذكاء الاصطناعي",
       icon: <Sparkles size={20} />,
     },
-    { name: "القصص", href: ROUTES.STORIES, icon: <BookMarked size={20} /> },
+    { href: ROUTES.STORIES, name: "القصص", icon: <BookMarked size={20} /> },
+    { href: "/achievements", name: "الإنجازات", icon: <Trophy size={20} /> },
   ];
 };
 
@@ -108,51 +125,102 @@ const getRoleIcon = (role: string | undefined) => {
 };
 
 export const MainLayout: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Function to get user data from localStorage
+  // Function to get user data from localStorage with strict validation
   const getUserFromStorage = () => {
     try {
       const userData = localStorage.getItem("letspeak_user_data");
-      if (userData) {
-        const parsedData = JSON.parse(userData);
-        console.log("Parsed data from localStorage:", parsedData);
-        // Handle both formats: direct user object or {user: {...}}
-        const user = parsedData.user || parsedData;
-        console.log("Extracted user:", user);
-        return user;
+      const token = localStorage.getItem("letspeak_auth_token");
+
+      if (!token || !userData) {
+        return null;
       }
+
+      const parsedData = JSON.parse(userData);
+      const user = parsedData.user || parsedData;
+
+      // Validate user data structure
+      if (!user || !user.id || !user.role) {
+        console.error("Invalid user data structure");
+        return null;
+      }
+
+      return user;
     } catch (error) {
       console.error("Error parsing user data:", error);
+      return null;
     }
-    return null;
   };
 
   // Get user data from localStorage as fallback
   const storedUser = getUserFromStorage();
-  const displayUser = user || storedUser;
+  // Handle nested user structure (user.user) - handle both User and {user: User} types
+  const actualUser = (user as any)?.user || user;
+  const displayUser = actualUser || storedUser;
+
+  // Strict authentication check using utility function
+  const isUserAuthenticated = validateAuthentication(user, isAuthenticated);
+
+  // Validate current route access using utility function
+  useEffect(() => {
+    if (isUserAuthenticated) {
+      const hasAccess = validateRouteAccess(
+        location.pathname,
+        displayUser?.role,
+        isUserAuthenticated
+      );
+
+      if (!hasAccess) {
+        console.warn(`Unauthorized access attempt to: ${location.pathname}`);
+        console.warn(`User role: ${displayUser?.role}`);
+        console.warn(`Current path: ${location.pathname}`);
+        toast.error("ليس لديك صلاحية للوصول إلى هذه الصفحة");
+
+        // Redirect to appropriate dashboard using utility function
+        const redirectPath = getRedirectPath(displayUser?.role);
+        console.warn(`Redirecting to: ${redirectPath}`);
+        navigate(redirectPath, { replace: true });
+      }
+    }
+  }, [location.pathname, isUserAuthenticated, displayUser?.role, navigate]);
 
   // Debug: Check localStorage and user data
   useEffect(() => {
     console.log("=== DEBUG USER DATA ===");
     console.log("User from useAuth:", user);
+    console.log(
+      "User structure:",
+      typeof user,
+      user ? Object.keys(user) : "null"
+    );
+    console.log("User.user exists:", user && "user" in user);
     console.log("Stored user from localStorage:", storedUser);
     console.log("Display user:", displayUser);
+    console.log("User role:", displayUser?.role);
+    console.log("Is authenticated:", isAuthenticated);
+    console.log("Is user authenticated:", isUserAuthenticated);
+    console.log("Current path:", location.pathname);
     console.log(
-      "User data from localStorage:",
-      localStorage.getItem("letspeak_user_data")
+      "Route access valid:",
+      validateRouteAccess(
+        location.pathname,
+        displayUser?.role,
+        isUserAuthenticated
+      )
     );
-    console.log(
-      "Auth token from localStorage:",
-      localStorage.getItem("letspeak_auth_token")
-    );
-    console.log("Is user authenticated:", user !== null);
-    console.log("User name:", displayUser?.name);
     console.log("========================");
-  }, [user, storedUser, displayUser]);
+  }, [
+    user,
+    storedUser,
+    displayUser,
+    isAuthenticated,
+    isUserAuthenticated,
+    location.pathname,
+  ]);
 
   // Refs for click outside detection
   const profileDropdownRef = useRef<HTMLDivElement>(null);
@@ -162,6 +230,7 @@ export const MainLayout: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [unreadCount, setUnreadCount] = useState(() => {
     const stored = localStorage.getItem("unreadNotificationsCount");
     return stored ? parseInt(stored, 10) : 0;
@@ -231,7 +300,19 @@ export const MainLayout: React.FC = () => {
     }
   };
 
-  const navItems = getNavItems(user?.role, unreadCount);
+  // If not authenticated, show loading or redirect
+  if (!isUserAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">
+            جاري التحقق من المصادقة...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -299,7 +380,7 @@ export const MainLayout: React.FC = () => {
         <aside
           ref={sidebarRef}
           className={`
-            ${getSidebarGradient(user?.role)}
+            ${getSidebarGradient(displayUser?.role)}
             fixed top-0 right-0 h-screen z-50
             lg:fixed lg:right-0 lg:top-0 lg:h-screen lg:z-40
             ${sidebarCollapsed ? "lg:w-20" : "lg:w-72"}
@@ -381,10 +462,16 @@ export const MainLayout: React.FC = () => {
             {/* Navigation */}
             <nav className="flex-1 p-4">
               <ul className="space-y-2">
-                {navItems.map((item) => {
+                {getNavItems(
+                  displayUser?.role,
+                  unreadCount,
+                  isUserAuthenticated
+                ).map((item: any, index: number) => {
                   const isActive = location.pathname === item.href;
+                  const isExpanded = expandedItems.includes(item.href);
+
                   return (
-                    <li key={item.name}>
+                    <li key={index}>
                       <Link
                         to={item.href}
                         className={`
@@ -410,7 +497,7 @@ export const MainLayout: React.FC = () => {
                         {!sidebarCollapsed && (
                           <>
                             <span className="relative z-10 font-semibold">
-                              {item.name}
+                              {item.name || `Route ${index + 1}`}
                             </span>
                             {item.badge && (
                               <span className="mr-auto relative z-10 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg animate-pulse">
@@ -426,21 +513,6 @@ export const MainLayout: React.FC = () => {
                     </li>
                   );
                 })}
-
-                {/* Achievements Link */}
-                <li>
-                  <Link
-                    to="/achievements"
-                    className={`
-                      group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-sm text-white/90 hover:bg-white/15 hover:text-white hover:scale-105
-                      ${sidebarCollapsed ? "lg:justify-center lg:px-2" : ""}
-                    `}
-                    title="إنجازاتي"
-                  >
-                    <Trophy className="w-5 h-5" />
-                    {!sidebarCollapsed && <span>إنجازاتي</span>}
-                  </Link>
-                </li>
               </ul>
             </nav>
 
@@ -458,31 +530,28 @@ export const MainLayout: React.FC = () => {
                   <div className="relative">
                     <img
                       src={
-                        user?.avatar ||
+                        displayUser?.avatar ||
                         `https://ui-avatars.com/api/?name=${
-                          displayUser?.name || storedUser?.name || "مستخدم"
+                          displayUser?.name || "مستخدم"
                         }&background=6366f1&color=fff&size=48`
                       }
-                      alt={displayUser?.name || storedUser?.name || "مستخدم"}
+                      alt={displayUser?.name || "مستخدم"}
                       className="w-10 h-10 rounded-full border-2 border-white shadow-lg"
                     />
                     <div className="absolute -bottom-1 -left-1">
-                      {getRoleIcon(displayUser?.role || storedUser?.role)}
+                      {getRoleIcon(displayUser?.role)}
                     </div>
                   </div>
                   {!sidebarCollapsed && (
                     <>
-                      {console.log("User data:", displayUser)}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-white truncate">
-                          {displayUser?.name || storedUser?.name || "مستخدم"}
+                          {displayUser?.name || "مستخدم"}
                         </p>
                         <p className="text-xs text-white/70 truncate font-medium">
-                          {(displayUser?.role || storedUser?.role) ===
-                          USER_ROLES.ADMIN
+                          {displayUser?.role === USER_ROLES.ADMIN
                             ? "مشرف النظام"
-                            : (displayUser?.role || storedUser?.role) ===
-                              USER_ROLES.TRAINER
+                            : displayUser?.role === USER_ROLES.TRAINER
                             ? "مدرب محترف"
                             : "طالب نشط"}
                         </p>
@@ -513,7 +582,7 @@ export const MainLayout: React.FC = () => {
                       <User className="w-4 h-4" />
                       الملف الشخصي
                     </Link>
-                   
+
                     <div className="h-px bg-gray-200 dark:bg-gray-700 mx-4 my-2"></div>
                     <button
                       onClick={handleLogout}

@@ -4,29 +4,173 @@ import {
   addAchievement,
   updateAchievement,
   deleteAchievement,
-  getAchievementStats,
   getAchievementTypes,
   getUserAchievements,
-  resetUserAchievements,
 } from "../../core/utils/api";
-import { useAuth } from "../../core/providers/AuthProvider";
 import type {
   Achievement,
-  AchievementStats,
   AchievementType,
   UserAchievement,
 } from "../../core/types";
 import { Loading } from "@/presentation/components";
 
+// مكتبة الأيقونات
+const ICON_LIBRARY = [
+  "🏆",
+  "🥇",
+  "🥈",
+  "🥉",
+  "⭐",
+  "🌟",
+  "💎",
+  "🔥",
+  "⚡",
+  "🎯",
+  "🎪",
+  "🎨",
+  "🎭",
+  "🎪",
+  "🎯",
+  "🎲",
+  "🎮",
+  "🎸",
+  "🎹",
+  "🎺",
+  "🎻",
+  "🎤",
+  "🎧",
+  "🎬",
+  "📚",
+  "📖",
+  "📝",
+  "✏️",
+  "🖊️",
+  "🖋️",
+  "📌",
+  "📍",
+  "🔖",
+  "📎",
+  "📐",
+  "📏",
+  "🧮",
+  "🔢",
+  "🔤",
+  "🔡",
+  "🔠",
+  "📱",
+  "💻",
+  "🖥️",
+  "⌨️",
+  "🖱️",
+  "💾",
+  "💿",
+  "🌍",
+  "🌎",
+  "🌏",
+  "🌐",
+  "🗺️",
+  "🧭",
+  "⏰",
+  "⏱️",
+  "⏲️",
+  "🕐",
+  "🕑",
+  "🕒",
+  "🎉",
+  "🎊",
+  "🎈",
+  "🎂",
+  "🎁",
+  "🎀",
+  "🎗️",
+  "🏅",
+  "🎖️",
+  "🏆",
+  "🥇",
+  "🥈",
+  "💪",
+  "🧠",
+  "👁️",
+  "👂",
+  "👃",
+  "👄",
+  "👅",
+  "🦷",
+  "🦴",
+  "🦵",
+  "🦶",
+  "🦿",
+  "🌱",
+  "🌲",
+  "🌳",
+  "🌴",
+  "🌵",
+  "🌾",
+  "🌿",
+  "☘️",
+  "🍀",
+  "🍁",
+  "🍂",
+  "🍃",
+  "🌺",
+  "🌸",
+  "🌼",
+  "🌻",
+  "🌞",
+  "🌝",
+  "🌛",
+  "🌜",
+  "🌚",
+  "🌕",
+  "🌖",
+  "🌗",
+  "🚀",
+  "🛸",
+  "🛰️",
+  "🛥️",
+  "🚁",
+  "🛩️",
+  "✈️",
+  "🛫",
+  "🛬",
+  "🛎️",
+  "🚪",
+  "🛏️",
+];
+
+// أنواع الإنجازات
+const ACHIEVEMENT_TYPES = [
+  { value: "stories", label: "القصص", icon: "📚" },
+  { value: "words", label: "الكلمات", icon: "🔤" },
+  { value: "streak", label: "التتابع", icon: "🔥" },
+  { value: "lessons", label: "الدروس", icon: "📖" },
+  { value: "exams", label: "الاختبارات", icon: "📝" },
+  { value: "chat", label: "المحادثات", icon: "💬" },
+];
+// أنواع الأهداف
+const TARGET_TYPES = [
+  { value: "stories", label: "القصص", icon: "📚" },
+  { value: "words", label: "الكلمات", icon: "🔤" },
+  { value: "streak", label: "التتابع", icon: "🔥" },
+  { value: "lessons", label: "الدروس", icon: "📖" },
+  { value: "exams", label: "الاختبارات", icon: "📝" },
+  { value: "chat", label: "المحادثات", icon: "💬" },
+];
+
 export const AchievementsAdminPage: React.FC = () => {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<
-    "achievements" | "stats" | "types" | "users"
-  >("achievements");
+  const [activeTab, setActiveTab] = useState<"achievements" | "types">(
+    "achievements"
+  );
   const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [stats, setStats] = useState<AchievementStats | null>(null);
-  const [types, setTypes] = useState<AchievementType[]>([]);
+  const [types, setTypes] = useState<AchievementType[]>([
+    {
+      id: "1",
+      name: "الإنجازات",
+      description: "الإنجازات",
+      icon: "🏆",
+    },
+  ]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Partial<Achievement>>({});
   const [editId, setEditId] = useState<string | null>(null);
@@ -34,6 +178,8 @@ export const AchievementsAdminPage: React.FC = () => {
   const [userAchievements, setUserAchievements] = useState<UserAchievement[]>(
     []
   );
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [targetType, setTargetType] = useState("stories");
 
   // جلب جميع البيانات
   const fetchData = async () => {
@@ -45,14 +191,6 @@ export const AchievementsAdminPage: React.FC = () => {
       setAchievements(achievementsRes.data as unknown as Achievement[]);
     } else {
       setAchievements([]);
-    }
-
-    // جلب الإحصائيات
-    const statsRes = await getAchievementStats();
-    if (statsRes.success && statsRes.data) {
-      setStats(statsRes.data as unknown as AchievementStats);
-    } else {
-      setStats(null);
     }
 
     // جلب أنواع الإنجازات
@@ -67,15 +205,6 @@ export const AchievementsAdminPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
-
-  // صلاحية الأدمن أو المدرب فقط
-  if (user?.role !== "ADMIN" && user?.role !== "TRAINER") {
-    return (
-      <div className="text-center py-12 text-red-600 font-bold">
-        غير مصرح لك بالوصول إلى هذه الصفحة.
-      </div>
-    );
-  }
 
   // إضافة أو تعديل إنجاز
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,203 +245,302 @@ export const AchievementsAdminPage: React.FC = () => {
     }
   };
 
-  // إعادة تعيين إنجازات مستخدم
-  const handleResetUserAchievements = async () => {
-    if (!selectedUserId) return;
-
-    if (window.confirm("هل أنت متأكد من إعادة تعيين إنجازات هذا المستخدم؟")) {
-      await resetUserAchievements(selectedUserId);
-      handleFetchUserAchievements();
-    }
-  };
-
   const renderAchievements = () => (
     <div>
-      <button
-        className="mb-6 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg"
-        onClick={() => {
-          setForm({});
-          setEditId(null);
-          setShowForm(true);
-        }}
-      >
-        + إضافة إنجاز جديد
-      </button>
+      <div className="mb-8">
+        <button
+          className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-3"
+          onClick={() => {
+            setForm({});
+            setEditId(null);
+            setShowForm(true);
+            setShowIconPicker(false);
+          }}
+        >
+          <span className="text-xl">✨</span>
+          <span>إضافة إنجاز جديد</span>
+        </button>
+      </div>
 
       {showForm && (
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-8 space-y-4"
-        >
-          <input
-            className="w-full border px-3 py-2 rounded"
-            placeholder="اسم الإنجاز"
-            value={form.name || ""}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-          />
-          <input
-            className="w-full border px-3 py-2 rounded"
-            placeholder="وصف الإنجاز"
-            value={form.description || ""}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            required
-          />
-          <select
-            className="w-full border px-3 py-2 rounded"
-            value={form.type || ""}
-            onChange={(e) => setForm({ ...form, type: e.target.value })}
-            required
-          >
-            <option value="">اختر نوع الإنجاز</option>
-            {types.map((type) => (
-              <option key={type.id} value={type.id}>
-                {type.name}
-              </option>
-            ))}
-          </select>
-          <input
-            className="w-full border px-3 py-2 rounded"
-            placeholder="الهدف (عدد القصص/الكلمات)"
-            type="number"
-            value={form.target || ""}
-            onChange={(e) =>
-              setForm({ ...form, target: Number(e.target.value) })
-            }
-            required
-          />
-          <input
-            className="w-full border px-3 py-2 rounded"
-            placeholder="النقاط"
-            type="number"
-            value={form.points || ""}
-            onChange={(e) =>
-              setForm({ ...form, points: Number(e.target.value) })
-            }
-            required
-          />
-          <input
-            className="w-full border px-3 py-2 rounded"
-            placeholder="رابط الأيقونة (اختياري)"
-            value={form.icon || ""}
-            onChange={(e) => setForm({ ...form, icon: e.target.value })}
-          />
-          <div className="flex gap-4">
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg"
-            >
-              {editId ? "تعديل" : "إضافة"}
-            </button>
-            <button
-              type="button"
-              className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg"
-              onClick={() => {
-                setShowForm(false);
-                setForm({});
-                setEditId(null);
-              }}
-            >
-              إلغاء
-            </button>
-          </div>
-        </form>
-      )}
+        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-8 border border-white/30 dark:border-gray-700/30">
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">
+            {editId ? "تعديل الإنجاز" : "إضافة إنجاز جديد"}
+          </h3>
 
-      <div className="grid grid-cols-1 gap-6">
-        {achievements.map((ach) => (
-          <div
-            key={ach.id}
-            className="rounded-xl p-5 shadow-lg flex items-center gap-4 bg-white dark:bg-gray-800"
-          >
-            <div className="flex-shrink-0 text-3xl">
-              {ach.icon ? (
-                <img src={ach.icon} alt="" className="w-10 h-10" />
-              ) : (
-                "🏆"
-              )}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* اسم الإنجاز */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                اسم الإنجاز *
+              </label>
+              <input
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                placeholder="مثال: قارئ القصص المتميز"
+                value={form.name || ""}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+              />
             </div>
-            <div className="flex-1">
-              <div className="font-bold text-lg mb-1">{ach.name}</div>
-              <div className="text-gray-600 dark:text-gray-400 mb-1">
-                {ach.description}
-              </div>
-              <div className="text-xs text-blue-600 dark:text-blue-400">
-                النوع: {ach.type} | الهدف: {ach.target} | النقاط: {ach.points}
-              </div>
+
+            {/* وصف الإنجاز */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                وصف الإنجاز *
+              </label>
+              <textarea
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200 resize-none"
+                placeholder="وصف مفصل للإنجاز..."
+                rows={3}
+                value={form.description || ""}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+                required
+              />
             </div>
-            <div className="flex flex-col gap-2">
-              <button
-                className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-1 px-4 rounded"
-                onClick={() => handleEdit(ach)}
+
+            {/* نوع الإنجاز */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                نوع الإنجاز *
+              </label>
+              <select
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                value={form.type || ""}
+                onChange={(e) => setForm({ ...form, type: e.target.value })}
+                required
               >
-                تعديل
-              </button>
-              <button
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-4 rounded"
-                onClick={() => handleDelete(ach.id)}
-              >
-                حذف
-              </button>
+                <option value="">اختر نوع الإنجاز</option>
+                {ACHIEVEMENT_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 
-  const renderStats = () => (
-    <div className="space-y-6">
-      {stats && (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg text-center">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {stats.totalUsers}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                إجمالي المستخدمين
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg text-center">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {stats.totalAchievements}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                إجمالي الإنجازات
-              </div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg text-center">
-              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {stats.averagePoints}
-              </div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                متوسط النقاط
+            {/* نوع الهدف */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                نوع الهدف *
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {TARGET_TYPES.map((type) => (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => setTargetType(type.value)}
+                    className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-all duration-200 ${
+                      targetType === type.value
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                        : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-blue-300"
+                    }`}
+                  >
+                    <span className="text-lg">{type.icon}</span>
+                    <span className="text-sm font-medium">{type.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-            <h3 className="text-lg font-bold mb-4">أفضل الإنجازات</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {stats.topAchievements.map((achievement) => (
-                <div
-                  key={achievement.id}
-                  className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+            {/* قيمة الهدف */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                قيمة الهدف *
+              </label>
+              <input
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                placeholder={`عدد ${
+                  TARGET_TYPES.find((t) => t.value === targetType)?.label
+                }`}
+                type="number"
+                min="1"
+                value={form.target || ""}
+                onChange={(e) =>
+                  setForm({ ...form, target: Number(e.target.value) })
+                }
+                required
+              />
+            </div>
+
+            {/* النقاط */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                النقاط (1-100) *
+              </label>
+              <input
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all duration-200"
+                placeholder="عدد النقاط"
+                type="number"
+                min="1"
+                max="100"
+                value={form.points || ""}
+                onChange={(e) =>
+                  setForm({ ...form, points: Number(e.target.value) })
+                }
+                required
+              />
+            </div>
+
+            {/* اختيار الأيقونة */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                الأيقونة
+              </label>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setShowIconPicker(!showIconPicker)}
+                  className="flex items-center gap-2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl hover:border-blue-500 transition-all duration-200"
                 >
-                  <div className="text-2xl">{achievement.icon || "🏆"}</div>
-                  <div>
-                    <div className="font-medium">{achievement.name}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {achievement.points} نقطة
-                    </div>
+                  <span className="text-2xl">{form.icon || "🏆"}</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {form.icon ? "تغيير الأيقونة" : "اختيار أيقونة"}
+                  </span>
+                </button>
+                {form.icon && (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, icon: "" })}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                  >
+                    إزالة
+                  </button>
+                )}
+              </div>
+
+              {/* مكتبة الأيقونات */}
+              {showIconPicker && (
+                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border">
+                  <div className="grid grid-cols-8 gap-2 max-h-48 overflow-y-auto">
+                    {ICON_LIBRARY.map((icon, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => {
+                          setForm({ ...form, icon });
+                          setShowIconPicker(false);
+                        }}
+                        className="w-10 h-10 text-xl hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors duration-200 flex items-center justify-center"
+                      >
+                        {icon}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        </>
+
+            {/* أزرار التحكم */}
+            <div className="flex gap-4 pt-4">
+              <button
+                type="submit"
+                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg"
+              >
+                {editId ? "تحديث الإنجاز" : "إضافة الإنجاز"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForm(false);
+                  setForm({});
+                  setEditId(null);
+                  setShowIconPicker(false);
+                }}
+                className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+              >
+                إلغاء
+              </button>
+            </div>
+          </form>
+        </div>
       )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {achievements.length === 0 ? (
+          <div className="col-span-full text-center py-12">
+            <div className="text-6xl mb-4">🏆</div>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              لا توجد إنجازات حالياً
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              ابدأ بإنشاء أول إنجاز للمنصة
+            </p>
+            <button
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200"
+              onClick={() => {
+                setForm({});
+                setEditId(null);
+                setShowForm(true);
+                setShowIconPicker(false);
+              }}
+            >
+              إنشاء أول إنجاز
+            </button>
+          </div>
+        ) : (
+          achievements.map((ach) => (
+            <div
+              key={ach.id}
+              className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/30 dark:border-gray-700/30 p-6 hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
+            >
+              {/* الأيقونة والعنوان */}
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
+                  <span className="text-3xl">{ach.icon || "🏆"}</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">
+                    {ach.name}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                      {ach.type}
+                    </span>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                      {ach.points} نقطة
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* الوصف */}
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
+                {ach.description}
+              </p>
+
+              {/* التفاصيل */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 mb-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    الهدف:
+                  </span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {ach.target}
+                  </span>
+                </div>
+              </div>
+
+              {/* أزرار التحكم */}
+              <div className="flex gap-2">
+                <button
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-2 px-4 rounded-xl transition-all duration-200 text-sm"
+                  onClick={() => handleEdit(ach)}
+                >
+                  تعديل
+                </button>
+                <button
+                  className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium py-2 px-4 rounded-xl transition-all duration-200 text-sm"
+                  onClick={() => handleDelete(ach.id)}
+                >
+                  حذف
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 
@@ -332,64 +560,6 @@ export const AchievementsAdminPage: React.FC = () => {
           </div>
         </div>
       ))}
-    </div>
-  );
-
-  const renderUsers = () => (
-    <div className="space-y-6">
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-        <h3 className="text-lg font-bold mb-4">إدارة إنجازات المستخدمين</h3>
-        <div className="flex gap-4 mb-4">
-          <input
-            className="flex-1 border px-3 py-2 rounded"
-            placeholder="أدخل معرف المستخدم"
-            value={selectedUserId}
-            onChange={(e) => setSelectedUserId(e.target.value)}
-          />
-          <button
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg"
-            onClick={handleFetchUserAchievements}
-          >
-            جلب الإنجازات
-          </button>
-          <button
-            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg"
-            onClick={handleResetUserAchievements}
-            disabled={!selectedUserId}
-          >
-            إعادة تعيين
-          </button>
-        </div>
-      </div>
-
-      {userAchievements.length > 0 && (
-        <div className="space-y-4">
-          <h4 className="text-lg font-bold">إنجازات المستخدم</h4>
-          {userAchievements.map((userAchievement) => (
-            <div
-              key={userAchievement.id}
-              className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg flex items-center gap-4"
-            >
-              <div className="text-2xl">🏆</div>
-              <div className="flex-1">
-                <div className="font-bold text-lg">
-                  {userAchievement.achievement.name}
-                </div>
-                <div className="text-gray-600 dark:text-gray-400 text-sm">
-                  {userAchievement.achievement.description}
-                </div>
-                <div className="text-xs text-green-600 dark:text-green-400">
-                  تم تحقيقه:{" "}
-                  {new Date(userAchievement.achievedAt).toLocaleDateString()}
-                </div>
-              </div>
-              <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                {userAchievement.achievement.points} نقطة
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 
@@ -424,23 +594,12 @@ export const AchievementsAdminPage: React.FC = () => {
                 icon: "🏆",
                 color: "from-yellow-500 to-orange-600",
               },
-              {
-                key: "stats",
-                label: "الإحصائيات",
-                icon: "📊",
-                color: "from-green-500 to-emerald-600",
-              },
+
               {
                 key: "types",
                 label: "أنواع الإنجازات",
                 icon: "📋",
                 color: "from-blue-500 to-indigo-600",
-              },
-              {
-                key: "users",
-                label: "إدارة المستخدمين",
-                icon: "👥",
-                color: "from-purple-500 to-pink-600",
               },
             ].map((tab) => (
               <button
@@ -462,14 +621,17 @@ export const AchievementsAdminPage: React.FC = () => {
         {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loading size="xl" variant="video" text="جاري تحميل البيانات..." />
+            <Loading
+              size="xl"
+              variant="video"
+              text="جاري تحميل البيانات..."
+              isOverlay
+            />
           </div>
         ) : (
           <div className="min-h-[420px]">
             {activeTab === "achievements" && renderAchievements()}
-            {activeTab === "stats" && renderStats()}
             {activeTab === "types" && renderTypes()}
-            {activeTab === "users" && renderUsers()}
           </div>
         )}
       </div>

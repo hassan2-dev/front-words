@@ -79,12 +79,95 @@ export const API_ENDPOINTS = {
 
   // ===== Admin =====
   ADMIN: {
+    // Dashboard & Overview
+    DASHBOARD: '/admin/dashboard',
+    OVERVIEW: '/admin/overview',
     STATS: '/admin/stats',
+    
+    // Users Management
     USERS: {
       LIST: '/admin/users',
+      ALL: '/admin/users/all',
+      TRAINERS: '/admin/users/trainers',
+      STUDENTS: '/admin/users/students',
+      GET: (userId: string) => `/admin/users/${userId}`,
+      CREATE: '/admin/users',
+      UPDATE: (userId: string) => `/admin/users/${userId}`,
       CHANGE_ROLE: (userId: string) => `/admin/users/${userId}/role`,
       DELETE: (userId: string) => `/admin/users/${userId}`,
+      BULK_ACTIONS: '/admin/users/bulk-actions',
     },
+    
+    // Content Management
+    CONTENT: {
+      WORDS: {
+        LIST: '/admin/content/words',
+        CREATE: '/admin/content/words',
+        GET: (wordId: string) => `/admin/content/words/${wordId}`,
+        UPDATE: (wordId: string) => `/admin/content/words/${wordId}`,
+        DELETE: (wordId: string) => `/admin/content/words/${wordId}`,
+        BULK_ACTIONS: '/admin/content/words/bulk-actions',
+      },
+      STORIES: {
+        LIST: '/admin/content/stories',
+        CREATE: '/admin/content/stories',
+        GET: (storyId: string) => `/admin/content/stories/${storyId}`,
+        UPDATE: (storyId: string) => `/admin/content/stories/${storyId}`,
+        DELETE: (storyId: string) => `/admin/content/stories/${storyId}`,
+        BULK_ACTIONS: '/admin/content/stories/bulk-actions',
+      },
+      LESSONS: {
+        LIST: '/admin/content/lessons',
+        CREATE: '/admin/content/lessons',
+        GET: (lessonId: string) => `/admin/content/lessons/${lessonId}`,
+        UPDATE: (lessonId: string) => `/admin/content/lessons/${lessonId}`,
+        DELETE: (lessonId: string) => `/admin/content/lessons/${lessonId}`,
+        BULK_ACTIONS: '/admin/content/lessons/bulk-actions',
+      },
+    },
+    
+    // Analytics
+    ANALYTICS: {
+      OVERVIEW: '/admin/analytics/overview',
+      USERS: '/admin/analytics/users',
+      CONTENT: '/admin/analytics/content',
+      ENGAGEMENT: '/admin/analytics/engagement',
+      PERFORMANCE: '/admin/analytics/performance',
+      EXPORT: '/admin/analytics/export',
+    },
+    
+    // Settings
+    SETTINGS: {
+      GET: '/admin/settings',
+      UPDATE: '/admin/settings',
+      FEATURES: {
+        GET: '/admin/settings/features',
+        UPDATE: '/admin/settings/features',
+      },
+      SYSTEM: {
+        GET: '/admin/settings/system',
+        UPDATE: '/admin/settings/system',
+      },
+      SECURITY: {
+        GET: '/admin/settings/security',
+        UPDATE: '/admin/settings/security',
+      },
+    },
+    
+    // Achievements Management
+    ACHIEVEMENTS: {
+      LIST: '/admin/achievements',
+      CREATE: '/admin/achievements',
+      GET: (achievementId: string) => `/admin/achievements/${achievementId}`,
+      UPDATE: (achievementId: string) => `/admin/achievements/${achievementId}`,
+      DELETE: (achievementId: string) => `/admin/achievements/${achievementId}`,
+      STATS: '/admin/achievements/stats',
+      TYPES: '/admin/achievements/types',
+      USER_ACHIEVEMENTS: (userId: string) => `/admin/achievements/user/${userId}`,
+      RESET_USER: (userId: string) => `/admin/achievements/reset/${userId}`,
+    },
+    
+    // Legacy endpoints (for backward compatibility)
     TRAINERS: {
       LIST: '/admin/trainers',
     },
@@ -129,6 +212,7 @@ export const API_ENDPOINTS = {
     MY_PROGRESS: '/achievements/my/progress',
     MY_RECENT: '/achievements/my/recent',
     LEADERBOARD: '/achievements/my/leaderboard',
+    
 
     // Activity Registration
     COMPLETE_STORY: '/achievements/complete-story',

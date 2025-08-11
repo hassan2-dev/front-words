@@ -70,13 +70,25 @@ export const ROUTES = {
 
     // Admin
     ADMIN: '/admin',
-    ADMIN_DASHBOARD: '/admin/dashboard',
+    ADMIN_DASHBOARD: '/admin',
+    ADMIN_OVERVIEW: '/admin/overview',
     ADMIN_USERS: '/admin/users',
+    ADMIN_CONTENT: '/admin/content',
     ADMIN_ANALYTICS: '/admin/analytics',
+    ADMIN_SETTINGS: '/admin/settings',
+    ADMIN_ACHIEVEMENTS: '/admin/achievements',
+    
+    // Admin Sub-routes
+    ADMIN_USERS_ALL: '/admin/users/all',
+    ADMIN_USERS_TRAINERS: '/admin/users/trainers',
+    ADMIN_USERS_STUDENTS: '/admin/users/students',
+    ADMIN_CONTENT_WORDS: '/admin/content/words',
+    ADMIN_CONTENT_STORIES: '/admin/content/stories',
+    ADMIN_CONTENT_LESSONS: '/admin/content/lessons',
 
     // Trainer
     TRAINER: '/trainer',
-    TRAINER_DASHBOARD: '/trainer/dashboard',
+    TRAINER_DASHBOARD: '/trainer',
     TRAINER_STUDENTS: '/trainer/students',
     TRAINER_CONTENT: '/trainer/content',
 } as const;

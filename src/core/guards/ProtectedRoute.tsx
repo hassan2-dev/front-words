@@ -1,8 +1,14 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../providers/AuthProvider";
 import { ROUTES } from "../constants/app";
 import { Loading } from "@/presentation/components";
+import {
+  validateAuthentication,
+  clearAuthData,
+  getRedirectPath,
+} from "../utils/routeGuard";
+import toast from "react-hot-toast";
 
 // Loading Component
 const LoadingSpinner: React.FC = () => (
@@ -18,8 +24,32 @@ interface ProtectedRouteProps {
 
 // Protected Route Component
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+
+  // Handle nested user structure
+  const actualUser = (user as any)?.user || user;
+
+  // Strict authentication validation using utility function
+  const isUserAuthenticated = validateAuthentication(user, isAuthenticated);
+
+  // Log authentication issues
+  useEffect(() => {
+    if (!isLoading && !isUserAuthenticated) {
+      console.warn(`Authentication failed for route: ${location.pathname}`);
+      console.warn(`User:`, user);
+      console.warn(`Actual user:`, actualUser);
+      console.warn(`Is authenticated:`, isAuthenticated);
+      toast.error("يرجى تسجيل الدخول مرة أخرى");
+    }
+  }, [
+    location.pathname,
+    isLoading,
+    isUserAuthenticated,
+    user,
+    actualUser,
+    isAuthenticated,
+  ]);
 
   // Show loading while checking authentication
   if (isLoading) {
@@ -27,7 +57,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   // Redirect to login if not authenticated
-  if (!isAuthenticated) {
+  if (!isUserAuthenticated) {
+    console.warn("User not authenticated, redirecting to login");
+    // Clear any invalid data using utility function
+    clearAuthData();
+
     return (
       <Navigate to={ROUTES.LOGIN} state={{ from: location.pathname }} replace />
     );

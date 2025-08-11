@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { apiClient } from "../utils/api";
 import { API_ENDPOINTS } from "../config/api";
-import { STORAGE_KEYS } from "../constants/app";
+import { STORAGE_KEYS, USER_ROLES } from "../constants/app";
 import type { User, AuthState, LoginCredentials, RegisterData } from "../types";
 
 // Auth Context Type
@@ -17,6 +17,7 @@ interface AuthContextType extends AuthState {
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
   refreshAuth: () => Promise<void>;
+  silentRefreshAuth: () => Promise<void>;
 }
 
 // Auth Actions
@@ -122,7 +123,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
         }
 
-        // Store user data
+        // Store user data - ensure it's stored as a direct user object, not nested
         localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
 
         dispatch({ type: "AUTH_SUCCESS", payload: user });
@@ -164,7 +165,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
         }
 
-        // Store user data
+        // Store user data - ensure it's stored as a direct user object, not nested
         localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
 
         dispatch({ type: "AUTH_SUCCESS", payload: user });
@@ -214,11 +215,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Refresh Auth Function
   const refreshAuth = async (): Promise<void> => {
     try {
-      dispatch({ type: "AUTH_START" });
       const response = await apiClient.get(API_ENDPOINTS.AUTH.ME);
 
       if (response.success && response.data) {
-        const user: User = response.data;
+        const user = response.data as User;
         dispatch({ type: "AUTH_SUCCESS", payload: user });
         localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
       } else {
@@ -232,15 +232,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error?.response?.status === 403 ||
         error?.message === "UNAUTHORIZED"
       ) {
-        await logout();
+        // لا تسجل خروج تلقائياً، فقط أظهر رسالة
+        console.warn("Token validation failed, but keeping user logged in");
+        // يمكنك هنا إظهار رسالة للمستخدم
       } else {
-        // إذا كان خطأ شبكة أو أي خطأ آخر، لا تسجل خروج المستخدم
-        dispatch({
-          type: "AUTH_FAILURE",
-          payload: "تعذر التحقق من الجلسة مؤقتًا. حاول لاحقًا.",
-        });
-        // يمكنك هنا إظهار رسالة للمستخدم أو إبقاءه في وضع معلق
+        // إذا كان خطأ شبكة أو أي خطأ آخر، لا تفعل شيئاً
+        console.warn("Network error during token validation:", error);
       }
+    }
+  };
+
+  // Silent Refresh Auth Function (for background validation)
+  const silentRefreshAuth = async (): Promise<void> => {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.AUTH.ME);
+      if (response.success && response.data) {
+        const user = response.data as User;
+        dispatch({ type: "AUTH_SUCCESS", payload: user });
+        localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+      }
+    } catch (error) {
+      // لا تفعل شيئاً في حالة الخطأ
+      console.log("Silent refresh failed, keeping current session");
     }
   };
 
@@ -255,13 +268,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const parsedData = JSON.parse(userData);
           // Handle both formats: direct user object or {user: {...}}
           const user = parsedData.user || parsedData;
-          dispatch({ type: "AUTH_SUCCESS", payload: user });
 
-          // تحقق من صلاحية التوكن
-          await refreshAuth();
+          // Ensure user has required fields
+          if (user && user.id && user.role) {
+            dispatch({ type: "AUTH_SUCCESS", payload: user });
+
+            // تحقق من صلاحية التوكن في الخلفية بدون إظهار أخطاء
+            silentRefreshAuth();
+          } else {
+            throw new Error("Invalid user data");
+          }
         } catch (error) {
-          // هنا فقط سجل خروج إذا كان الخطأ متعلق بالمصادقة
-          // (تمت معالجته بالفعل في refreshAuth)
+          console.error("Error initializing auth:", error);
+          // Clear invalid data
+          localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+          localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+          dispatch({ type: "AUTH_FAILURE", payload: "" });
         }
       } else {
         dispatch({ type: "AUTH_FAILURE", payload: "" });
@@ -279,6 +301,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     updateUser,
     refreshAuth,
+    silentRefreshAuth,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

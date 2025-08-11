@@ -31,29 +31,50 @@ export const AchievementsPage: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
 
-      // Fetch achievements
-      const achievementsRes = await getMyAchievements();
-      if (achievementsRes.success && achievementsRes.data) {
-        setAchievements(achievementsRes.data.achievements || []);
-        setTotalPoints(achievementsRes.data.totalPoints || 0);
-      }
+      try {
+        // Fetch achievements
+        const achievementsRes = await getMyAchievements();
+        if (achievementsRes.success) {
+          // Handle both nested and direct response structures
+          const achievementsData = achievementsRes.data || achievementsRes;
+          setAchievements(achievementsData.achievements || []);
+          setTotalPoints(
+            (achievementsData as any).points ||
+              achievementsData.totalPoints ||
+              0
+          );
+        }
 
-      // Fetch progress
-      const progressRes = await getMyAchievementProgress();
-      if (progressRes.success && progressRes.data) {
-        setProgress(progressRes.data as unknown as AchievementProgress);
-      }
+        // Fetch progress
+        const progressRes = await getMyAchievementProgress();
+        if (progressRes.success) {
+          const progressData = progressRes.data || progressRes;
+          // Map the actual API response to our expected structure
+          setProgress({
+            totalAchievements: (progressData as any).achievementsCount || 0,
+            completedAchievements: (progressData as any).achievementsCount || 0,
+            totalPoints: progressData.totalPoints || 0,
+            currentStreak: (progressData as any).streak || 0,
+            level: (progressData as any).level || "L1",
+            nextLevelPoints: 0, // Calculate this if needed
+          });
+        }
 
-      // Fetch recent achievements
-      const recentRes = await getMyRecentAchievements({ limit: 5 });
-      if (recentRes.success && recentRes.data) {
-        setRecentAchievements(recentRes.data as unknown as UserAchievement[]);
-      }
+        // Fetch recent achievements
+        const recentRes = await getMyRecentAchievements({ limit: 5 });
+        if (recentRes.success) {
+          const recentData = recentRes.data || recentRes;
+          setRecentAchievements(Array.isArray(recentData) ? recentData : []);
+        }
 
-      // Fetch leaderboard
-      const leaderboardRes = await getLeaderboard({ limit: 10 });
-      if (leaderboardRes.success && leaderboardRes.data) {
-        setLeaderboard(leaderboardRes.data as unknown as LeaderboardEntry[]);
+        // Fetch leaderboard
+        const leaderboardRes = await getLeaderboard({ limit: 10 });
+        if (leaderboardRes.success) {
+          const leaderboardData = leaderboardRes.data || leaderboardRes;
+          setLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
+        }
+      } catch (error) {
+        console.error("Error fetching achievements data:", error);
       }
 
       setLoading(false);
@@ -89,55 +110,96 @@ export const AchievementsPage: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6">
-          {achievements.map((userAchievement) => (
-            <div
-              key={userAchievement.id}
-              className={`rounded-3xl p-6 shadow-xl flex items-center gap-4 transition-all duration-300 hover:shadow-2xl ${
-                userAchievement.achievement.achieved
-                  ? "bg-white dark:bg-gray-800 border-l-4 border-green-500"
-                  : "bg-gray-100 dark:bg-gray-700/80 opacity-90"
-              }`}
-            >
-              <div className="flex-shrink-0 text-3xl">
-                {userAchievement.achievement.achieved ? "🏆" : "🔒"}
-              </div>
-              <div className="flex-1">
-                <div className="font-bold text-lg mb-1">
-                  {userAchievement.achievement.name}
-                </div>
-                <div className="text-gray-600 dark:text-gray-400 mb-1">
-                  {userAchievement.achievement.description}
-                </div>
-                {userAchievement.achievement.achieved &&
-                  userAchievement.achievedAt && (
-                    <div className="text-xs text-green-600 dark:text-green-400">
-                      تم تحقيقه بتاريخ:{" "}
-                      {new Date(
-                        userAchievement.achievedAt
-                      ).toLocaleDateString()}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {achievements.map((achievement) => {
+            // Handle both UserAchievement and direct Achievement objects
+            const achievementData =
+              (achievement as any).achievement || achievement;
+            const isAchieved = achievementData.achieved || false;
+            const achievedAt = (achievement as any).achievedAt;
+            const progress = (achievement as any).progress || 0;
+
+            return (
+              <div
+                key={achievement.id}
+                className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group ${
+                  isAchieved
+                    ? "border-2 border-green-500"
+                    : "border border-gray-200 dark:border-gray-700 opacity-90"
+                }`}
+              >
+                <div className="p-4 sm:p-6">
+                  {/* Icon and Status */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div
+                      className={`w-12 h-12 rounded-lg flex items-center justify-center text-white text-2xl ${
+                        isAchieved
+                          ? "bg-gradient-to-r from-green-500 to-emerald-600"
+                          : "bg-gradient-to-r from-gray-400 to-gray-500"
+                      }`}
+                    >
+                      {achievementData.icon || (isAchieved ? "🏆" : "🔒")}
                     </div>
-                  )}
-                <div className="text-xs text-blue-600 dark:text-blue-400">
-                  نقاط الإنجاز: {userAchievement.achievement.points}
-                </div>
-                {userAchievement.progress > 0 &&
-                  userAchievement.progress < 100 && (
-                    <div className="mt-2">
-                      <div className="text-xs text-gray-500 mb-1">
-                        التقدم: {userAchievement.progress}%
+                    <div
+                      className={`text-sm font-semibold px-2 py-1 rounded-full ${
+                        isAchieved
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                          : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                      }`}
+                    >
+                      {isAchieved ? "مكتمل" : "قيد التقدم"}
+                    </div>
+                  </div>
+
+                  {/* Title and Description */}
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    {achievementData.name || "إنجاز بدون عنوان"}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    {achievementData.description || "لا يوجد وصف"}
+                  </p>
+
+                  {/* Points */}
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      نقاط الإنجاز
+                    </span>
+                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                      {achievementData.points || 0}
+                    </span>
+                  </div>
+
+                  {/* Progress Bar */}
+                  {progress > 0 && progress < 100 && (
+                    <div className="mb-3">
+                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>التقدم</span>
+                        <span>{progress}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: `${userAchievement.progress}%` }}
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${progress}%` }}
                         ></div>
                       </div>
                     </div>
                   )}
+
+                  {/* Achievement Date */}
+                  {isAchieved && achievedAt && (
+                    <div className="text-xs text-green-600 dark:text-green-400">
+                      تم تحقيقه: {new Date(achievedAt).toLocaleDateString()}
+                    </div>
+                  )}
+
+                  {/* Hover Effect */}
+                  <div className="text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors mt-2">
+                    {isAchieved ? "✓ تم الإنجاز" : "→ استمر في التقدم"}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </>
@@ -221,29 +283,39 @@ export const AchievementsPage: React.FC = () => {
   const renderRecent = () => (
     <div className="space-y-4">
       {recentAchievements.length > 0 ? (
-        recentAchievements.map((userAchievement) => (
-          <div
-            key={userAchievement.id}
-            className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg flex items-center gap-4 border-l-4 border-green-500"
-          >
-            <div className="flex-shrink-0 text-2xl">🏆</div>
-            <div className="flex-1">
-              <div className="font-bold text-lg">
-                {userAchievement.achievement.name}
+        recentAchievements.map((achievement) => {
+          // Handle both UserAchievement and direct Achievement objects
+          const achievementData =
+            (achievement as any).achievement || achievement;
+          const achievedAt = (achievement as any).achievedAt;
+
+          return (
+            <div
+              key={achievement.id}
+              className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg flex items-center gap-4 border-l-4 border-green-500"
+            >
+              <div className="flex-shrink-0 text-2xl">
+                {achievementData.icon || "🏆"}
               </div>
-              <div className="text-gray-600 dark:text-gray-400 text-sm">
-                {userAchievement.achievement.description}
+              <div className="flex-1">
+                <div className="font-bold text-lg">
+                  {achievementData.name || "إنجاز بدون عنوان"}
+                </div>
+                <div className="text-gray-600 dark:text-gray-400 text-sm">
+                  {achievementData.description || "لا يوجد وصف"}
+                </div>
+                {achievedAt && (
+                  <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                    تم تحقيقه: {new Date(achievedAt).toLocaleDateString()}
+                  </div>
+                )}
               </div>
-              <div className="text-xs text-green-600 dark:text-green-400 mt-1">
-                تم تحقيقه:{" "}
-                {new Date(userAchievement.achievedAt).toLocaleDateString()}
+              <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                +{achievementData.points || 0}
               </div>
             </div>
-            <div className="text-lg font-bold text-green-600 dark:text-green-400">
-              +{userAchievement.achievement.points}
-            </div>
-          </div>
-        ))
+          );
+        })
       ) : (
         <div className="text-center py-8 text-gray-500">
           لا توجد إنجازات حديثة

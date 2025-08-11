@@ -1,7 +1,26 @@
-import React, { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import React, { ReactNode, useEffect } from "react";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../providers/AuthProvider";
 import { ROUTES } from "../constants/app";
+import { Loading } from "@/presentation/components";
+import {
+  validateUserRole,
+  getRedirectPath,
+  logUnauthorizedAccess,
+} from "../utils/routeGuard";
+import toast from "react-hot-toast";
+
+// Loading Component
+const LoadingSpinner: React.FC = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <Loading
+      size="lg"
+      variant="video"
+      text="جاري التحقق من الصلاحيات..."
+      isOverlay
+    />
+  </div>
+);
 
 // Unauthorized Component
 const UnauthorizedPage: React.FC = () => (
@@ -32,7 +51,10 @@ const UnauthorizedPage: React.FC = () => (
         المسؤول إذا كنت تعتقد أن هذا خطأ.
       </p>
       <button
-        onClick={() => window.history.back()}
+        onClick={() => {
+          localStorage.clear();
+          window.location.href = ROUTES.LOGIN;
+        }}
         className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
       >
         العودة للخلف
@@ -56,21 +78,53 @@ export const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
   fallbackPath = ROUTES.DASHBOARD,
   showUnauthorized = true,
 }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+
+  // Handle nested user structure
+  const actualUser = (user as any)?.user || user;
+
+  // Strict authentication and role validation using utility functions
+  const isUserAuthenticated =
+    isAuthenticated && actualUser && actualUser.id && actualUser.role;
+  const hasRequiredRole = validateUserRole(user, allowedRoles);
+
+  // Log unauthorized access attempts using utility function
+  useEffect(() => {
+    if (isUserAuthenticated && !hasRequiredRole) {
+      logUnauthorizedAccess(location.pathname, actualUser?.role, allowedRoles);
+      toast.error("ليس لديك صلاحية للوصول إلى هذه الصفحة");
+    }
+  }, [
+    location.pathname,
+    isUserAuthenticated,
+    hasRequiredRole,
+    actualUser?.role,
+    allowedRoles,
+  ]);
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
 
   // Redirect to login if not authenticated
-  if (!isAuthenticated) {
-    return <Navigate to={ROUTES.LOGIN} replace />;
+  if (!isUserAuthenticated) {
+    console.warn("User not authenticated, redirecting to login");
+    return (
+      <Navigate to={ROUTES.LOGIN} state={{ from: location.pathname }} replace />
+    );
   }
 
   // Check if user has required role
-  const hasRequiredRole = user && allowedRoles.includes(user.role);
-
   if (!hasRequiredRole) {
     if (showUnauthorized) {
       return <UnauthorizedPage />;
     } else {
-      return <Navigate to={fallbackPath} replace />;
+      // Redirect to appropriate dashboard based on user role using utility function
+      const redirectPath = getRedirectPath(actualUser?.role);
+      console.warn(`Redirecting unauthorized user to: ${redirectPath}`);
+      return <Navigate to={redirectPath} replace />;
     }
   }
 

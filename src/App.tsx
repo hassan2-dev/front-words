@@ -30,10 +30,52 @@ import { RegisterPage } from "./features/auth/pages/RegisterPage";
 import { NotificationsPage } from "./features/notifications/pages/NotificationsPage";
 import { RoleBasedRoute } from "./core/guards/RoleBasedRoute";
 import { ProfilePage } from "./features/profile/pages/ProfilePage";
-import { AdminDashboard } from "./features/admin/pages/AdminDashboard";
+import {
+  AdminDashboard,
+  AdminOverviewPage,
+  AdminUsersPage,
+  AdminContentPage,
+} from "./features/admin/pages";
 import { TrainerDashboard } from "./features/trainer/pages/TrainerDashboard";
 import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 import LoginPage from "./features/auth/pages/LoginPage";
+import { useAuth } from "./core/providers/AuthProvider";
+import { ROUTES, USER_ROLES } from "./core/constants/app";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+
+// Home Redirect Component
+const HomeRedirect: React.FC = () => {
+  const { user, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Wait for authentication to complete
+    if (isLoading) return;
+
+    // Handle nested user structure
+    const actualUser = (user as any)?.user || user;
+
+    if (actualUser?.role === USER_ROLES.ADMIN) {
+      navigate(ROUTES.ADMIN_DASHBOARD, { replace: true });
+    } else if (actualUser?.role === USER_ROLES.TRAINER) {
+      navigate(ROUTES.TRAINER_DASHBOARD, { replace: true });
+    } else {
+      navigate(ROUTES.DASHBOARD, { replace: true });
+    }
+  }, [user, isLoading, navigate]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600 dark:text-gray-400">
+          جاري التوجيه للصفحة المناسبة...
+        </p>
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   return (
@@ -80,10 +122,43 @@ const App: React.FC = () => {
 
                 {/* Admin Routes */}
                 <Route
-                  path="admin/*"
+                  path="admin"
                   element={
                     <RoleBasedRoute allowedRoles={["ADMIN"]}>
                       <AdminDashboard />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="admin/overview"
+                  element={
+                    <RoleBasedRoute allowedRoles={["ADMIN"]}>
+                      <AdminOverviewPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="admin/users"
+                  element={
+                    <RoleBasedRoute allowedRoles={["ADMIN"]}>
+                      <AdminUsersPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="admin/content"
+                  element={
+                    <RoleBasedRoute allowedRoles={["ADMIN"]}>
+                      <AdminContentPage />
+                    </RoleBasedRoute>
+                  }
+                />
+
+                <Route
+                  path="admin/achievements"
+                  element={
+                    <RoleBasedRoute allowedRoles={["ADMIN"]}>
+                      <AchievementsAdminPage />
                     </RoleBasedRoute>
                   }
                 />
@@ -98,8 +173,16 @@ const App: React.FC = () => {
                   }
                 />
 
-                {/* Default redirect */}
-                <Route index element={<Navigate to="dashboard" replace />} />
+                {/* Default redirect - redirect based on user role */}
+                <Route index element={<Navigate to="/home" replace />} />
+                <Route
+                  path="home"
+                  element={
+                    <ProtectedRoute>
+                      <HomeRedirect />
+                    </ProtectedRoute>
+                  }
+                />
               </Route>
 
               {/* Fallback */}

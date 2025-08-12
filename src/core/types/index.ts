@@ -79,10 +79,14 @@ export interface DailyStoryWord {
     meaning: string;
     sentence: string;
     sentenceAr: string;
-    color: 'blue' | 'green' | 'yellow' | 'red';
-    status: 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN' | 'LEARNED';
-    type: 'daily' | 'known' | 'partially_known' | 'unknown';
+    color: 'blue' | 'green' | 'yellow' | 'red' | 'black';
+    status: 'UNKNOWN' | 'PARTIALLY_KNOWN' | 'KNOWN' | 'NOT_LEARNED';
+    type: 'daily' | 'known' | 'partially_known' | 'unknown' | 'NOT_LEARNED';
     isDailyWord: boolean;
+    canInteract?: boolean;
+    isClickable?: boolean;
+    hasDefinition?: boolean;
+    hasSentence?: boolean;
 }
 
 export interface DailyStory {
@@ -92,6 +96,17 @@ export interface DailyStory {
     content: string;
     translation: string;
     words: DailyStoryWord[];
+    dailyWords?: DailyStoryWord[];
+    complementaryWords?: DailyStoryWord[];
+    knownWords?: DailyStoryWord[];
+    unknownWords?: DailyStoryWord[];
+    partiallyKnownWords?: DailyStoryWord[];
+    totalWords?: number;
+    dailyWordsCount?: number;
+    complementaryWordsCount?: number;
+    knownWordsCount?: number;
+    unknownWordsCount?: number;
+    partiallyKnownWordsCount?: number;
     date: string;
     isCompleted: boolean;
     createdAt: string;
@@ -100,7 +115,7 @@ export interface DailyStory {
 
 export interface WordStatusUpdate {
     word: string;
-    status: 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN' | 'LEARNED';
+    status: 'UNKNOWN' | 'PARTIALLY_KNOWN' | 'KNOWN' | 'NOT_LEARNED';
 }
 
 export interface CanProceedResponse {

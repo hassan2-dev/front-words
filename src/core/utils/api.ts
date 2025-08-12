@@ -341,11 +341,10 @@ export const getStoryWords = (storyId: string) =>
 
 export const updateWordStatus = (data: WordStatusUpdate) => {
     // Normalize frontend statuses to backend expectations
-    // Frontend may use: 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN' | 'LEARNED'
-    // Backend expects: 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN'
-    const mapStatus = (status: WordStatusUpdate['status']): 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN' => {
-        if (status === 'LEARNED') return 'KNOWN';
-        return status as 'NOT_LEARNED' | 'PARTIALLY_KNOWN' | 'KNOWN';
+    // Frontend uses: 'UNKNOWN' | 'PARTIALLY_KNOWN' | 'KNOWN' | 'NOT_LEARNED'
+    // Backend expects: 'UNKNOWN' | 'PARTIALLY_KNOWN' | 'KNOWN' | 'NOT_LEARNED'
+    const mapStatus = (status: WordStatusUpdate['status']): 'UNKNOWN' | 'PARTIALLY_KNOWN' | 'KNOWN' | 'NOT_LEARNED' => {
+        return status;
     };
 
     const payload = {

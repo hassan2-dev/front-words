@@ -63,7 +63,7 @@ export const enhanceStory = (story: any): EnhancedStory => {
 export const enhanceWords = (words: any[]): any[] => {
   return words.map((word, index) => {
     // إضافة جمل أكثر تشويقاً للكلمات الجديدة
-    if (word.status === "NOT_LEARNED" && !word.sentence) {
+    if (word.status === "UNKNOWN" && !word.sentence) {
       const enhancedWord = { ...word };
 
       // جمل محسنة حسب نوع الكلمة

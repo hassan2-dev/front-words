@@ -1165,7 +1165,7 @@ export const DashboardPage: React.FC = () => {
             {
               word: "test",
               meaning: "اختبار",
-              status: "NOT_LEARNED",
+              status: "UNKNOWN",
               isDailyWord: true,
               type: "unknown",
             },
@@ -1284,7 +1284,7 @@ export const DashboardPage: React.FC = () => {
             {
               word: "test",
               meaning: "اختبار",
-              status: "NOT_LEARNED",
+              status: "UNKNOWN",
               isDailyWord: true,
               type: "unknown",
             },
@@ -1656,15 +1656,7 @@ export const DashboardPage: React.FC = () => {
                   : "لقراءة قصة اليوم، يجب عليك أولاً إضافة يوم في سلسلة النجاح."}
               </p>
 
-              <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
-                <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300 text-sm">
-                  <span className="text-lg">⏱️</span>
-                  <span>
-                    إنشاء القصة يستغرق دقيقة ونصف إلى دقيقتين (150 كلمة مع جمل
-                    ومعاني)
-                  </span>
-                </div>
-              </div>
+              
 
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <button

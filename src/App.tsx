@@ -19,7 +19,6 @@ import { AuthLayout } from "./presentation/layouts/AuthLayout";
 import { DailyWordsPage } from "./features/daily-words/pages/DailyWordsPage";
 import { StoriesPage } from "./features/stories/pages/StoriesPage";
 import { StoryReaderPage } from "./features/stories/pages/StoryReaderPage";
-import { StoryExamPage } from "./features/stories/pages/StoryExamPage";
 import { AchievementsPage } from "./features/Achievements/AchievementsPage";
 import { AchievementsAdminPage } from "./features/Achievements/AchievementsAdminPage";
 import ChatWithAIPage from "./features/chat-with-ai/pages/ChatWithAIPage";
@@ -109,7 +108,7 @@ const App: React.FC = () => {
                 <Route path="chat-with-ai" element={<ChatWithAIPage />} />
                 <Route path="stories" element={<StoriesPage />} />
                 <Route path="story-reader" element={<StoryReaderPage />} />
-                <Route path="story-exam" element={<StoryExamPage />} />
+                {/* <Route path="story-exam" element={<StoryExamPage />} /> */}
                 <Route path="stories/daily" element={<StoryReaderPage />} />
                 <Route path="stories/:storyId" element={<StoryReaderPage />} />
                 <Route path="notifications" element={<NotificationsPage />} />

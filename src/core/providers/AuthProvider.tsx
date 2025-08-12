@@ -193,9 +193,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error("Logout error:", error);
     } finally {
       // Clear storage
-      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-      localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-      localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+      localStorage.clear();
 
       dispatch({ type: "AUTH_LOGOUT" });
     }

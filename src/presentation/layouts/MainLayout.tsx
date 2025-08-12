@@ -293,6 +293,7 @@ export const MainLayout: React.FC = () => {
   const handleLogout = async () => {
     try {
       await logout();
+      localStorage.clear();
       toast.success("تم تسجيل الخروج بنجاح");
       navigate(ROUTES.LOGIN);
     } catch {

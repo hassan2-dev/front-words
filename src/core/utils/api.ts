@@ -355,7 +355,7 @@ export const updateWordStatus = (data: WordStatusUpdate) => {
         status: mapStatus(data.status),
     };
 
-    return apiClient.post<ApiResponse>('/stories/daily/story/word-interaction', payload);
+    return apiClient.post<ApiResponse>(API_ENDPOINTS.DAILY_STORIES.WORD_INTERACTION, payload);
 };
 
 export const completeDailyStory = (data: DailyStoryComplete) =>
@@ -522,7 +522,7 @@ export const deleteNotification = (id: string) => {
 };
 
 // --- CHAT ---
-export const sendChatMessage = (data: { message: string; type: string; language: string }) =>
+export const sendChatMessage = (data: { message: string; type: string; language: string; context?: string }) =>
     apiClient.post<ApiResponse<{ messageId: string; response: string; timestamp: string; suggestions?: string[]; remaining?: number }>>(API_ENDPOINTS.CHAT.SEND, data);
 
 export const getChatHistory = (params?: { page?: number; limit?: number }) =>

@@ -6,6 +6,9 @@ import {
   getChatHistory,
   learnWord,
   getChatRemainingRequests,
+  getUnknownWords,
+  getAllCategories,
+  updateWordStatus,
 } from "../../../core/utils/api";
 import { Loading } from "../../../presentation/components";
 
@@ -38,6 +41,9 @@ const ChatWithAIPage: React.FC = () => {
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [selectedWordInfo, setSelectedWordInfo] = useState<any>(null);
   const [showWordInfo, setShowWordInfo] = useState(false);
+  const [isLoadingWords, setIsLoadingWords] = useState(false);
+  const [quickWords, setQuickWords] = useState<any[]>([]);
+  const [isLoadingQuickWords, setIsLoadingQuickWords] = useState(false);
 
   // دالة تحسين تنسيق النص
   const formatMessageText = (text: string) => {
@@ -122,10 +128,137 @@ const ChatWithAIPage: React.FC = () => {
     });
   };
 
+  // جلب الكلمات المجهولة من الباك إند
+  const fetchUnknownWords = async () => {
+    setIsLoadingWords(true);
+    try {
+      // محاولة جلب الكلمات من الباك إند أولاً
+      const response = await getAllCategories();
+      if (response.success && response.data) {
+        const data = response.data as any;
+        if (data.unknown && data.unknown.words) {
+          // إضافة حالة افتراضية للكلمات
+          const wordsWithStatus = data.unknown.words.map((word: any) => ({
+            ...word,
+            status: word.status || "UNKNOWN",
+          }));
+          setUnknownWords(wordsWithStatus);
+          // حفظ في localStorage كنسخة احتياطية
+          localStorage.setItem("unknownWords", JSON.stringify(wordsWithStatus));
+          return;
+        }
+      }
+
+      // إذا فشل، جرب endpoint مخصص للكلمات المجهولة
+      const unknownResponse = await getUnknownWords();
+      if (unknownResponse.success && unknownResponse.data) {
+        const words = (unknownResponse.data as any).words || [];
+        // إضافة حالة افتراضية للكلمات
+        const wordsWithStatus = words.map((word: any) => ({
+          ...word,
+          status: word.status || "UNKNOWN",
+        }));
+        setUnknownWords(wordsWithStatus);
+        localStorage.setItem("unknownWords", JSON.stringify(wordsWithStatus));
+        return;
+      }
+
+      // إذا فشل كلاهما، استخدم localStorage
+      const stored = localStorage.getItem("unknownWords");
+      if (stored) {
+        const storedWords = JSON.parse(stored);
+        // إضافة حالة افتراضية للكلمات المخزنة
+        const wordsWithStatus = storedWords.map((word: any) => ({
+          ...word,
+          status: word.status || "UNKNOWN",
+        }));
+        setUnknownWords(wordsWithStatus);
+      }
+    } catch (error) {
+      console.error("خطأ في جلب الكلمات المجهولة:", error);
+      // استخدام localStorage كنسخة احتياطية
+      const stored = localStorage.getItem("unknownWords");
+      if (stored) {
+        const storedWords = JSON.parse(stored);
+        // إضافة حالة افتراضية للكلمات المخزنة
+        const wordsWithStatus = storedWords.map((word: any) => ({
+          ...word,
+          status: word.status || "UNKNOWN",
+        }));
+        setUnknownWords(wordsWithStatus);
+      }
+    } finally {
+      setIsLoadingWords(false);
+    }
+  };
+
+  // جلب كلمات سريعة للدردشة
+  const fetchQuickWords = async () => {
+    setIsLoadingQuickWords(true);
+    try {
+      // جلب كلمات من جميع الفئات للحصول على تنوع
+      const response = await getAllCategories();
+      if (response.success && response.data) {
+        const data = response.data as any;
+        let allWords: any[] = [];
+
+        // جمع كلمات من فئات مختلفة
+        if (data.unknown && data.unknown.words) {
+          allWords = [...allWords, ...data.unknown.words.slice(0, 5)];
+        }
+        if (data.partiallyKnown && data.partiallyKnown.words) {
+          allWords = [...allWords, ...data.partiallyKnown.words.slice(0, 3)];
+        }
+        if (data.known && data.known.words) {
+          allWords = [...allWords, ...data.known.words.slice(0, 2)];
+        }
+
+        // خلط الكلمات واختيار 10 كلمات عشوائية
+        const shuffled = allWords.sort(() => 0.5 - Math.random());
+        const selectedWords = shuffled.slice(0, 10);
+
+        setQuickWords(selectedWords);
+      } else {
+        // إذا فشل، استخدم كلمات افتراضية
+        const defaultWords = [
+          { word: "Hello", meaning: "مرحباً", level: "مبتدئ" },
+          { word: "Beautiful", meaning: "جميل", level: "متوسط" },
+          { word: "Learning", meaning: "تعلم", level: "متوسط" },
+          { word: "Success", meaning: "نجاح", level: "متوسط" },
+          { word: "Friend", meaning: "صديق", level: "مبتدئ" },
+          { word: "Knowledge", meaning: "معرفة", level: "متقدم" },
+          { word: "Happy", meaning: "سعيد", level: "مبتدئ" },
+          { word: "Important", meaning: "مهم", level: "متوسط" },
+          { word: "Experience", meaning: "خبرة", level: "متقدم" },
+          { word: "Future", meaning: "مستقبل", level: "متوسط" },
+        ];
+        setQuickWords(defaultWords);
+      }
+    } catch (error) {
+      console.error("خطأ في جلب الكلمات السريعة:", error);
+      // استخدام كلمات افتراضية في حالة الخطأ
+      const defaultWords = [
+        { word: "Hello", meaning: "مرحباً", level: "مبتدئ" },
+        { word: "Beautiful", meaning: "جميل", level: "متوسط" },
+        { word: "Learning", meaning: "تعلم", level: "متوسط" },
+        { word: "Success", meaning: "نجاح", level: "متوسط" },
+        { word: "Friend", meaning: "صديق", level: "مبتدئ" },
+        { word: "Knowledge", meaning: "معرفة", level: "متقدم" },
+        { word: "Happy", meaning: "سعيد", level: "مبتدئ" },
+        { word: "Important", meaning: "مهم", level: "متوسط" },
+        { word: "Experience", meaning: "خبرة", level: "متقدم" },
+        { word: "Future", meaning: "مستقبل", level: "متوسط" },
+      ];
+      setQuickWords(defaultWords);
+    } finally {
+      setIsLoadingQuickWords(false);
+    }
+  };
+
   // جلب الكلمات المجهولة من localStorage فقط
   useEffect(() => {
-    const stored = localStorage.getItem("unknownWords");
-    setUnknownWords(stored ? JSON.parse(stored) : []);
+    fetchUnknownWords();
+    fetchQuickWords();
 
     // رسالة ترحيب محسنة
     setMessages([
@@ -332,6 +465,27 @@ const ChatWithAIPage: React.FC = () => {
     handleSendMessage(message);
   };
 
+  // معالجة النقر على الكلمات السريعة
+  const handleQuickWordClick = (word: any) => {
+    if (remainingRequests <= 0) {
+      const limitMessage = {
+        id: Date.now().toString(),
+        message: `أريد تعلم كلمة "${word.word || word.english}"`,
+        response:
+          "⚠️ لقد استخدمت جميع طلبات الدردشة اليومية. يمكنك إرسال رسائل جديدة غداً.",
+        timestamp: new Date().toISOString(),
+        type: "error",
+      };
+      setMessages((prev) => [...prev, limitMessage]);
+      return;
+    }
+
+    const message = `أريد تعلم كلمة "${word.word || word.english}" التي تعني "${
+      word.meaning
+    }". هل يمكنك مساعدتي في فهمها بشكل أفضل وإنشاء جمل مفيدة؟`;
+    handleSendMessage(message);
+  };
+
   const handleLearnWord = async (word: any) => {
     // فحص إذا كانت الكلمة متعلمة بالفعل
     const isAlreadyLearned = learnedWords.some(
@@ -352,8 +506,13 @@ const ChatWithAIPage: React.FC = () => {
     }
 
     try {
-      await learnWord(word.word || word.english || word.id);
-      // إزالة الكلمة من قائمة الكلمات المجهولة في localStorage
+      // تحديث حالة الكلمة إلى "KNOWN" في الباك إند
+      await updateWordStatus({
+        word: word.word || word.english,
+        status: "KNOWN",
+      });
+
+      // إزالة الكلمة من قائمة الكلمات المجهولة
       let arr = unknownWords.filter(
         (w: any) =>
           (w.id || w.word || w.english) !==
@@ -362,6 +521,11 @@ const ChatWithAIPage: React.FC = () => {
       setUnknownWords(arr);
       localStorage.setItem("unknownWords", JSON.stringify(arr));
       setLearnedWords((prev) => [...prev, word]);
+
+      // تحديث الكلمات المجهولة من الباك إند بعد فترة قصيرة
+      setTimeout(() => {
+        fetchUnknownWords();
+      }, 1000);
 
       // تحديث الطلبات المتبقية من الخادم
       try {
@@ -530,7 +694,7 @@ const ChatWithAIPage: React.FC = () => {
                   دردشة مع الذكاء الاصطناعي
                 </h3>
                 <p className="text-slate-600 dark:text-slate-400 mt-1 font-medium">
-                  تعلم الكلمات  بطريقة تفاعلية وممتعة 
+                  تعلم الكلمات بطريقة تفاعلية وممتعة
                 </p>
               </div>
             </div>
@@ -568,6 +732,8 @@ const ChatWithAIPage: React.FC = () => {
                   </p>
                 </div>
               </div>
+
+             
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 relative z-10">
@@ -651,9 +817,14 @@ const ChatWithAIPage: React.FC = () => {
                   </div>
                 ))}
 
-                {isLoading && (
-                  <Loading size="xl" variant="video" text="جاري التحميل..." isOverlay />
-                )}
+                {/* {isLoading && (
+                  <Loading
+                    size="xl"
+                    variant="video"
+                    text="جاري التحميل..."
+                    isOverlay
+                  />
+                )} */}
 
                 <div ref={messagesEndRef} />
 
@@ -675,6 +846,49 @@ const ChatWithAIPage: React.FC = () => {
                   </div>
                 )}
               </div>
+               {/* Quick Words Slider */}
+               {quickWords.length > 0 && (
+                  <div className="p-4  ">
+                  <div className="relative">
+                    <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+                      {isLoadingQuickWords ? (
+                        <div className="flex items-center justify-center w-full py-4">
+                          "..."
+                        </div>
+                      ) : (
+                        quickWords.map((word, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleQuickWordClick(word)}
+                            disabled={remainingRequests <= 0 || isLoading}
+                            className={`flex-shrink-0 px-4 py-2 rounded-lg  transition-all duration-200 hover:scale-105 ${
+                              remainingRequests <= 0 || isLoading
+                                ? "bg-slate-100 dark:bg-slate-600  text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                                : "bg-white dark:bg-slate-700  text-slate-700 dark:text-slate-200 hover:shadow-md"
+                            }`}
+                          >
+                            <div className="text-center">
+                              <p className="font-bold text-sm mb-1">
+                                {word.word || word.english}
+                              </p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                                {word.meaning}
+                              </p>
+                              {word.level && (
+                                <span className="inline-block px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+                                  {word.level}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                   
+                  </div>
+                </div>
+              )}
 
               {/* Input Area */}
               <div className="p-4 border-t border-slate-200 dark:border-slate-700 relative z-10">
@@ -867,17 +1081,28 @@ const ChatWithAIPage: React.FC = () => {
             {/* Unknown Words */}
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
               <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                <h3 className="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  الكلمات المجهولة
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    الكلمات المجهولة
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
+                      {unknownWords.length}
+                    </span>
+                  </h3>
+                </div>
               </div>
               <div className="p-4">
-                {unknownWords.length === 0 ? (
+                {isLoadingWords ? (
+                  <Loading
+                    size="xl"
+                    variant="video"
+                    text="جاري تحميل الكلمات..."
+                  />
+                ) : unknownWords.length === 0 ? (
                   <div className="text-center py-8">
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <div className="w-16 h-16 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                       <svg
-                        className="w-6 h-6 text-green-600 dark:text-green-400"
+                        className="w-8 h-8 text-green-600 dark:text-green-400"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -886,39 +1111,83 @@ const ChatWithAIPage: React.FC = () => {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M5 13l4 4L19 7"
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
                     </div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      لا توجد كلمات مجهولة!
+                    <h4 className="font-semibold text-slate-800 dark:text-white mb-2">
+                      رائع! 🎉
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                      لا توجد كلمات مجهولة حالياً.
+                      <br />
+                      استمر في التعلم واكتشف كلمات جديدة!
                     </p>
+                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                      <p className="text-xs text-blue-700 dark:text-blue-300">
+                        💡 نصيحة: يمكنك إضافة كلمات جديدة من صفحة الكلمات
+                        اليومية
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {unknownWords.map((word, index) => (
                       <div
                         key={index}
-                        className={`p-3 rounded-lg border transition-all duration-200 ${
+                        className={`group p-4 rounded-xl border-2 transition-all duration-300 hover:shadow-lg ${
                           selectedWord?.id === word.id
-                            ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700"
-                            : "bg-slate-50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                            ? "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-300 dark:border-blue-600 shadow-md"
+                            : "bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-700/50 dark:to-gray-700/50 border-slate-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-500"
                         }`}
                       >
-                        <div className="flex items-start justify-between mb-2">
+                        {/* Header with word and status */}
+                        <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
-                            <p className="font-medium text-slate-800 dark:text-white text-sm">
-                              {word.word || word.english}
-                            </p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                              <p className="font-bold text-lg text-slate-800 dark:text-white">
+                                {word.word || word.english}
+                              </p>
+                              {word.level && (
+                                <span className="px-2 py-1 text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full">
+                                  {word.level}
+                                </span>
+                              )}
+                              {word.status && (
+                                <span
+                                  className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    word.status === "KNOWN"
+                                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                                      : word.status === "PARTIALLY_KNOWN"
+                                      ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300"
+                                      : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                                  }`}
+                                >
+                                  {word.status === "KNOWN"
+                                    ? "معروفة"
+                                    : word.status === "PARTIALLY_KNOWN"
+                                    ? "جزئياً"
+                                    : "مجهولة"}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
                               {word.meaning}
                             </p>
+                            {word.phonetic && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-mono">
+                                /{word.phonetic}/
+                              </p>
+                            )}
                           </div>
                         </div>
+
+                        {/* Action buttons with improved design */}
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleShowWordInfo(word)}
-                            className="px-2 py-1.5 text-xs font-medium bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors"
+                            className="px-3 py-2 text-xs font-semibold bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1"
                           >
                             <svg
                               className="w-3 h-3"
@@ -933,17 +1202,58 @@ const ChatWithAIPage: React.FC = () => {
                                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                               />
                             </svg>
+                            تفاصيل
                           </button>
                           <button
                             onClick={() => handleWordSelect(word)}
                             disabled={remainingRequests <= 0 || isLoading}
-                            className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            className={`flex-1 px-3 py-2 text-xs font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-1 ${
                               remainingRequests <= 0 || isLoading
                                 ? "bg-slate-100 dark:bg-slate-600 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                                : "bg-blue-600 hover:bg-blue-700 text-white"
+                                : "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
                             }`}
                           >
-                            {isLoading ? "جاري..." : "اسأل AI"}
+                            {isLoading ? (
+                              <>
+                                <svg
+                                  className="w-3 h-3 animate-spin"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  ></circle>
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                  ></path>
+                                </svg>
+                                جاري...
+                              </>
+                            ) : (
+                              <>
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                  />
+                                </svg>
+                                اسأل AI
+                              </>
+                            )}
                           </button>
                           <button
                             onClick={() => handleLearnWord(word)}
@@ -952,25 +1262,73 @@ const ChatWithAIPage: React.FC = () => {
                                 (w.id || w.word || w.english) ===
                                 (word.id || word.word || word.english)
                             )}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            className={`px-3 py-2 text-xs font-semibold rounded-lg transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-1 ${
                               learnedWords.some(
                                 (w: any) =>
                                   (w.id || w.word || w.english) ===
                                   (word.id || word.word || word.english)
                               )
-                                ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                                : "bg-green-600 hover:bg-green-700 text-white"
+                                ? "bg-gradient-to-r from-green-400 to-green-500 text-white cursor-not-allowed"
+                                : "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
                             }`}
                           >
                             {learnedWords.some(
                               (w: any) =>
                                 (w.id || w.word || w.english) ===
                                 (word.id || word.word || word.english)
-                            )
-                              ? "متعلّمة"
-                              : "تعلمها"}
+                            ) ? (
+                              <>
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                                متعلمة
+                              </>
+                            ) : (
+                              <>
+                                <svg
+                                  className="w-3 h-3"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                                  />
+                                </svg>
+                                تعلمها
+                              </>
+                            )}
                           </button>
                         </div>
+
+                        {/* Progress indicator */}
+                        {word.progress && (
+                          <div className="mt-3">
+                            <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+                              <span>التقدم</span>
+                              <span>{word.progress}%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-1.5">
+                              <div
+                                className="bg-gradient-to-r from-blue-500 to-purple-500 h-1.5 rounded-full transition-all duration-300"
+                                style={{ width: `${word.progress}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -985,20 +1343,44 @@ const ChatWithAIPage: React.FC = () => {
                   <h3 className="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
                     <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                     الكلمات المتعلمة
+                    <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded-full">
+                      {learnedWords.length}
+                    </span>
                   </h3>
                 </div>
-                <div className="p-4 space-y-2">
+                <div className="p-4 space-y-3">
                   {learnedWords.map((word, index) => (
                     <div
                       key={index}
-                      className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg"
+                      className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-700 rounded-xl hover:shadow-md transition-all duration-200"
                     >
-                      <p className="font-medium text-green-800 dark:text-green-200 text-sm">
-                        {word.word || word.english}
-                      </p>
-                      <p className="text-xs text-green-600 dark:text-green-300 mt-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <p className="font-bold text-green-800 dark:text-green-200 text-sm">
+                          {word.word || word.english}
+                        </p>
+                        <svg
+                          className="w-4 h-4 text-green-600 dark:text-green-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      </div>
+                      <p className="text-xs text-green-600 dark:text-green-300 leading-relaxed">
                         {word.meaning}
                       </p>
+                      {word.phonetic && (
+                        <p className="text-xs text-green-500 dark:text-green-400 mt-1 font-mono">
+                          /{word.phonetic}/
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

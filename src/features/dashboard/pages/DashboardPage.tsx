@@ -1967,70 +1967,8 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Debug Section - Only show in development */}
-              {process.env.NODE_ENV === "development" && (
-                <div className="mt-8 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
-                  <h3 className="text-lg font-bold text-yellow-800 dark:text-yellow-200 mb-3">
-                    🛠️ أدوات التطوير (Development Tools)
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                    <button
-                      onClick={debugResetWelcomeForToday}
-                      className="px-3 py-2 bg-yellow-500 text-white rounded-lg text-sm hover:bg-yellow-600 transition-colors"
-                    >
-                      إعادة تعيين البوب الترحيبي لليوم
-                    </button>
-                    <button
-                      onClick={debugShowWelcomeModal}
-                      className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors"
-                    >
-                      عرض البوب الترحيبي
-                    </button>
-                    <button
-                      onClick={debugClearStorage}
-                      className="px-3 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors"
-                    >
-                      مسح التخزين المحلي
-                    </button>
-                    <button
-                      onClick={debugTestStreakAndStory}
-                      className="px-3 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition-colors"
-                    >
-                      اختبار الستريك والقصة
-                    </button>
-                  </div>
-                  <div className="mt-3 text-xs text-yellow-700 dark:text-yellow-300">
-                    <p>الحالة الحالية:</p>
-                    <p>• الستريك: {streak}</p>
-                    <p>• تم إضافة اليوم: {streakAddedToday ? "نعم" : "لا"}</p>
-                    <p>
-                      • البوب الترحيبي: {showWelcomeModal ? "مُعرض" : "مخفي"}
-                    </p>
-                    <p>
-                      • آخر تاريخ للترحيب:{" "}
-                      {localStorage.getItem("lastWelcomeShownDate") ||
-                        "غير محدد"}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 sm:py-20">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mb-4 sm:mb-6">
-                <span className="text-red-600 text-2xl sm:text-3xl">⚠️</span>
-              </div>
-              <div className="text-center text-red-600 dark:text-red-400 mb-4 sm:mb-6 text-lg font-medium">
-                يرجى تسجيل الدخول للوصول إلى لوحة التحكم
-              </div>
-              <button
-                onClick={() => navigate("/login")}
-                className="px-6 sm:px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-sm sm:text-base"
-              >
-                تسجيل الدخول
-              </button>
-            </div>
-          )}
+             </>
+          ) : null}
         </div>
       </div>
     </>

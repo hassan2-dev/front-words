@@ -63,6 +63,13 @@ export interface Word {
     isLearned?: boolean;
 }
 
+export interface UnknownWordsResponseData {
+    totalWords: number;
+    words: Word[];
+    publicWords: Word[];
+    privateWords: Word[];
+}
+
 // Story Types
 export interface Story {
     id: string;

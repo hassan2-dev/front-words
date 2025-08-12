@@ -103,6 +103,16 @@ body {
   background: rgba(75, 85, 99, 0.7);
 }
 
+/* Scrollbar Hide Utility */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  scrollbar-width: none; /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
 /* Animation Utilities */
 @layer utilities {
   .animate-in {

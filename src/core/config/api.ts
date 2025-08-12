@@ -25,6 +25,7 @@ export const API_ENDPOINTS = {
     LEARN: (word: string) => `/words/${word}/learn`,
     LEARNED: '/words/learned',
     PRIVATE: '/words/private',
+    UNKNOWN: '/words/unknown',
     // New endpoints
     LEVEL: (level: string) => `/words/level/${level}`,
     SENTENCES: (level: string) => `/words/sentences/${level}`,
@@ -83,7 +84,7 @@ export const API_ENDPOINTS = {
     DASHBOARD: '/admin/dashboard',
     OVERVIEW: '/admin/overview',
     STATS: '/admin/stats',
-    
+
     // Users Management
     USERS: {
       LIST: '/admin/users',
@@ -97,7 +98,7 @@ export const API_ENDPOINTS = {
       DELETE: (userId: string) => `/admin/users/${userId}`,
       BULK_ACTIONS: '/admin/users/bulk-actions',
     },
-    
+
     // Content Management
     CONTENT: {
       WORDS: {
@@ -125,7 +126,7 @@ export const API_ENDPOINTS = {
         BULK_ACTIONS: '/admin/content/lessons/bulk-actions',
       },
     },
-    
+
     // Analytics
     ANALYTICS: {
       OVERVIEW: '/admin/analytics/overview',
@@ -135,7 +136,7 @@ export const API_ENDPOINTS = {
       PERFORMANCE: '/admin/analytics/performance',
       EXPORT: '/admin/analytics/export',
     },
-    
+
     // Settings
     SETTINGS: {
       GET: '/admin/settings',
@@ -153,7 +154,7 @@ export const API_ENDPOINTS = {
         UPDATE: '/admin/settings/security',
       },
     },
-    
+
     // Achievements Management
     ACHIEVEMENTS: {
       LIST: '/admin/achievements',
@@ -166,7 +167,7 @@ export const API_ENDPOINTS = {
       USER_ACHIEVEMENTS: (userId: string) => `/admin/achievements/user/${userId}`,
       RESET_USER: (userId: string) => `/admin/achievements/reset/${userId}`,
     },
-    
+
     // Legacy endpoints (for backward compatibility)
     TRAINERS: {
       LIST: '/admin/trainers',
@@ -212,7 +213,7 @@ export const API_ENDPOINTS = {
     MY_PROGRESS: '/achievements/my/progress',
     MY_RECENT: '/achievements/my/recent',
     LEADERBOARD: '/achievements/my/leaderboard',
-    
+
 
     // Activity Registration
     COMPLETE_STORY: '/achievements/complete-story',

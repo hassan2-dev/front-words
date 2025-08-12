@@ -288,6 +288,9 @@ export const learnWord = (word: string) =>
 export const getLearnedWords = () =>
     apiClient.get<{ words: any[] }>(API_ENDPOINTS.WORDS.LEARNED);
 
+export const getUnknownWords = () =>
+    apiClient.get<{ words: Word[] }>(API_ENDPOINTS.WORDS.UNKNOWN);
+
 // --- DAILY STORIES ---
 export const getDailyStory = () =>
     apiClient.get<ApiResponse<DailyStory>>(API_ENDPOINTS.DAILY_STORIES.GET);
@@ -352,7 +355,7 @@ export const updateWordStatus = (data: WordStatusUpdate) => {
         status: mapStatus(data.status),
     };
 
-    return apiClient.post<ApiResponse>(API_ENDPOINTS.DAILY_STORIES.WORD_INTERACTION, payload);
+    return apiClient.post<ApiResponse>('/stories/daily/story/word-interaction', payload);
 };
 
 export const completeDailyStory = (data: DailyStoryComplete) =>
@@ -519,8 +522,8 @@ export const deleteNotification = (id: string) => {
 };
 
 // --- CHAT ---
-export const sendChatMessage = (data: { message: string; type: string; language: string; context?: string }) =>
-    apiClient.post<ApiResponse<{ messageId: string; response: string; timestamp: string }>>(API_ENDPOINTS.CHAT.SEND, data);
+export const sendChatMessage = (data: { message: string; type: string; language: string }) =>
+    apiClient.post<ApiResponse<{ messageId: string; response: string; timestamp: string; suggestions?: string[]; remaining?: number }>>(API_ENDPOINTS.CHAT.SEND, data);
 
 export const getChatHistory = (params?: { page?: number; limit?: number }) =>
     apiClient.get<ApiResponse<{ messages: ChatMessage[]; total: number; page: number; limit: number }>>(API_ENDPOINTS.CHAT.HISTORY, params);

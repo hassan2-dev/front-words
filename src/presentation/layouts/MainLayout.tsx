@@ -28,8 +28,17 @@ import {
   Menu,
   X,
   Trophy,
+  Eye,
+  Trash2,
+  Check,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import {
+  getNotifications,
+  markNotificationAsRead,
+  deleteNotification,
+  markAllNotificationsAsRead,
+} from "../../core/utils/api";
 
 // Get navigation items based on user role with strict authentication
 const getNavItems = (
@@ -130,6 +139,15 @@ export const MainLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const handelAllNotifications = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("Navigating to notifications page...");
+    setIsNotificationsOpen(false);
+    setTimeout(() => {
+      navigate("/notifications", { replace: true });
+    }, 100);
+  };
   // Function to get user data from localStorage with strict validation
   const getUserFromStorage = () => {
     try {
@@ -188,43 +206,10 @@ export const MainLayout: React.FC = () => {
     }
   }, [location.pathname, isUserAuthenticated, displayUser?.role, navigate]);
 
-  // Debug: Check localStorage and user data
-  useEffect(() => {
-    console.log("=== DEBUG USER DATA ===");
-    console.log("User from useAuth:", user);
-    console.log(
-      "User structure:",
-      typeof user,
-      user ? Object.keys(user) : "null"
-    );
-    console.log("User.user exists:", user && "user" in user);
-    console.log("Stored user from localStorage:", storedUser);
-    console.log("Display user:", displayUser);
-    console.log("User role:", displayUser?.role);
-    console.log("Is authenticated:", isAuthenticated);
-    console.log("Is user authenticated:", isUserAuthenticated);
-    console.log("Current path:", location.pathname);
-    console.log(
-      "Route access valid:",
-      validateRouteAccess(
-        location.pathname,
-        displayUser?.role,
-        isUserAuthenticated
-      )
-    );
-    console.log("========================");
-  }, [
-    user,
-    storedUser,
-    displayUser,
-    isAuthenticated,
-    isUserAuthenticated,
-    location.pathname,
-  ]);
-
   // Refs for click outside detection
   const profileDropdownRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const notificationsDropdownRef = useRef<HTMLDivElement>(null);
 
   // State management
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -235,6 +220,103 @@ export const MainLayout: React.FC = () => {
     const stored = localStorage.getItem("unreadNotificationsCount");
     return stored ? parseInt(stored, 10) : 0;
   });
+
+  // Notifications dropdown state
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    if (!isUserAuthenticated) return;
+
+    setNotificationsLoading(true);
+    try {
+      const res = await getNotifications();
+      if (res.success && res.data) {
+        const data = res.data as any;
+        if (data.notifications && Array.isArray(data.notifications)) {
+          setNotifications(data.notifications);
+          const unread = data.notifications.filter(
+            (n: any) => !n.isRead
+          ).length;
+          setUnreadCount(unread);
+          localStorage.setItem("unreadNotificationsCount", unread.toString());
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  // Mark notification as read
+  const markAsRead = async (id: number) => {
+    setActionLoading(`read-${id}`);
+    try {
+      await markNotificationAsRead(id.toString());
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === id
+            ? { ...notification, isRead: true }
+            : notification
+        )
+      );
+      const newUnreadCount = notifications.filter((n) => !n.isRead).length - 1;
+      setUnreadCount(newUnreadCount);
+      localStorage.setItem(
+        "unreadNotificationsCount",
+        newUnreadCount.toString()
+      );
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Delete notification
+  const deleteNotificationHandler = async (id: number) => {
+    setActionLoading(`delete-${id}`);
+    try {
+      await deleteNotification(id.toString());
+      const notification = notifications.find((n) => n.id === id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+      // Update unread count if deleted notification was unread
+      if (notification && !notification.isRead) {
+        const newUnreadCount = unreadCount - 1;
+        setUnreadCount(newUnreadCount);
+        localStorage.setItem(
+          "unreadNotificationsCount",
+          newUnreadCount.toString()
+        );
+      }
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Mark all as read
+  const markAllAsRead = async () => {
+    setActionLoading("mark-all");
+    try {
+      await markAllNotificationsAsRead();
+      setNotifications((prev) =>
+        prev.map((notification) => ({ ...notification, isRead: true }))
+      );
+      setUnreadCount(0);
+      localStorage.setItem("unreadNotificationsCount", "0");
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   // Update unreadCount from localStorage on mount and when window regains focus
   useEffect(() => {
@@ -247,6 +329,13 @@ export const MainLayout: React.FC = () => {
     return () => window.removeEventListener("focus", updateUnread);
   }, []);
 
+  // Fetch notifications when dropdown opens
+  useEffect(() => {
+    if (isNotificationsOpen && isUserAuthenticated) {
+      fetchNotifications();
+    }
+  }, [isNotificationsOpen, isUserAuthenticated]);
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -255,6 +344,13 @@ export const MainLayout: React.FC = () => {
         !profileDropdownRef.current.contains(event.target as Node)
       ) {
         setIsProfileOpen(false);
+      }
+
+      if (
+        notificationsDropdownRef.current &&
+        !notificationsDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsNotificationsOpen(false);
       }
 
       // Close mobile sidebar when clicking outside
@@ -272,10 +368,16 @@ export const MainLayout: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isSidebarOpen]);
 
+  // Prevent dropdown from closing when clicking inside
+  const handleDropdownClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   // Close dropdowns on route change
   useEffect(() => {
     setIsProfileOpen(false);
     setIsSidebarOpen(false);
+    setIsNotificationsOpen(false);
   }, [location.pathname]);
 
   // Handle responsive behavior
@@ -298,6 +400,72 @@ export const MainLayout: React.FC = () => {
       navigate(ROUTES.LOGIN);
     } catch {
       toast.error("حدث خطأ أثناء تسجيل الخروج");
+    }
+  };
+
+  // Helper functions for notifications
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "achievement":
+        return "bg-gradient-to-r from-yellow-400 to-orange-500 text-white";
+      case "lesson":
+        return "bg-gradient-to-r from-blue-400 to-purple-500 text-white";
+      case "reminder":
+        return "bg-gradient-to-r from-orange-400 to-red-500 text-white";
+      case "system":
+        return "bg-gradient-to-r from-gray-400 to-gray-600 text-white";
+      default:
+        return "bg-gradient-to-r from-gray-400 to-gray-600 text-white";
+    }
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case "achievement":
+        return "🏆";
+      case "lesson":
+        return "📚";
+      case "reminder":
+        return "⏰";
+      case "system":
+        return "⚙️";
+      default:
+        return "🔔";
+    }
+  };
+
+  const getTypeName = (type: string) => {
+    switch (type) {
+      case "achievement":
+        return "إنجاز";
+      case "lesson":
+        return "درس";
+      case "reminder":
+        return "تذكير";
+      case "system":
+        return "نظام";
+      default:
+        return "إشعار";
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+      if (diffInHours < 1) {
+        const diffInMinutes = Math.floor(diffInHours * 60);
+        return `منذ ${diffInMinutes} دقيقة`;
+      } else if (diffInHours < 24) {
+        return `منذ ${Math.floor(diffInHours)} ساعة`;
+      } else {
+        const diffInDays = Math.floor(diffInHours / 24);
+        return `منذ ${diffInDays} يوم`;
+      }
+    } catch (error) {
+      return dateString;
     }
   };
 
@@ -360,18 +528,158 @@ export const MainLayout: React.FC = () => {
                 <Moon className="w-5 h-5 text-slate-600" />
               )}
             </button>
-            <button
-              onClick={() => navigate(ROUTES.NOTIFICATIONS)}
-              className="relative p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
-              aria-label="الإشعارات"
-            >
-              <Bell className="w-5 h-5 text-slate-600 dark:text-gray-400" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-bounce">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
+
+            {/* Mobile Notifications Dropdown */}
+            <div className="relative" ref={notificationsDropdownRef}>
+              <button
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                className="relative p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
+                aria-label="الإشعارات"
+              >
+                <Bell className="w-5 h-5 text-slate-600 dark:text-gray-400" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-bounce">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Mobile Notifications Dropdown */}
+              {isNotificationsOpen && (
+                <div
+                  className="absolute top-full left-0 mt-2 w-80 max-h-96 overflow-y-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50"
+                  onClick={handleDropdownClick}
+                >
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                        الإشعارات
+                      </h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          disabled={actionLoading === "mark-all"}
+                          className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                        >
+                          {actionLoading === "mark-all"
+                            ? "جاري..."
+                            : "تمييز الكل كمقروء"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-2">
+                    {notificationsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
+                      </div>
+                    ) : notifications.length > 0 ? (
+                      <div className="space-y-2">
+                        {notifications.slice(0, 2).map((notification) => (
+                          <div
+                            key={notification.id}
+                            className={`p-3 rounded-xl transition-all duration-200 ${
+                              !notification.isRead
+                                ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700"
+                                : "bg-gray-50 dark:bg-gray-700/50"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="text-2xl">
+                                {getTypeIcon(notification.type)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4
+                                    className={`text-sm font-semibold truncate ${
+                                      !notification.isRead
+                                        ? "text-gray-900 dark:text-white"
+                                        : "text-gray-600 dark:text-gray-400"
+                                    }`}
+                                  >
+                                    {notification.title}
+                                  </h4>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-bold ${getTypeColor(
+                                      notification.type
+                                    )}`}
+                                  >
+                                    {getTypeName(notification.type)}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+                                  {notification.message}
+                                </p>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500 dark:text-gray-500">
+                                    {formatDate(notification.createdAt)}
+                                  </span>
+                                  <div className="flex gap-1">
+                                    {!notification.isRead && (
+                                      <button
+                                        onClick={() =>
+                                          markAsRead(notification.id)
+                                        }
+                                        disabled={
+                                          actionLoading ===
+                                          `read-${notification.id}`
+                                        }
+                                        className="p-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                      >
+                                        <Eye className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() =>
+                                        deleteNotificationHandler(
+                                          notification.id
+                                        )
+                                      }
+                                      disabled={
+                                        actionLoading ===
+                                        `delete-${notification.id}`
+                                      }
+                                      className="p-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {notifications.filter((n: any) => !n.isRead).length >=
+                          2 && (
+                          <div className="text-center pt-2">
+                            <button
+                              onClick={handelAllNotifications}
+                              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium w-full py-3 px-4 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 active:scale-95 touch-manipulation"
+                              style={{ touchAction: "manipulation" }}
+                            >
+                              عرض جميع الإشعارات (
+                              {
+                                notifications.filter((n: any) => !n.isRead)
+                                  .length
+                              }
+                              )
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <div className="text-4xl mb-2">🔔</div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          لا توجد إشعارات جديدة
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
           </div>
         </div>
       </header>
@@ -629,19 +937,150 @@ export const MainLayout: React.FC = () => {
               </button>
             </div>
 
-            {/* Desktop Notifications */}
-            <button
-              onClick={() => navigate(ROUTES.NOTIFICATIONS)}
-              className="relative p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-110"
-              aria-label="الإشعارات"
-            >
-              <Bell className="w-6 h-6 text-slate-600 dark:text-gray-400" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-bounce">
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </span>
+            {/* Desktop Notifications Dropdown */}
+            <div className="relative" ref={notificationsDropdownRef}>
+              <button
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                className="relative p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-110"
+                aria-label="الإشعارات"
+              >
+                <Bell className="w-6 h-6 text-slate-600 dark:text-gray-400" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg animate-bounce">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Desktop Notifications Dropdown */}
+              {isNotificationsOpen && (
+                <div
+                  className="absolute top-full left-0 mt-2 w-96 max-h-96 overflow-y-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50"
+                  onClick={handleDropdownClick}
+                >
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                        الإشعارات
+                      </h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          disabled={actionLoading === "mark-all"}
+                          className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                        >
+                          {actionLoading === "mark-all"
+                            ? "جاري..."
+                            : "تمييز الكل كمقروء"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-2">
+                    {notificationsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
+                      </div>
+                    ) : notifications.length > 0 ? (
+                      <div className="space-y-2">
+                        {notifications.slice(0, 5).map((notification) => (
+                          <div
+                            key={notification.id}
+                            className={`p-3 rounded-xl transition-all duration-200 ${
+                              !notification.isRead
+                                ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700"
+                                : "bg-gray-50 dark:bg-gray-700/50"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="text-2xl">
+                                {getTypeIcon(notification.type)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4
+                                    className={`text-sm font-semibold truncate ${
+                                      !notification.isRead
+                                        ? "text-gray-900 dark:text-white"
+                                        : "text-gray-600 dark:text-gray-400"
+                                    }`}
+                                  >
+                                    {notification.title}
+                                  </h4>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-bold ${getTypeColor(
+                                      notification.type
+                                    )}`}
+                                  >
+                                    {getTypeName(notification.type)}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+                                  {notification.message}
+                                </p>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500 dark:text-gray-500">
+                                    {formatDate(notification.createdAt)}
+                                  </span>
+                                  <div className="flex gap-1">
+                                    {!notification.isRead && (
+                                      <button
+                                        onClick={() =>
+                                          markAsRead(notification.id)
+                                        }
+                                        disabled={
+                                          actionLoading ===
+                                          `read-${notification.id}`
+                                        }
+                                        className="p-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                      >
+                                        <Eye className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() =>
+                                        deleteNotificationHandler(
+                                          notification.id
+                                        )
+                                      }
+                                      disabled={
+                                        actionLoading ===
+                                        `delete-${notification.id}`
+                                      }
+                                      className="p-1 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {notifications.length > 5 && (
+                          <div className="text-center pt-2">
+                            <button
+                              onClick={handelAllNotifications}
+                              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium w-full py-3 px-4 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 active:scale-95"
+                            >
+                              عرض جميع الإشعارات ({notifications.length})
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <div className="text-4xl mb-2">🔔</div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          لا توجد إشعارات جديدة
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
           </header>
 
           {/* Main Page Content */}

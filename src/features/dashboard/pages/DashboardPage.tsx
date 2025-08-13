@@ -1413,9 +1413,10 @@ export const DashboardPage: React.FC = () => {
   }, [isAuthenticated, authLoading, user]);
 
   // دمج useEffect للتحقق من الستريك والترحيب في واحد
-  // التحديث: إضافة منطق للتحقق من التاريخ اليومي للبوب الترحيبي
+  // التحديث: إضافة منطق للتحقق من انتهاء الستريك وعرض البوب في بداية اليوم الجديد
   // المشكلة السابقة: البوب الترحيبي كان يظهر مرة واحدة فقط بسبب localStorage
-  // الحل: إضافة lastWelcomeShownDate للتحقق من التاريخ اليومي
+  // الحل: إضافة منطق للتحقق من انتهاء الستريك في اليوم السابق
+  // التحديث الجديد: البوب يظهر تلقائياً عند 12 صباحاً إذا كان هناك ستريك أمس ولم يتم إضافة ستريك اليوم
   useEffect(() => {
     // منع التشغيل المتكرر
     if (welcomeModalChecked.current) {
@@ -1432,6 +1433,16 @@ export const DashboardPage: React.FC = () => {
         String(now.getMonth() + 1).padStart(2, "0") +
         "-" +
         String(now.getDate()).padStart(2, "0");
+
+      // حساب تاريخ أمس
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr =
+        yesterday.getFullYear() +
+        "-" +
+        String(yesterday.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(yesterday.getDate()).padStart(2, "0");
 
       // تحقق من localStorage للستريك
       const lastAddedDate = localStorage.getItem("lastStreakAddedDate");
@@ -1456,25 +1467,44 @@ export const DashboardPage: React.FC = () => {
       const lastWelcomeShown = localStorage.getItem("lastWelcomeShownDate");
       const shouldShowWelcomeToday = lastWelcomeShown !== today;
 
+      // تحقق من انتهاء الستريك في اليوم السابق أو عدم إضافة ستريك اليوم
+      const lastStreakDate = localStorage.getItem("lastStreakAddedDate");
+      const hadStreakYesterday = lastStreakDate === yesterdayStr;
+      const needsStreakToday = !alreadyAddedTodayLocal && !hasAnyStreak;
+
+      // التحقق من أن الوقت الحالي بعد 12 صباحاً (بداية اليوم الجديد)
+      const currentHour = now.getHours();
+      const isAfterMidnight = currentHour >= 0;
+
       console.log("🔍 Welcome Modal Logic Check:", {
         today,
+        yesterday: yesterdayStr,
         hasAnyStreak,
         isFirstTime,
         lastWelcomeShown,
         shouldShowWelcomeToday,
+        lastStreakDate,
+        hadStreakYesterday,
+        needsStreakToday,
+        isAfterMidnight,
+        currentHour,
         isProcessingStreak,
         alreadyAddedTodayLocal,
         streak,
         streakAddedToday,
       });
 
-      // إذا كان المستخدم جديد أو يحتاج لإضافة ستريك اليوم، اعرض البوب الترحيبي
+      // إذا كان المستخدم جديد أو يحتاج لإضافة ستريك اليوم بعد 12 صباحاً، اعرض البوب الترحيبي
       if (
         isFirstTime ||
+        (hadStreakYesterday && needsStreakToday && isAfterMidnight) ||
         (!hasAnyStreak &&
           !isProcessingStreak &&
           !alreadyAddedTodayLocal &&
-          shouldShowWelcomeToday)
+          shouldShowWelcomeToday &&
+          isAfterMidnight) ||
+        // إضافة شرط إضافي: إذا كان الوقت بعد 12 صباحاً ولم يتم إضافة ستريك اليوم
+        (isAfterMidnight && !alreadyAddedTodayLocal && shouldShowWelcomeToday)
       ) {
         console.log("✅ Showing welcome modal - conditions met");
         setIsNewUser(isFirstTime);
@@ -1519,6 +1549,74 @@ export const DashboardPage: React.FC = () => {
     }
   }, []);
 
+  // useEffect للتحقق من بداية اليوم الجديد كل دقيقة
+  // هذا التأثير يتحقق كل دقيقة من الوقت، وعندما تكون الساعة 12:00 صباحاً
+  // يتحقق من وجود ستريك أمس ولم يتم إضافة ستريك اليوم، فيعرض البوب الترحيبي
+  useEffect(() => {
+    if (!user || !isAuthenticated || loading || authLoading) {
+      return;
+    }
+
+    const checkNewDay = () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+
+      // تحقق فقط عند الساعة 12:00 صباحاً
+      if (currentHour === 0 && currentMinute === 0) {
+        const today =
+          now.getFullYear() +
+          "-" +
+          String(now.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(now.getDate()).padStart(2, "0");
+
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr =
+          yesterday.getFullYear() +
+          "-" +
+          String(yesterday.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(yesterday.getDate()).padStart(2, "0");
+
+        const lastStreakDate = localStorage.getItem("lastStreakAddedDate");
+        const lastWelcomeShown = localStorage.getItem("lastWelcomeShownDate");
+        const hadStreakYesterday = lastStreakDate === yesterdayStr;
+        const needsStreakToday = lastStreakDate !== today;
+        const shouldShowWelcomeToday = lastWelcomeShown !== today;
+
+        console.log("🕛 Midnight check - New day started:", {
+          today,
+          yesterday: yesterdayStr,
+          hadStreakYesterday,
+          needsStreakToday,
+          shouldShowWelcomeToday,
+          lastStreakDate,
+          lastWelcomeShown,
+        });
+
+        // إذا كان هناك ستريك أمس ولم يتم إضافة ستريك اليوم، اعرض البوب الترحيبي
+        if (hadStreakYesterday && needsStreakToday && shouldShowWelcomeToday) {
+          console.log("✅ Midnight: Showing welcome modal for new day");
+          setShowWelcomeModal(true);
+          setIsNewUser(false);
+          setStreakAddedToday(false); // تأكد من أن الستريك لم يضف اليوم
+          localStorage.setItem("welcomeShown", "true");
+          localStorage.setItem("lastWelcomeShownDate", today);
+        }
+      }
+    };
+
+    // تحقق كل دقيقة
+    const interval = setInterval(checkNewDay, 60000);
+
+    // تحقق فوراً عند التحميل
+    checkNewDay();
+
+    return () => clearInterval(interval);
+  }, [user, isAuthenticated, loading, authLoading]);
+
   // Add a debug button to clear localStorage for testing
   const debugClearStorage = () => {
     localStorage.removeItem("welcomeShown");
@@ -1562,6 +1660,65 @@ export const DashboardPage: React.FC = () => {
       });
       const storyResponse = await requestDailyStory();
     } catch (error) {}
+  };
+
+  // دالة مساعدة للتحقق من الوقت الحالي
+  const debugCheckCurrentTime = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const today =
+      now.getFullYear() +
+      "-" +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(now.getDate()).padStart(2, "0");
+
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr =
+      yesterday.getFullYear() +
+      "-" +
+      String(yesterday.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(yesterday.getDate()).padStart(2, "0");
+
+    const lastStreakDate = localStorage.getItem("lastStreakAddedDate");
+    const lastWelcomeShown = localStorage.getItem("lastWelcomeShownDate");
+    const hadStreakYesterday = lastStreakDate === yesterdayStr;
+    const needsStreakToday = lastStreakDate !== today;
+    const shouldShowWelcomeToday = lastWelcomeShown !== today;
+    const isAfterMidnight = currentHour >= 0;
+
+    console.log("🕐 Current Time Check:", {
+      currentTime: now.toLocaleString(),
+      currentHour,
+      currentMinute,
+      today,
+      yesterday: yesterdayStr,
+      hadStreakYesterday,
+      needsStreakToday,
+      shouldShowWelcomeToday,
+      isAfterMidnight,
+      lastStreakDate,
+      lastWelcomeShown,
+      wouldShowModal:
+        hadStreakYesterday &&
+        needsStreakToday &&
+        shouldShowWelcomeToday &&
+        isAfterMidnight,
+    });
+
+    alert(
+      `الوقت الحالي: ${now.toLocaleString()}\nالساعة: ${currentHour}:${currentMinute}\nاليوم: ${today}\nأمس: ${yesterdayStr}\nهل سيظهر البوب: ${
+        hadStreakYesterday &&
+        needsStreakToday &&
+        shouldShowWelcomeToday &&
+        isAfterMidnight
+          ? "نعم"
+          : "لا"
+      }`
+    );
   };
 
   return (
@@ -1655,8 +1812,6 @@ export const DashboardPage: React.FC = () => {
                   ? "مرحباً بك في منصة التعلم الذكية! ابدأ رحلتك التعليمية بإضافة أول يوم في سلسلة النجاح."
                   : "لقراءة قصة اليوم، يجب عليك أولاً إضافة يوم في سلسلة النجاح."}
               </p>
-
-              
 
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <button
@@ -1895,8 +2050,6 @@ export const DashboardPage: React.FC = () => {
                     hoverBorder="hover:border-purple-200 dark:hover:border-purple-600"
                   />
 
-              
-
                   <ActionButton
                     title="قصة اليوم"
                     description={
@@ -1959,7 +2112,8 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </div>
 
-             </>
+             
+            </>
           ) : null}
         </div>
       </div>

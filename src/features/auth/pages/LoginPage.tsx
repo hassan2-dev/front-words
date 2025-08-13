@@ -57,9 +57,14 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center transition-colors duration-300">
       {/* Loading Overlay */}
       {isLoading && (
-        <Loading isOverlay variant="video" size="xl" text="جاري تسجيل الدخول..." />
+        <Loading
+          isOverlay
+          variant="video"
+          size="xl"
+          text="جاري تسجيل الدخول..."
+        />
       )}
-      
+
       <div className="w-full max-w-2xl px-10 py-16 flex flex-col items-center justify-center transition-all duration-300">
         <div className="text-center mb-8 w-full flex flex-col items-center justify-center">
           <img
@@ -68,7 +73,7 @@ const LoginPage: React.FC = () => {
             className="w-20 h-20 mb-4 sm:flex lg:hidden md:flex"
           />
           <h2
-            className={`text-5xl font-extrabold mb-3 tracking-tight ${
+            className={`text-3xl sm:text-5xl font-extrabold mb-3 tracking-tight ${
               isDarkMode ? "text-white" : "text-gray-900"
             }`}
           >
@@ -103,7 +108,10 @@ const LoginPage: React.FC = () => {
               <input
                 id="phone"
                 name="phone"
-                type="tel"
+                // type="tel"
+                type="number"
+                inputMode="numeric"
+                maxLength={10}
                 autoComplete="tel"
                 required
                 value={phone}
@@ -119,7 +127,6 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              
               <div className="relative">
                 <input
                   id="password"
@@ -161,9 +168,10 @@ const LoginPage: React.FC = () => {
               type="submit"
               disabled={isLoading}
               className={`w-full flex justify-center items-center py-5 px-6 rounded-2xl text-2xl font-bold shadow-lg hover:shadow-2xl transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed
-                ${isDarkMode 
-                  ? "bg-white text-black hover:bg-gray-200" 
-                  : "bg-black text-white hover:bg-gray-900"
+                ${
+                  isDarkMode
+                    ? "bg-white text-black hover:bg-gray-200"
+                    : "bg-black text-white hover:bg-gray-900"
                 }`}
             >
               {isLoading ? (

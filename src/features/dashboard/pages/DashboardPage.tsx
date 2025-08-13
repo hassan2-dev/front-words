@@ -1895,15 +1895,7 @@ export const DashboardPage: React.FC = () => {
                     hoverBorder="hover:border-purple-200 dark:hover:border-purple-600"
                   />
 
-                  <ActionButton
-                    title="إضافة يوم + قصة"
-                    description="أضف يوم جديد واحصل على قصة مخصصة (90-120 ثانية)"
-                    icon="🚀"
-                    gradientFrom="from-green-500/10"
-                    gradientTo="to-emerald-500/10"
-                    hoverBorder="hover:border-green-200 dark:hover:border-green-600"
-                    onClick={handleAddStreakAndCreateStory}
-                  />
+              
 
                   <ActionButton
                     title="قصة اليوم"

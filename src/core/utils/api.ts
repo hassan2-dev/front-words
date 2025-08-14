@@ -4,10 +4,8 @@ import type {
     AuthResponse,
     RegisterResponse,
     Word,
-    Story,
     Lesson,
     Notification,
-    Attendance,
     Review,
     ChatMessage,
     PaginatedResponse,
@@ -414,53 +412,14 @@ export const getAdminTrainers = () =>
 
 // --- NOTIFICATIONS ---
 export const getNotifications = () => {
-    // الحصول على User ID من الـ token
-    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-    let userId = null;
-
-    if (token) {
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            userId = payload.userId || payload.id || payload.sub;
-        } catch (error) {
-            console.error('Error parsing token:', error);
-        }
-    }
-
     return apiClient.get<ApiResponse<Notification[]>>(API_ENDPOINTS.NOTIFICATIONS.GET);
 };
 
 export const getUnreadNotificationsCount = () => {
-    // الحصول على User ID من الـ token
-    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-    let userId = null;
-
-    if (token) {
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            userId = payload.userId || payload.id || payload.sub;
-        } catch (error) {
-            console.error('Error parsing token:', error);
-        }
-    }
-
     return apiClient.get<ApiResponse<{ count: number }>>(API_ENDPOINTS.NOTIFICATIONS.UNREAD_COUNT);
 };
 
 export const getNotificationStats = () => {
-    // الحصول على User ID من الـ token
-    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-    let userId = null;
-
-    if (token) {
-        try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            userId = payload.userId || payload.id || payload.sub;
-        } catch (error) {
-            console.error('Error parsing token:', error);
-        }
-    }
-
     return apiClient.get<ApiResponse<{
         total: number;
         unread: number;

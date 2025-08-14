@@ -83,6 +83,15 @@ export const API_ENDPOINTS = {
       DELETE: (studentId: string) => `/trainer/students/${studentId}`,
     },
 
+    // Lessons Management
+    LESSONS: {
+      LIST: '/trainer/lessons',
+      CREATE: '/trainer/lessons',
+      GET: (lessonId: string) => `/trainer/lessons/${lessonId}`,
+      UPDATE: (lessonId: string) => `/trainer/lessons/${lessonId}`,
+      DELETE: (lessonId: string) => `/trainer/lessons/${lessonId}`,
+    },
+
     // Student Activities
     ACTIVITIES: {
       STUDENT_DAILY: (studentId: string, date: string) => `/trainer/activities/student/${studentId}/daily/${date}`,

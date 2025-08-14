@@ -142,8 +142,6 @@ export const StoriesPage: React.FC = () => {
     }
   };
 
-
-
   const handleStoryClick = (story: any) => {
     navigate(`/stories/${story.id}`, { state: { story } });
   };
@@ -158,7 +156,6 @@ export const StoriesPage: React.FC = () => {
   useEffect(() => {
     fetchRemainingDailyRequests();
     fetchAllDailyStories();
-   
   }, [user?.id]);
 
   useEffect(() => {
@@ -260,7 +257,6 @@ export const StoriesPage: React.FC = () => {
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                       
                         {dailyStory.isCompleted && (
                           <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200">
                             ✓ مكتملة
@@ -297,7 +293,7 @@ export const StoriesPage: React.FC = () => {
                           قصة اليوم
                         </p>
                       </div>
-                      
+
                       <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900 dark:to-emerald-800 rounded-2xl p-3 sm:p-4 text-center col-span-2 sm:col-span-1">
                         <div className="text-2xl sm:text-3xl mb-2">⏱️</div>
                         <p className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-300 font-medium">
@@ -330,7 +326,6 @@ export const StoriesPage: React.FC = () => {
           </div>
         </div>
 
-       
         {/* Progress Summary */}
         {(stories.length > 0 || stats.totalCount > 0) && (
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-3xl shadow-xl p-6 sm:p-8 border border-white/20 dark:border-gray-700/50">
@@ -378,7 +373,7 @@ export const StoriesPage: React.FC = () => {
                   نسبة الإكمال
                 </p>
               </div>
-            </div>    
+            </div>
           </div>
         )}
       </div>

@@ -4,6 +4,72 @@ import { apiClient } from "../../../core/utils/api";
 import { API_ENDPOINTS } from "../../../core/config/api";
 import { Loading } from "../../../presentation/components";
 
+/**
+ * صفحة إدارة المستخدمين للمدير
+ *
+ * هذه الصفحة تتيح للمدير:
+ * - عرض جميع المستخدمين (طلاب، مدربين، مدراء)
+ * - إضافة مستخدمين جدد مع تحديد دورهم
+ * - تعديل بيانات المستخدمين
+ * - تفعيل/إلغاء تفعيل المستخدمين
+ * - حذف المستخدمين
+ *
+ * الأدوار المتاحة:
+ * - USER: مستخدم عادي (طالب)
+ * - TRAINER: مدرب (يمكنه إدارة الطلاب)
+ * - ADMIN: مدير (صلاحيات كاملة)
+ *
+ * ملاحظة: المدربون يتم إرسالهم إلى endpoint منفصل (/admin/trainers)
+ * بينما المستخدمون العاديون والمدراء يتم إرسالهم إلى (/admin/users)
+ */
+
+// Helper function to validate user data
+const validateUserData = (
+  userData: any,
+  isNewUser: boolean = false
+): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  // التحقق من الاسم (يجب أن يكون باللغة الإنجليزية)
+  if (!userData.name || userData.name.trim().length < 2) {
+    errors.push("الاسم يجب أن يكون على الأقل حرفين");
+  } else if (userData.name.trim().length > 50) {
+    errors.push("الاسم يجب أن يكون أقل من 50 حرف");
+  } else if (!/^[a-zA-Z\s]+$/.test(userData.name.trim())) {
+    errors.push("الاسم يجب أن يكون باللغة الإنجليزية (أحرف لاتينية فقط)");
+  }
+
+  // التحقق من رقم الهاتف
+  if (!userData.phone || userData.phone.trim().length < 9) {
+    errors.push("رقم الهاتف يجب أن يكون صحيحاً (9 أرقام على الأقل)");
+  } else if (userData.phone.trim().length > 15) {
+    errors.push("رقم الهاتف طويل جداً");
+  }
+
+  // التحقق من كلمة المرور للمستخدمين الجدد
+  if (isNewUser) {
+    if (!userData.password || userData.password.length < 8) {
+      errors.push("كلمة المرور يجب أن تكون على الأقل 8 أحرف");
+    } else if (userData.password.length > 10) {
+      errors.push("كلمة المرور طويلة جداً");
+    } else if (!/^[a-zA-Z\s 0-9]+$/.test(userData.password.trim())) {
+      errors.push(
+        "كلمة المرور يجب أن يكون باللغة الإنجليزية (أحرف لاتينية فقط)"
+      );
+    }
+  }
+
+  // التحقق من الدور
+  if (!userData.role || !["USER", "TRAINER", "ADMIN"].includes(userData.role)) {
+    errors.push("يجب تحديد دور صحيح للمستخدم (مستخدم، مدرب، أو مدير)");
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+};
+
 export const AdminUsersPage: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +83,15 @@ export const AdminUsersPage: React.FC = () => {
   const [editingUser, setEditingUser] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isAddingUser, setIsAddingUser] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showAssignTrainerModal, setShowAssignTrainerModal] = useState(false);
+  const [selectedUserForTrainer, setSelectedUserForTrainer] =
+    useState<any>(null);
+  const [availableTrainers, setAvailableTrainers] = useState<any[]>([]);
+  const [unassignedUsers, setUnassignedUsers] = useState<any[]>([]);
+  const [isLoadingTrainers, setIsLoadingTrainers] = useState(false);
+  const [isLoadingUnassigned, setIsLoadingUnassigned] = useState(false);
   const [newUser, setNewUser] = useState({
     name: "",
     phone: "",
@@ -26,8 +101,10 @@ export const AdminUsersPage: React.FC = () => {
     goal: "",
     birthDate: "",
     email: "",
-    role: "USER",
+    role: "USER", // تعيين دور افتراضي للمستخدم
   });
+  const [selectedTrainerForNewUser, setSelectedTrainerForNewUser] =
+    useState("");
 
   const handleToggleUserStatus = async (
     userId: string,
@@ -270,6 +347,75 @@ export const AdminUsersPage: React.FC = () => {
     }
   };
 
+  // جلب المدربين المتاحين
+  const fetchAvailableTrainers = async () => {
+    try {
+      setIsLoadingTrainers(true);
+      const response = await apiClient.get<any>("/admin/trainers/available");
+      if (response.success) {
+        setAvailableTrainers(response.data?.trainers || []);
+      }
+    } catch (error) {
+      console.error("خطأ في جلب المدربين المتاحين:", error);
+    } finally {
+      setIsLoadingTrainers(false);
+    }
+  };
+
+  // ربط مستخدم بمدرب
+  const handleAssignTrainer = async (userId: string, trainerId: string) => {
+    try {
+      const response = await apiClient.put(
+        `/admin/users/${userId}/assign-trainer`,
+        {
+          trainerId,
+        }
+      );
+
+      if (response.success) {
+        alert("تم ربط المستخدم بالمدرب بنجاح");
+        fetchUsers(); // إعادة تحميل قائمة المستخدمين
+        setShowAssignTrainerModal(false);
+        setSelectedUserForTrainer(null);
+      } else {
+        alert("فشل في ربط المستخدم بالمدرب");
+      }
+    } catch (error) {
+      console.error("خطأ في ربط المستخدم بالمدرب:", error);
+      alert("حدث خطأ في ربط المستخدم بالمدرب");
+    }
+  };
+
+  // إزالة ربط مستخدم من مدرب
+  const handleRemoveTrainer = async (userId: string) => {
+    if (!window.confirm("هل أنت متأكد من إزالة ربط المستخدم من المدرب؟")) {
+      return;
+    }
+
+    try {
+      const response = await apiClient.put(
+        `/admin/users/${userId}/remove-trainer`
+      );
+
+      if (response.success) {
+        alert("تم إزالة ربط المستخدم من المدرب بنجاح");
+        fetchUsers(); // إعادة تحميل قائمة المستخدمين
+      } else {
+        alert("فشل في إزالة ربط المستخدم من المدرب");
+      }
+    } catch (error) {
+      console.error("خطأ في إزالة ربط المستخدم من المدرب:", error);
+      alert("حدث خطأ في إزالة ربط المستخدم من المدرب");
+    }
+  };
+
+  // فتح نافذة ربط المدرب
+  const openAssignTrainerModal = (user: any) => {
+    setSelectedUserForTrainer(user);
+    setShowAssignTrainerModal(true);
+    fetchAvailableTrainers();
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -371,6 +517,13 @@ export const AdminUsersPage: React.FC = () => {
         ...(editingUser.password && { password: editingUser.password }),
       };
 
+      // التحقق من صحة البيانات
+      const validation = validateUserData(updateData, false);
+      if (!validation.isValid) {
+        alert(`أخطاء في البيانات:\n${validation.errors.join("\n")}`);
+        return;
+      }
+
       let updateRes;
 
       // تحديد endpoint بناءً على نوع المستخدم
@@ -390,30 +543,71 @@ export const AdminUsersPage: React.FC = () => {
         fetchUsers();
         setShowEditModal(false);
         setEditingUser(null);
+        alert("تم تحديث بيانات المستخدم بنجاح");
+      } else {
+        alert("حدث خطأ في تحديث بيانات المستخدم");
       }
     } catch (error) {
       console.error("Error updating user:", error);
+      alert("حدث خطأ في تحديث بيانات المستخدم. يرجى المحاولة مرة أخرى.");
     }
   };
 
   const handleAddUser = async () => {
     try {
+      setIsAddingUser(true); // بدء التحميل
+
+      // تحضير البيانات للإرسال
+      const userData = {
+        name: newUser.name.trim(),
+        phone: newUser.phone.trim(),
+        password: newUser.password,
+        role: newUser.role,
+        // إضافة trainerId إذا كان المستخدم عادي وتم اختيار مدرب
+        ...(newUser.role === "USER" &&
+          selectedTrainerForNewUser && {
+            trainerId: selectedTrainerForNewUser,
+          }),
+      };
+
+      // التحقق من صحة البيانات
+      const validation = validateUserData(userData, true);
+      if (!validation.isValid) {
+        alert(`أخطاء في البيانات:\n${validation.errors.join("\n")}`);
+        return;
+      }
+
+      // التحقق من اختيار المدرب للمستخدم العادي
+      if (newUser.role === "USER" && !selectedTrainerForNewUser) {
+        alert("يجب اختيار مدرب للمستخدم العادي");
+        return;
+      }
+
+      console.log("إرسال بيانات المستخدم:", userData);
+
       let addUserRes;
 
       if (newUser.role === "TRAINER") {
+        // إرسال بيانات المدرب إلى endpoint المدربين
+        console.log("إنشاء مدرب جديد...");
         addUserRes = await apiClient.post(
           API_ENDPOINTS.ADMIN.TRAINERS.CREATE,
-          newUser
+          userData
         );
       } else {
+        // إرسال بيانات المستخدم العادي إلى endpoint المستخدمين
+        console.log("إنشاء مستخدم عادي...");
         addUserRes = await apiClient.post(
           API_ENDPOINTS.ADMIN.USERS.CREATE,
-          newUser
+          userData
         );
       }
 
+      console.log("استجابة الباك إند:", addUserRes);
+
       if (addUserRes.success) {
-        fetchUsers();
+        // نجح إنشاء المستخدم
+        await fetchUsers(); // إعادة تحميل قائمة المستخدمين
         setShowAddModal(false);
         setNewUser({
           name: "",
@@ -426,9 +620,35 @@ export const AdminUsersPage: React.FC = () => {
           email: "",
           role: "USER",
         });
+        alert(
+          `تم إضافة ${
+            newUser.role === "TRAINER" ? "المدرب" : "المستخدم"
+          } بنجاح `
+        );
+      } else {
+        // فشل إنشاء المستخدم
+        const errorMessage =
+          addUserRes.error || addUserRes.message || "حدث خطأ غير معروف";
+        console.error("خطأ في إنشاء المستخدم:", errorMessage);
+        alert(`فشل في إضافة المستخدم:\n${errorMessage}`);
       }
-    } catch (error) {
-      console.error("Error adding user:", error);
+    } catch (error: any) {
+      console.error("خطأ في دالة handleAddUser:", error);
+
+      // رسائل خطأ مفصلة
+      let errorMessage = "حدث خطأ في إضافة المستخدم";
+
+      if (error.name === "AbortError") {
+        errorMessage = "انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.";
+      } else if (error.message) {
+        errorMessage = `خطأ: ${error.message}`;
+      } else if (error.error) {
+        errorMessage = `خطأ: ${error.error}`;
+      }
+
+      alert(`${errorMessage}\nيرجى المحاولة مرة أخرى.`);
+    } finally {
+      setIsAddingUser(false); // إنهاء التحميل
     }
   };
 
@@ -482,59 +702,65 @@ export const AdminUsersPage: React.FC = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-indigo-100 text-sm font-medium">
+                <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
                   إجمالي المستخدمين
                 </p>
-                <p className="text-2xl font-bold">{users.length}</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {users.length}
+                </p>
               </div>
-              <div className="bg-white bg-opacity-20 rounded-full p-3">
+              <div className="bg-gray-100 dark:bg-gray-700 rounded-full p-3">
                 <span className="text-2xl">👥</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-emerald-100 text-sm font-medium">
+                <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
                   المستخدمون المفعلون
                 </p>
-                <p className="text-2xl font-bold">
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   {users.filter((u) => u.isActive).length}
                 </p>
               </div>
-              <div className="bg-white bg-opacity-20 rounded-full p-3">
+              <div className="bg-gray-100 dark:bg-gray-700 rounded-full p-3">
                 <span className="text-2xl">✅</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-rose-500 to-pink-600 rounded-2xl p-6 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-rose-100 text-sm font-medium">المدراء</p>
-                <p className="text-2xl font-bold">
+                <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
+                  المدراء
+                </p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   {users.filter((u) => u.role === "ADMIN").length}
                 </p>
               </div>
-              <div className="bg-white bg-opacity-20 rounded-full p-3">
+              <div className="bg-gray-100 dark:bg-gray-700 rounded-full p-3">
                 <span className="text-2xl">👑</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl p-6 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-amber-100 text-sm font-medium">المدربون</p>
-                <p className="text-2xl font-bold">
+                <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
+                  المدربون
+                </p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   {users.filter((u) => u.role === "TRAINER").length}
                 </p>
               </div>
-              <div className="bg-white bg-opacity-20 rounded-full p-3">
+              <div className="bg-gray-100 dark:bg-gray-700 rounded-full p-3">
                 <span className="text-2xl">💪</span>
               </div>
             </div>
@@ -616,10 +842,14 @@ export const AdminUsersPage: React.FC = () => {
               </div>
 
               {/* Add User Button */}
-              <div className="flex items-center">
+              <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setShowAddModal(true)}
-                  className="w-full xl:w-auto bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white font-semibold py-3 px-6 sm:px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center gap-2 sm:gap-3 whitespace-nowrap"
+                  onClick={() => {
+                    setShowAddModal(true);
+                    // تحميل المدربين عند فتح النافذة
+                    fetchAvailableTrainers();
+                  }}
+                  className="w-full xl:w-auto bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white font-semibold py-3 px-6 sm:px-8 rounded-lg transition-all duration-300 shadow-lg flex items-center justify-center gap-2 sm:gap-3 whitespace-nowrap"
                 >
                   <span className="text-lg sm:text-xl">➕</span>
                   <span className="text-sm sm:text-base">
@@ -643,21 +873,21 @@ export const AdminUsersPage: React.FC = () => {
                 <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                   <button
                     onClick={handleBulkActivate}
-                    className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-sm font-semibold px-3 sm:px-4 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-2"
+                    className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 sm:px-4 py-2 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-2"
                   >
                     <span>✅</span>
                     <span>تفعيل المحددين</span>
                   </button>
                   <button
                     onClick={handleBulkDeactivate}
-                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-sm font-semibold px-3 sm:px-4 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-2"
+                    className="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 sm:px-4 py-2 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-2"
                   >
                     <span>⏸️</span>
                     <span>إلغاء تفعيل</span>
                   </button>
                   <button
                     onClick={handleBulkDelete}
-                    className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white text-sm font-semibold px-3 sm:px-4 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-2"
+                    className="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-3 sm:px-4 py-2 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-2"
                   >
                     <span>🗑️</span>
                     <span>حذف المحددين</span>
@@ -739,7 +969,7 @@ export const AdminUsersPage: React.FC = () => {
                       <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-gray-200 dark:border-gray-600">
                         <button
                           onClick={() => handleEditUser(user)}
-                          className="flex-1 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-2"
+                          className="flex-1 bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-500 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-2"
                         >
                           <span>✏️</span>
                           <span>تعديل</span>
@@ -747,7 +977,7 @@ export const AdminUsersPage: React.FC = () => {
                         {user.isActive ? (
                           <button
                             onClick={() => handleDeactivateUser(user.id)}
-                            className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-2"
+                            className="flex-1 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-2"
                           >
                             <span>⏸️</span>
                             <span>إلغاء تفعيل</span>
@@ -755,15 +985,38 @@ export const AdminUsersPage: React.FC = () => {
                         ) : (
                           <button
                             onClick={() => handleActivateUser(user.id)}
-                            className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-2"
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-2"
                           >
                             <span>✅</span>
                             <span>تفعيل</span>
                           </button>
                         )}
+                        {user.role === "USER" && (
+                          <>
+                            {user.trainerId ? (
+                              <button
+                                onClick={() => handleRemoveTrainer(user.id)}
+                                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-2"
+                                title="إزالة ربط المدرب"
+                              >
+                                <span>🚫</span>
+                                <span>إزالة المدرب</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => openAssignTrainerModal(user)}
+                                className="flex-1 bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-2"
+                                title="ربط بمدرب"
+                              >
+                                <span>👨‍🏫</span>
+                                <span>ربط بمدرب</span>
+                              </button>
+                            )}
+                          </>
+                        )}
                         <button
                           onClick={() => handleDeleteUser(user.id)}
-                          className="flex-1 sm:flex-none bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-2"
+                          className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-2"
                         >
                           <span>🗑️</span>
                           <span>حذف</span>
@@ -924,7 +1177,7 @@ export const AdminUsersPage: React.FC = () => {
                             <div className="flex flex-col sm:flex-row items-center gap-2">
                               <button
                                 onClick={() => handleEditUser(user)}
-                                className="w-full sm:w-auto bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-1 sm:gap-2"
+                                className="w-full sm:w-auto bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-500 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-1 sm:gap-2"
                               >
                                 <span className="text-sm">✏️</span>
                                 <span className="hidden sm:inline">تعديل</span>
@@ -932,7 +1185,7 @@ export const AdminUsersPage: React.FC = () => {
                               {user.isActive ? (
                                 <button
                                   onClick={() => handleDeactivateUser(user.id)}
-                                  className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-1 sm:gap-2"
+                                  className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-1 sm:gap-2"
                                 >
                                   <span className="text-sm">⏸️</span>
                                   <span className="hidden sm:inline">
@@ -942,7 +1195,7 @@ export const AdminUsersPage: React.FC = () => {
                               ) : (
                                 <button
                                   onClick={() => handleActivateUser(user.id)}
-                                  className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-1 sm:gap-2"
+                                  className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-1 sm:gap-2"
                                 >
                                   <span className="text-sm">✅</span>
                                   <span className="hidden sm:inline">
@@ -950,9 +1203,40 @@ export const AdminUsersPage: React.FC = () => {
                                   </span>
                                 </button>
                               )}
+                              {user.role === "USER" && (
+                                <>
+                                  {user.trainerId ? (
+                                    <button
+                                      onClick={() =>
+                                        handleRemoveTrainer(user.id)
+                                      }
+                                      className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-1 sm:gap-2"
+                                      title="إزالة ربط المدرب"
+                                    >
+                                      <span className="text-sm">🚫</span>
+                                      <span className="hidden sm:inline">
+                                        إزالة المدرب
+                                      </span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() =>
+                                        openAssignTrainerModal(user)
+                                      }
+                                      className="w-full sm:w-auto bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-1 sm:gap-2"
+                                      title="ربط بمدرب"
+                                    >
+                                      <span className="text-sm">👨‍🏫</span>
+                                      <span className="hidden sm:inline">
+                                        ربط بمدرب
+                                      </span>
+                                    </button>
+                                  )}
+                                </>
+                              )}
                               <button
                                 onClick={() => handleDeleteUser(user.id)}
-                                className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md flex items-center justify-center gap-1 sm:gap-2"
+                                className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded-lg transition-all duration-300 shadow-md flex items-center justify-center gap-1 sm:gap-2"
                               >
                                 <span className="text-sm">🗑️</span>
                                 <span className="hidden sm:inline">حذف</span>
@@ -1092,14 +1376,17 @@ export const AdminUsersPage: React.FC = () => {
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-200 dark:border-gray-700">
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-6">
+            <div className="bg-gray-900 dark:bg-gray-800 text-white p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-bold mb-1">إضافة مستخدم جديد</h3>
                   <p className="text-blue-100">أضف مستخدم جديد إلى المنصة</p>
                 </div>
                 <button
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setSelectedTrainerForNewUser(""); // إعادة تعيين المدرب المختار
+                  }}
                   className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition-all duration-300"
                 >
                   <svg
@@ -1138,7 +1425,7 @@ export const AdminUsersPage: React.FC = () => {
                         setNewUser({ ...newUser, name: e.target.value })
                       }
                       className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 text-right shadow-inner"
-                      placeholder="أدخل اسم المستخدم"
+                      placeholder="Enter user name (English only)"
                       required
                     />
                   </div>
@@ -1166,51 +1453,197 @@ export const AdminUsersPage: React.FC = () => {
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
                       كلمة المرور <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="password"
-                      value={newUser.password}
-                      onChange={(e) =>
-                        setNewUser({
-                          ...newUser,
-                          password: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 text-right shadow-inner"
-                      placeholder="أدخل كلمة المرور"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={newUser.password}
+                        onChange={(e) =>
+                          setNewUser({
+                            ...newUser,
+                            password: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 text-right shadow-inner"
+                        placeholder="أدخل كلمة المرور"
+                        required
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-300 focus:outline-none"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        aria-label={
+                          showPassword
+                            ? "إخفاء كلمة المرور"
+                            : "إظهار كلمة المرور"
+                        }
+                      >
+                        {showPassword ? (
+                          // Eye Off Icon
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.336-3.234.938-4.675M15 12a3 3 0 11-6 0 3 3 0 016 0zm6.062-4.675A9.956 9.956 0 0122 9c0 5.523-4.477 10-10 10a9.956 9.956 0 01-4.675-.938M3 3l18 18"
+                            />
+                          </svg>
+                        ) : (
+                          // Eye Icon
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm7 0c0 5-4.03 9-9 9s-9-4-9-9 4.03-9 9-9 9 4 9 9z"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                      الدور
+                      الدور <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={newUser.role}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, role: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setNewUser({ ...newUser, role: e.target.value });
+                        // إعادة تعيين المدرب المختار عند تغيير الدور
+                        if (e.target.value !== "USER") {
+                          setSelectedTrainerForNewUser("");
+                        }
+                      }}
                       className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 text-right shadow-inner"
                     >
-                      <option value="USER">مستخدم</option>
+                      <option value="USER">مستخدم عادي (طالب)</option>
                       <option value="TRAINER">مدرب</option>
                       <option value="ADMIN">مدير</option>
                     </select>
+                    {newUser.role === "TRAINER" && (
+                      <div className="mt-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                          <span className="text-lg">💪</span>
+                          <span className="text-sm font-semibold">
+                            سيتم إنشاء حساب مدرب مع صلاحيات إدارة الطلاب
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {newUser.role === "USER" && (
+                      <div className="mt-2 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                        <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300">
+                          <span className="text-lg">👤</span>
+                          <span className="text-sm font-semibold">
+                            سيتم إنشاء حساب طالب وربطه بالمدرب المختار
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {newUser.role === "ADMIN" && (
+                      <div className="mt-2 p-3 bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/20 border border-rose-200 dark:border-rose-700 rounded-lg">
+                        <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300">
+                          <span className="text-lg">👑</span>
+                          <span className="text-sm font-semibold">
+                            سيتم إنشاء حساب مدير مع صلاحيات كاملة على النظام
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
+
+                  {/* اختيار المدرب للمستخدم العادي */}
+                  {newUser.role === "USER" && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                        المدرب المسؤول <span className="text-red-500">*</span>
+                      </label>
+                      {isLoadingTrainers ? (
+                        <div className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
+                          <Loading
+                            variant="video"
+                            size="xl"
+                            text="جاري تحميل بيانات المستخدمين..."
+                            isOverlay
+                          />
+                        </div>
+                      ) : (
+                        <select
+                          value={selectedTrainerForNewUser}
+                          onChange={(e) =>
+                            setSelectedTrainerForNewUser(e.target.value)
+                          }
+                          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 text-right shadow-inner"
+                          required
+                        >
+                          <option value="">اختر المدرب المسؤول</option>
+                          {availableTrainers.map((trainer) => (
+                            <option key={trainer.id} value={trainer.id}>
+                              {trainer.name} - {trainer.phone} (عدد الطلاب:{" "}
+                              {trainer.studentsCount || 0})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {availableTrainers.length === 0 && !isLoadingTrainers && (
+                        <div className="mt-2 p-3 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200 dark:border-red-700 rounded-lg">
+                          <div className="flex items-center gap-2 text-red-800 dark:text-red-300">
+                            <span className="text-lg">⚠️</span>
+                            <span className="text-sm font-semibold">
+                              لا يوجد مدربون متاحون. يجب إنشاء مدرب أولاً.
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-600">
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
+                    disabled={isAddingUser}
+                    className={`flex-1 bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 shadow-lg flex items-center justify-center gap-3 ${
+                      isAddingUser ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
                   >
-                    <span className="text-xl">➕</span>
-                    <span>إضافة المستخدم</span>
+                    {isAddingUser ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <span>جاري الإضافة...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xl">➕</span>
+                        <span>إضافة المستخدم</span>
+                      </>
+                    )}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowAddModal(false)}
-                    className="flex-1 bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center gap-3"
+                    disabled={isAddingUser}
+                    onClick={() => {
+                      setShowAddModal(false);
+                      setSelectedTrainerForNewUser(""); // إعادة تعيين المدرب المختار
+                    }}
+                    className={`flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 shadow-lg flex items-center justify-center gap-3 ${
+                      isAddingUser ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
                   >
                     <span className="text-xl">✕</span>
                     <span>إلغاء</span>
@@ -1226,7 +1659,7 @@ export const AdminUsersPage: React.FC = () => {
       {showEditModal && editingUser && (
         <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-200 dark:border-gray-700">
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6">
+            <div className="bg-gray-900 dark:bg-gray-800 text-white p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-bold mb-1">تعديل المستخدم</h3>
@@ -1275,7 +1708,7 @@ export const AdminUsersPage: React.FC = () => {
                         setEditingUser({ ...editingUser, name: e.target.value })
                       }
                       className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
-                      placeholder="أدخل اسم المستخدم"
+                      placeholder="Enter user name (English only)"
                       required
                     />
                   </div>
@@ -1319,7 +1752,7 @@ export const AdminUsersPage: React.FC = () => {
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                      الدور
+                      الدور <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={editingUser.role}
@@ -1328,10 +1761,31 @@ export const AdminUsersPage: React.FC = () => {
                       }
                       className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                     >
-                      <option value="USER">مستخدم</option>
+                      <option value="USER">مستخدم عادي</option>
                       <option value="TRAINER">مدرب</option>
                       <option value="ADMIN">مدير</option>
                     </select>
+                    {editingUser.role === "TRAINER" && (
+                      <div className="mt-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                          <span className="text-lg">💪</span>
+                          <span className="text-sm font-semibold">
+                            سيتم تحديث الحساب ليكون مدرب مع صلاحيات إدارة الطلاب
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {editingUser.role === "ADMIN" && (
+                      <div className="mt-2 p-3 bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/20 border border-rose-200 dark:border-rose-700 rounded-lg">
+                        <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300">
+                          <span className="text-lg">👑</span>
+                          <span className="text-sm font-semibold">
+                            سيتم تحديث الحساب ليكون مدير مع صلاحيات كاملة على
+                            النظام
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1355,7 +1809,7 @@ export const AdminUsersPage: React.FC = () => {
                 <div className="flex gap-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-600">
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
+                    className="flex-1 bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 shadow-lg flex items-center justify-center gap-3"
                   >
                     <span className="text-xl">💾</span>
                     <span>حفظ التغييرات</span>
@@ -1366,13 +1820,146 @@ export const AdminUsersPage: React.FC = () => {
                       setShowEditModal(false);
                       setEditingUser(null);
                     }}
-                    className="flex-1 bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center gap-3"
+                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 shadow-lg flex items-center justify-center gap-3"
                   >
                     <span className="text-xl">✕</span>
                     <span>إلغاء</span>
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Trainer Modal */}
+      {showAssignTrainerModal && selectedUserForTrainer && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div className="bg-gray-900 dark:bg-gray-800 text-white p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold mb-1">
+                    ربط المستخدم بمدرب
+                  </h3>
+                  <p className="text-blue-100">
+                    ربط {selectedUserForTrainer.name} بمدرب
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAssignTrainerModal(false);
+                    setSelectedUserForTrainer(null);
+                  }}
+                  className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition-all duration-300"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {isLoadingTrainers ? (
+                <Loading
+                  variant="dots"
+                  size="xl"
+                  text="جاري تحميل المدربين..."
+                  isOverlay
+                />
+              ) : availableTrainers.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-6xl mb-4 opacity-50">👨‍🏫</div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    لا يوجد مدربون متاحون
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    يجب إنشاء مدربين أولاً قبل ربط المستخدمين
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">👤</span>
+                      <div>
+                        <h4 className="font-bold text-gray-900 dark:text-white mb-1">
+                          المستخدم المحدد
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {selectedUserForTrainer.name} -{" "}
+                          {selectedUserForTrainer.email}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-gray-900 dark:text-white mb-4 text-lg">
+                      اختر المدرب:
+                    </h4>
+                    <div className="grid gap-3">
+                      {availableTrainers.map((trainer) => (
+                        <div
+                          key={trainer.id}
+                          className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600 hover:shadow-lg transition-all duration-300 cursor-pointer"
+                          onClick={() =>
+                            handleAssignTrainer(
+                              selectedUserForTrainer.id,
+                              trainer.id
+                            )
+                          }
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center text-gray-700 dark:text-gray-300 font-bold text-lg shadow-lg">
+                                {trainer.name.charAt(0)}
+                              </div>
+                              <div>
+                                <h5 className="font-bold text-gray-900 dark:text-white">
+                                  {trainer.name}
+                                </h5>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  {trainer.phone}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold">
+                                  عدد الطلاب: {trainer.studentsCount || 0}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-gray-600 dark:text-gray-400">
+                              <svg
+                                className="w-6 h-6"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 5l7 7-7 7"
+                                />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

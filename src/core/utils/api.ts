@@ -33,8 +33,17 @@ class ApiClient {
 
     constructor() {
         // استخدام متغيرات البيئة أو القيم الافتراضية
-        this.baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000';
-        this.timeout = parseInt((import.meta as any).env?.VITE_API_TIMEOUT || '180000'); // 180 ثانية (3 دقائق) للـ GPT-4 (دقيقة ونصف + buffer)
+        this.baseURL = import.meta.env.VITE_API_URL;
+        this.timeout = parseInt(import.meta.env.VITE_API_TIMEOUT || '180000'); // 180 ثانية (3 دقائق) للـ GPT-4 (دقيقة ونصف + buffer)
+
+        // طباعة معلومات التكوين للتأكد من صحة الإعدادات
+        if (import.meta.env.DEV) {
+            console.log('API Configuration:', {
+                baseURL: this.baseURL,
+                timeout: this.timeout,
+                env: import.meta.env.MODE
+            });
+        }
     }
 
 

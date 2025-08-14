@@ -308,13 +308,15 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
 
   // Reading time tracker
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (currentStory) {
       interval = setInterval(() => {
         setReadingTime((prev) => prev + 1);
       }, 1000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [currentStory]);
 
   // تحديث خلفي عند إغلاق الصفحة أو تغيير التبويب

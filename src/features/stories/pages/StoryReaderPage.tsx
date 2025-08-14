@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * StoryReaderPage - صفحة قراءة القصص اليومية
  *

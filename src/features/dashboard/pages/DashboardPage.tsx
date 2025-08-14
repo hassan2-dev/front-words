@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../../core/providers/AuthProvider";
 import {

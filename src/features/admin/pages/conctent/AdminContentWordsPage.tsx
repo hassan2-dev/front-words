@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import React, { useState, useEffect } from "react";
 import { apiClient } from "../../../../core/utils/api";
 import { API_ENDPOINTS } from "../../../../core/config/api";

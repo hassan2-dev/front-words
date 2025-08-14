@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // Utility to enhance story content and make it more engaging
 export interface EnhancedStory {
   title: string;

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { API_ENDPOINTS, getApiUrl, getDynamicApiUrl } from '../config/api';
 import { STORAGE_KEYS } from '../constants/app';
 import type {

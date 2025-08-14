@@ -46,6 +46,7 @@ export const API_ENDPOINTS = {
     GET_STORY_WORDS: (storyId: string) => `/stories/daily/story/${storyId}/words`,
     // الطلبات المتبقية
     REMAINING: '/stories/daily/story/remaining',
+    GET_ALL_STORIES: '/stories/daily/story/all-stories',
     // التفاعل مع الكلمات
     WORD_INTERACTION: '/stories/daily/story/word-interaction',
     // إحصائيات الكلمات
@@ -66,15 +67,48 @@ export const API_ENDPOINTS = {
 
   // ===== Trainer =====
   TRAINER: {
+    // Dashboard & Overview
+    DASHBOARD: {
+      OVERVIEW: '/trainer/dashboard/overview',
+      STUDENTS_STATS: '/trainer/dashboard/students-stats',
+      STORIES_STATS: '/trainer/dashboard/stories-stats',
+    },
+
+    // Students Management
     STUDENTS: {
       LIST: '/trainer/students',
       GET: (studentId: string) => `/trainer/students/${studentId}`,
+      UPDATE: (studentId: string) => `/trainer/students/${studentId}`,
+      CREATE: '/trainer/students',
+      DELETE: (studentId: string) => `/trainer/students/${studentId}`,
     },
-    LESSONS: {
-      LIST: '/trainer/lessons',
-      CREATE: '/trainer/lessons',
-      UPDATE: (lessonId: string) => `/trainer/lessons/${lessonId}`,
-      DELETE: (lessonId: string) => `/trainer/lessons/${lessonId}`,
+
+    // Student Activities
+    ACTIVITIES: {
+      STUDENT_DAILY: (studentId: string, date: string) => `/trainer/activities/student/${studentId}/daily/${date}`,
+      STUDENT_WEEKLY: (studentId: string, date: string) => `/trainer/activities/student/${studentId}/weekly/${date}`,
+      STUDENT_MONTHLY: (studentId: string, date: string) => `/trainer/activities/student/${studentId}/monthly/${date}`,
+      STUDENT_STATS: (studentId: string) => `/trainer/activities/student/${studentId}/stats`,
+      LIST: '/trainer/activities',
+      FILTER: '/trainer/activities/filter',
+    },
+
+    // Stories Management
+    STORIES: {
+      LIST: '/trainer/stories',
+      GET: (storyId: string) => `/trainer/stories/${storyId}`,
+      CREATE: '/trainer/stories',
+      UPDATE: (storyId: string) => `/trainer/stories/${storyId}`,
+      DELETE: (storyId: string) => `/trainer/stories/${storyId}`,
+      STUDENT_STORIES: (studentId: string) => `/trainer/stories/student/${studentId}`,
+    },
+
+    // Notifications
+    NOTIFICATIONS: {
+      LIST: '/trainer/notifications',
+      GET: (notificationId: string) => `/trainer/notifications/${notificationId}`,
+      UPDATE: (notificationId: string) => `/trainer/notifications/${notificationId}`,
+      SEND: '/trainer/notifications/send',
     },
   },
 
@@ -97,6 +131,11 @@ export const API_ENDPOINTS = {
       CHANGE_ROLE: (userId: string) => `/admin/users/${userId}/role`,
       DELETE: (userId: string) => `/admin/users/${userId}`,
       BULK_ACTIONS: '/admin/users/bulk-actions',
+      // User Status Management
+      TOGGLE_STATUS: (userId: string) => `/admin/users/${userId}/toggle-status`,
+      ACTIVATE: (userId: string) => `/admin/users/${userId}/activate`,
+      DEACTIVATE: (userId: string) => `/admin/users/${userId}/deactivate`,
+      BULK_TOGGLE_STATUS: '/admin/users/bulk-toggle-status',
     },
 
     // Content Management
@@ -171,6 +210,13 @@ export const API_ENDPOINTS = {
     // Legacy endpoints (for backward compatibility)
     TRAINERS: {
       LIST: '/admin/trainers',
+      GET: (trainerId: string) => `/admin/trainers/${trainerId}`,
+      CREATE: '/admin/trainers',
+      UPDATE: (trainerId: string) => `/admin/trainers/${trainerId}`,
+      DELETE: (trainerId: string) => `/admin/trainers/${trainerId}`,
+      TOGGLE_STATUS: (trainerId: string) => `/admin/trainers/${trainerId}/toggle-status`,
+      ACTIVATE: (trainerId: string) => `/admin/trainers/${trainerId}/activate`,
+      DEACTIVATE: (trainerId: string) => `/admin/trainers/${trainerId}/deactivate`,
     },
   },
 

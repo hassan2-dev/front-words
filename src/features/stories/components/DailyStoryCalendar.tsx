@@ -1,10 +1,20 @@
 import React from "react";
 
+interface Story {
+  id: string;
+  title: string;
+  date: string;
+  isCompleted?: boolean;
+  content?: string;
+}
+
 interface DailyStoryCalendarProps {
   monthDate?: Date;
   isLoading?: boolean;
   isCompleted?: boolean;
   onSelectToday?: () => void;
+  stories?: Story[];
+  onSelectDate?: (date: Date, story?: Story) => void;
 }
 
 // Enhanced calendar component with modern design and mobile optimization
@@ -13,6 +23,8 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
   isLoading = false,
   isCompleted = false,
   onSelectToday,
+  stories = [],
+  onSelectDate,
 }) => {
   const today = new Date();
   const year = monthDate.getFullYear();
@@ -24,7 +36,31 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
   const startWeekday = (firstDay.getDay() + 6) % 7; // make Monday=0, Sunday=6 for RTL grids
   const totalDays = lastDay.getDate();
 
-  const days: Array<{ day: number; date: Date; isToday: boolean } | null> = [];
+  // Helper function to check if a date has a story
+  const getStoryForDate = (date: Date): Story | undefined => {
+    const dateString = date.toISOString().split("T")[0];
+    return stories.find((story) => {
+      const storyDate = new Date(story.date);
+      return (
+        storyDate.toDateString() === date.toDateString() ||
+        story.date === dateString
+      );
+    });
+  };
+
+  // Helper function to check if a date is completed
+  const isDateCompleted = (date: Date): boolean => {
+    const story = getStoryForDate(date);
+    return story?.isCompleted || false;
+  };
+
+  const days: Array<{
+    day: number;
+    date: Date;
+    isToday: boolean;
+    hasStory: boolean;
+    isCompleted: boolean;
+  } | null> = [];
   for (let i = 0; i < startWeekday; i++) days.push(null);
   for (let d = 1; d <= totalDays; d++) {
     const date = new Date(year, month, d);
@@ -32,13 +68,30 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
       date.getFullYear() === today.getFullYear() &&
       date.getMonth() === today.getMonth() &&
       date.getDate() === today.getDate();
-    days.push({ day: d, date, isToday });
+    const hasStory = getStoryForDate(date) !== undefined;
+    const isCompleted = isDateCompleted(date);
+    days.push({ day: d, date, isToday, hasStory, isCompleted });
   }
 
   const monthName = new Intl.DateTimeFormat("ar-SA", {
     month: "long",
     year: "numeric",
   }).format(monthDate);
+
+  const handleDateClick = (dayData: {
+    day: number;
+    date: Date;
+    isToday: boolean;
+    hasStory: boolean;
+    isCompleted: boolean;
+  }) => {
+    if (dayData.isToday && onSelectToday) {
+      onSelectToday();
+    } else if (dayData.hasStory && onSelectDate) {
+      const story = getStoryForDate(dayData.date);
+      onSelectDate(dayData.date, story);
+    }
+  };
 
   return (
     <div className="w-full bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-4 sm:p-6 border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
@@ -50,7 +103,7 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
               <span className="text-white text-sm">📅</span>
             </div>
             <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
-              تقويم القصة اليومية
+              تقويم القصص اليومية
             </h3>
           </div>
         </div>
@@ -72,10 +125,7 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
           { full: "السبت", short: "سب" },
           { full: "الأحد", short: "أح" },
         ].map((day, idx) => (
-          <div 
-            key={day.full} 
-            className="text-center py-2 px-1"
-          >
+          <div key={day.full} className="text-center py-2 px-1">
             <div className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
               <span className="hidden sm:inline">{day.full}</span>
               <span className="sm:hidden">{day.short}</span>
@@ -88,34 +138,49 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
       <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {days.map((item, idx) => {
           if (!item) {
-            return (
-              <div
-                key={`empty-${idx}`}
-                className="aspect-square"
-              />
-            );
+            return <div key={`empty-${idx}`} className="aspect-square" />;
           }
 
-          const isToday = item.isToday;
-          const isDisabled = !isToday;
+          const { isToday, hasStory, isCompleted } = item;
+          const isDisabled = !hasStory && !isToday;
 
           return (
             <div key={item.day} className="relative">
               <button
                 disabled={isDisabled || isLoading}
-                onClick={() => onSelectToday && onSelectToday()}
+                onClick={() => handleDateClick(item)}
                 className={`
                   w-full aspect-square rounded-xl flex flex-col items-center justify-center
                   transition-all duration-300 ease-out relative overflow-hidden
                   ${
                     isToday
                       ? "bg-gradient-to-br from-emerald-500 via-blue-500 to-purple-600 text-white shadow-lg hover:shadow-xl"
+                      : hasStory
+                      ? isCompleted
+                        ? "bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-md hover:shadow-lg"
+                        : "bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-md hover:shadow-lg"
                       : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600"
                   }
-                  ${isDisabled ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}
-                  ${!isToday ? "border border-gray-200 dark:border-gray-600" : "border-0"}
+                  ${
+                    isDisabled
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:scale-105 cursor-pointer"
+                  }
+                  ${
+                    !hasStory && !isToday
+                      ? "border border-gray-200 dark:border-gray-600"
+                      : "border-0"
+                  }
                 `}
-                title={isToday ? "قصة اليوم - اضغط للقراءة" : "متاح قريباً"}
+                title={
+                  isToday
+                    ? "قصة اليوم - اضغط للقراءة"
+                    : hasStory
+                    ? isCompleted
+                      ? "قصة مكتملة - اضغط لإعادة القراءة"
+                      : "قصة متاحة - اضغط للقراءة"
+                    : "لا توجد قصة متاحة"
+                }
               >
                 {/* Background animation for today */}
                 {isToday && (
@@ -123,29 +188,39 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
                 )}
 
                 {/* Day number */}
-                <span className={`text-sm sm:text-base font-bold z-10 ${isToday ? 'text-white' : ''}`}>
+                <span
+                  className={`text-sm sm:text-base font-bold z-10 ${
+                    isToday || hasStory ? "text-white" : ""
+                  }`}
+                >
                   {item.day}
                 </span>
 
-                {/* Today indicators */}
-                {isToday && (
+                {/* Story indicators */}
+                {(isToday || hasStory) && (
                   <div className="mt-1 z-10">
-                    {isLoading ? (
+                    {isLoading && isToday ? (
                       <div className="flex items-center justify-center">
                         <div className="w-2 h-2 bg-white/80 rounded-full animate-pulse" />
                       </div>
                     ) : (
                       <div className="text-center">
-                        <div className={`px-1.5 py-0.5 rounded-md text-xs font-medium ${
-                          isCompleted 
-                            ? "bg-emerald-200/30 text-emerald-100" 
-                            : "bg-white/20 text-white"
-                        }`}>
+                        <div
+                          className={`px-1.5 py-0.5 rounded-md text-xs font-medium ${
+                            isCompleted
+                              ? "bg-emerald-200/30 text-emerald-100"
+                              : "bg-white/20 text-white"
+                          }`}
+                        >
                           <span className="hidden sm:inline">
-                            {isCompleted ? "مكتملة ✓" : "اقرأ اليوم"}
+                            {isCompleted
+                              ? "مكتملة ✓"
+                              : isToday
+                              ? "اقرأ اليوم"
+                              : "متاحة"}
                           </span>
                           <span className="sm:hidden">
-                            {isCompleted ? "✓" : "📖"}
+                            {isCompleted ? "✓" : isToday ? "📖" : "📚"}
                           </span>
                         </div>
                       </div>
@@ -153,16 +228,27 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
                   </div>
                 )}
 
-                {/* Subtle dot for non-today dates */}
-                {!isToday && (
+                {/* Subtle dot for dates with stories */}
+                {hasStory && !isToday && (
+                  <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2">
+                    <div
+                      className={`w-1 h-1 rounded-full ${
+                        isCompleted ? "bg-emerald-300" : "bg-blue-300"
+                      }`}
+                    />
+                  </div>
+                )}
+
+                {/* Subtle dot for non-story dates */}
+                {!hasStory && !isToday && (
                   <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2">
                     <div className="w-1 h-1 bg-gray-400 dark:bg-gray-500 rounded-full opacity-30" />
                   </div>
                 )}
               </button>
 
-              {/* Ripple effect for today button */}
-              {isToday && !isDisabled && (
+              {/* Ripple effect for interactive buttons */}
+              {(isToday || hasStory) && !isDisabled && (
                 <div className="absolute inset-0 rounded-xl opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
                   <div className="absolute inset-0 bg-white/10 rounded-xl animate-pulse" />
                 </div>
@@ -180,28 +266,34 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
             <span className="text-gray-600 dark:text-gray-400">اليوم</span>
           </div>
           <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full" />
+            <span className="text-gray-600 dark:text-gray-400">قصة متاحة</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+              <span className="text-white text-[8px]">✓</span>
+            </div>
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+              مكتملة
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <div className="w-3 h-3 bg-gray-300 dark:bg-gray-600 rounded-full" />
             <span className="text-gray-600 dark:text-gray-400">قريباً</span>
           </div>
-          {isCompleted && (
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-[8px]">✓</span>
-              </div>
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium">مكتملة</span>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Today's story preview (if applicable) */}
-      {today     && !isLoading && (
+      {today && !isLoading && (
         <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
           <div className="flex items-center gap-2 text-sm">
             <span className="text-lg">📚</span>
             <div className="flex-1">
               <p className="text-blue-700 dark:text-blue-300 font-medium">
-                {isCompleted ? "تم إكمال قصة اليوم!" : "قصة اليوم جاهزة للقراءة"}
+                {isCompleted
+                  ? "تم إكمال قصة اليوم!"
+                  : "قصة اليوم جاهزة للقراءة"}
               </p>
               <p className="text-blue-600 dark:text-blue-400 text-xs mt-0.5">
                 {isCompleted ? "يمكنك إعادة القراءة" : "اضغط لبدء القراءة"}

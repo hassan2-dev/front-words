@@ -31,7 +31,10 @@ import {
   Eye,
   Trash2,
   Check,
-} from "lucide-react";
+  FileText,
+  Book,
+  Activity,
+  } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getNotifications,
@@ -54,7 +57,7 @@ const getNavItems = (
   if (role === USER_ROLES.ADMIN) {
     return [
       {
-        href: ROUTES.ADMIN_DASHBOARD,
+        href: ROUTES.ADMIN,
         name: "لوحة التحكم",
         icon: <Crown size={20} />,
       },
@@ -80,7 +83,7 @@ const getNavItems = (
     return [
       {
         href: ROUTES.TRAINER_DASHBOARD,
-        name: "لوحة التحكم",
+        name: "نظرة عامة",
         icon: <GraduationCap size={20} />,
       },
       {
@@ -88,10 +91,18 @@ const getNavItems = (
         name: "الطلاب",
         icon: <Users size={20} />,
       },
+     
+      
+
       {
-        href: ROUTES.TRAINER_CONTENT,
-        name: "المحتوى",
-        icon: <BookMarked size={20} />,
+        href: ROUTES.TRAINER_ACTIVITIES,
+        name: "النشاطات",
+        icon: <Activity size={20} />,
+      },
+      
+      {href:ROUTES.TRAINER_NOTIFICATIONS,
+        name: "الإشعارات",
+        icon: <Bell size={20} />,
       },
     ];
   }

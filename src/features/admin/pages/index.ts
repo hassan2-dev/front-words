@@ -1,4 +1,4 @@
-export { AdminDashboard } from './AdminDashboard';
+
 export { AdminOverviewPage } from './AdminOverviewPage';
 export { AdminUsersPage } from './AdminUsersPage';
 export { AdminContentPage } from './conctent/AdminContentPage';

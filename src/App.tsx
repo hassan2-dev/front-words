@@ -30,18 +30,23 @@ import { NotificationsPage } from "./features/notifications/pages/NotificationsP
 import { RoleBasedRoute } from "./core/guards/RoleBasedRoute";
 import { ProfilePage } from "./features/profile/pages/ProfilePage";
 import {
-  AdminDashboard,
+
   AdminOverviewPage,
   AdminUsersPage,
   AdminContentPage,
 } from "./features/admin/pages";
 import { TrainerDashboard } from "./features/trainer/pages/TrainerDashboard";
-import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
+import { TrainerStudentsPage } from "./features/trainer/pages/TrainerStudentsPage";
+import { TrainerStudentDetailsPage } from "./features/trainer/pages/TrainerStudentDetailsPage";
+import { TrainerActivitiesPage } from "./features/trainer/pages/TrainerActivitiesPage";
+import { TrainerNotificationsPage } from "./features/trainer/pages/TrainerNotificationsPage";
+import { TrainerStudentDailyStoriesPage } from "./features/trainer/pages/TrainerStudentDailyStoriesPage";
 import LoginPage from "./features/auth/pages/LoginPage";
 import { useAuth } from "./core/providers/AuthProvider";
 import { ROUTES, USER_ROLES } from "./core/constants/app";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { DashboardPage } from "./features/dashboard/pages/DashboardPage";
 
 // Home Redirect Component
 const HomeRedirect: React.FC = () => {
@@ -103,8 +108,8 @@ const App: React.FC = () => {
                 }
               >
                 {/* Student Routes */}
-                <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="daily-words" element={<DailyWordsPage />} />
+                <Route path="dashboard" element={<DashboardPage />} />
                 <Route path="chat-with-ai" element={<ChatWithAIPage />} />
                 <Route path="stories" element={<StoriesPage />} />
                 <Route path="story-reader" element={<StoryReaderPage />} />
@@ -120,16 +125,9 @@ const App: React.FC = () => {
                 />
 
                 {/* Admin Routes */}
+               
                 <Route
                   path="admin"
-                  element={
-                    <RoleBasedRoute allowedRoles={["ADMIN"]}>
-                      <AdminDashboard />
-                    </RoleBasedRoute>
-                  }
-                />
-                <Route
-                  path="admin/overview"
                   element={
                     <RoleBasedRoute allowedRoles={["ADMIN"]}>
                       <AdminOverviewPage />
@@ -164,14 +162,55 @@ const App: React.FC = () => {
 
                 {/* Trainer Routes */}
                 <Route
-                  path="trainer/*"
+                  path="trainer"
                   element={
                     <RoleBasedRoute allowedRoles={["TRAINER"]}>
                       <TrainerDashboard />
                     </RoleBasedRoute>
                   }
                 />
-
+                
+                <Route
+                  path="trainer/students"
+                  element={
+                    <RoleBasedRoute allowedRoles={["TRAINER"]}>
+                      <TrainerStudentsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="trainer/students/:id"
+                  element={
+                    <RoleBasedRoute allowedRoles={["TRAINER"]}>
+                      <TrainerStudentDetailsPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="trainer/students/:id/daily-stories"
+                  element={
+                    <RoleBasedRoute allowedRoles={["TRAINER"]}>
+                      <TrainerStudentDailyStoriesPage />
+                    </RoleBasedRoute>
+                  }
+                />
+             
+                <Route
+                  path="trainer/activities"
+                  element={
+                    <RoleBasedRoute allowedRoles={["TRAINER"]}>
+                      <TrainerActivitiesPage />
+                    </RoleBasedRoute>
+                  }
+                />  
+                <Route
+                  path="trainer/notifications"
+                  element={
+                    <RoleBasedRoute allowedRoles={["TRAINER"]}>
+                      <TrainerNotificationsPage />
+                    </RoleBasedRoute>
+                  }
+                />
                 {/* Default redirect - redirect based on user role */}
                 <Route index element={<Navigate to="/home" replace />} />
                 <Route

@@ -36,7 +36,9 @@ export const AdminOverviewPage: React.FC = () => {
             id: user.id,
             name: user.name,
             email: user.phone,
-            joinDate: new Date(user.createdAt).toLocaleDateString("ar-SA"),
+            joinDate: user.createdAt
+              ? new Date(user.createdAt).toLocaleDateString("en-US")
+              : "غير محدد",
             status:
               user.role === "ADMIN"
                 ? "مدير"
@@ -202,7 +204,7 @@ export const AdminOverviewPage: React.FC = () => {
                     key={user.id}
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                   >
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0  ">
                       <p className="font-medium text-gray-900 dark:text-white text-sm sm:text-base truncate">
                         {user.name}
                       </p>

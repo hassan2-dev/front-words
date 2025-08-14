@@ -1,139 +1,53 @@
-import React, { useState, useEffect } from "react";
-import { apiClient } from "../../../core/utils/api";
-import { API_ENDPOINTS } from "../../../core/config/api";
-import { Loading } from "@/presentation/components";
-
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../../core/constants/app";
+import { useAuth } from "../../../core/providers/AuthProvider";
 export const TrainerDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>("overview");
-  const [stats, setStats] = useState<any>(null);
-  const [students, setStudents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
-  useEffect(() => {
-    const fetchTrainerDashboard = async () => {
-      setLoading(true);
-      const studentsRes = await apiClient.get<any[]>(
-        API_ENDPOINTS.TRAINER.STUDENTS.LIST
-      );
-      if (studentsRes.success && studentsRes.data)
-        setStudents(studentsRes.data);
-      setLoading(false);
-    };
-    fetchTrainerDashboard();
-  }, []);
-
-  const tabs = [
-    { key: "overview", label: "نظرة عامة", icon: "📊" },
-    { key: "students", label: "الطلاب", icon: "👨‍🎓" },
-    { key: "courses", label: "الدورات", icon: "📚" },
-    { key: "assignments", label: "الواجبات", icon: "📝" },
+  const quickActions = [
+    {
+      title: "نظرة عامة",
+      description: "إحصائيات عامة وتقدم الطلاب",
+      icon: "📊",
+      href: ROUTES.TRAINER_DASHBOARD,
+      color: "bg-blue-50 dark:bg-blue-900/20",
+      textColor: "text-blue-900 dark:text-blue-100",
+    },
+    {
+      title: "إدارة الطلاب",
+      description: "عرض وإدارة تقدم جميع الطلاب",
+      icon: "👨‍🎓",
+      href: ROUTES.TRAINER_STUDENTS,
+      color: "bg-green-50 dark:bg-green-900/20",
+      textColor: "text-green-900 dark:text-green-100",
+    },
+    {
+      title: "القصص",
+      description: "إنشاء وتعديل القصص",
+      icon: "📚",
+      href: ROUTES.TRAINER_STORIES,
+      color: "bg-orange-50 dark:bg-orange-900/20",
+      textColor: "text-orange-900 dark:text-orange-100",
+    },
+    {
+      title: "الأنشطة",
+      description: "مراقبة أنشطة الطلاب",
+      icon: "📈",
+      href: "/trainer/activities",
+      color: "bg-purple-50 dark:bg-purple-900/20",
+      textColor: "text-purple-900 dark:text-purple-100",
+    },
+    {
+      title: "الإشعارات",
+      description: "إدارة وإرسال الإشعارات",
+      icon: "🔔",
+      href: "/trainer/notifications",
+      color: "bg-red-50 dark:bg-red-900/20",
+      textColor: "text-red-900 dark:text-red-100",
+    },
   ];
-
-  const renderOverview = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                إجمالي الطلاب
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats?.totalStudents ?? 0}
-              </p>
-            </div>
-            <div className="text-3xl">👨‍🎓</div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                الطلاب النشطون
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats?.activeStudents ?? 0}
-              </p>
-            </div>
-            <div className="text-3xl">🟢</div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                الدورات المنشأة
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats?.coursesCreated ?? 0}
-              </p>
-            </div>
-            <div className="text-3xl">📚</div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                متوسط التقدم
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {stats?.avgProgress ?? 0}%
-              </p>
-            </div>
-            <div className="text-3xl">📈</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          الطلاب الأحدث
-        </h3>
-        <div className="space-y-4">
-          {students.map((student: any) => (
-            <div
-              key={student.id}
-              className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
-            >
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {student.name}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  المستوى: {student.level}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  التقدم
-                </p>
-                <p className="font-bold text-blue-600 dark:text-blue-400">
-                  {student.progress}%
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  آخر نشاط
-                </p>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {student.lastActive}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
-  if (loading)
-    return (
-      <Loading size="xl" variant="video" text="جاري تحميل بيانات المدرب..." />
-    );
 
   return (
     <div className="p-6">
@@ -142,66 +56,78 @@ export const TrainerDashboard: React.FC = () => {
           لوحة تحكم المدرب
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          إدارة الطلاب والدورات التدريبية
+          مرحباً بك في لوحة تحكم المدرب - اختر ما تريد إدارته
         </p>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-        <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${
-                  activeTab === tab.key
-                    ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                }`}
-              >
-                <span className="text-lg">{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {quickActions.map((action, index) => (
+          <div
+            key={index}
+            className={`${action.color} p-6 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer`}
+            onClick={() => navigate(action.href)}
+          >
+            <div className="text-4xl mb-4">{action.icon}</div>
+            <h3 className={`text-lg font-semibold mb-2 ${action.textColor}`}>
+              {action.title}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {action.description}
+            </p>
+          </div>
+        ))}
       </div>
 
-      <div>
-        {activeTab === "overview" && renderOverview()}
-        {activeTab === "students" && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center">
-            <div className="text-6xl mb-4">👨‍🎓</div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              إدارة الطلاب
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              عرض وإدارة تقدم جميع الطلاب
-            </p>
+      <div className="mt-12 bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+          نصائح سريعة للمدرب
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex items-start space-x-3 space-x-reverse">
+            <div className="text-blue-500 text-lg">💡</div>
+            <div>
+              <h4 className="font-medium text-gray-900 dark:text-white">
+                مراقبة التقدم
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                استخدم صفحة الطلاب لمراقبة تقدم كل طالب بشكل فردي
+              </p>
+            </div>
           </div>
-        )}
-        {activeTab === "courses" && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center">
-            <div className="text-6xl mb-4">📚</div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              إدارة الدورات
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              إنشاء وتعديل المحتوى التعليمي
-            </p>
+          <div className="flex items-start space-x-3 space-x-reverse">
+            <div className="text-green-500 text-lg">📊</div>
+            <div>
+              <h4 className="font-medium text-gray-900 dark:text-white">
+                التحليلات
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                راجع التحليلات لمعرفة أداء الطلاب بشكل عام
+              </p>
+            </div>
           </div>
-        )}
-        {activeTab === "assignments" && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center">
-            <div className="text-6xl mb-4">📝</div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              الواجبات والتقييمات
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              إنشاء وتصحيح الواجبات
-            </p>
+          <div className="flex items-start space-x-3 space-x-reverse">
+            <div className="text-purple-500 text-lg">📚</div>
+            <div>
+              <h4 className="font-medium text-gray-900 dark:text-white">
+                القصص
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                أنشئ قصص تعليمية جديدة لتحسين تجربة التعلم
+              </p>
+            </div>
           </div>
-        )}
+          <div className="flex items-start space-x-3 space-x-reverse">
+            <div className="text-orange-500 text-lg">🔔</div>
+            <div>
+              <h4 className="font-medium text-gray-900 dark:text-white">
+                التواصل
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                أرسل إشعارات للطلاب لتشجيعهم وتحفيزهم
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

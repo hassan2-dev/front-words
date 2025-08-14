@@ -111,7 +111,7 @@ const LoginPage: React.FC = () => {
                 // type="tel"
                 type="number"
                 inputMode="numeric"
-                maxLength={10}
+                maxLength={11}
                 autoComplete="tel"
                 required
                 value={phone}

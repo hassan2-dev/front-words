@@ -71,13 +71,12 @@ export const ROUTES = {
     // Admin
     ADMIN: '/admin',
     ADMIN_DASHBOARD: '/admin',
-    ADMIN_OVERVIEW: '/admin/overview',
     ADMIN_USERS: '/admin/users',
     ADMIN_CONTENT: '/admin/content',
     ADMIN_ANALYTICS: '/admin/analytics',
     ADMIN_SETTINGS: '/admin/settings',
     ADMIN_ACHIEVEMENTS: '/admin/achievements',
-    
+
     // Admin Sub-routes
     ADMIN_USERS_ALL: '/admin/users/all',
     ADMIN_USERS_TRAINERS: '/admin/users/trainers',
@@ -90,8 +89,12 @@ export const ROUTES = {
     TRAINER: '/trainer',
     TRAINER_DASHBOARD: '/trainer',
     TRAINER_STUDENTS: '/trainer/students',
-    TRAINER_CONTENT: '/trainer/content',
-} as const;
+    TRAINER_STUDENT_DETAILS: '/trainer/students/:id',
+    TRAINER_STORIES: '/trainer/stories',
+    TRAINER_ACTIVITIES: '/trainer/activities',
+    TRAINER_NOTIFICATIONS: '/trainer/notifications',
+    TRAINER_STUDENT_DAILY_STORIES: '/trainer/students/:id/daily-stories',
+} as const; 
 
 // Animation Durations (in milliseconds)
 export const ANIMATION_DURATION = {

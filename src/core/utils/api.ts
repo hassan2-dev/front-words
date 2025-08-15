@@ -36,7 +36,7 @@ class ApiClient {
         this.baseURL = import.meta.env.VITE_API_URL;
         this.timeout = parseInt(import.meta.env.VITE_API_TIMEOUT || '180000'); // 180 ثانية (3 دقائق) للـ GPT-4 (دقيقة ونصف + buffer)
 
-       
+
     }
 
 
@@ -77,10 +77,13 @@ class ApiClient {
                 };
             }
 
+            // Return empty data if the response indicates empty content
+            const isEmptyResponse = !data.data && !data.message && !data.achievements;
+
             return {
                 success: true,
-                data: data.data || data,
-                message: data.message,
+                data: isEmptyResponse ? ({} as T) : (data.data || data),
+                message: data.message || '',
                 achievements: data.achievements || [],
                 totalPoints: data.totalPoints || 0,
             };
@@ -95,8 +98,11 @@ class ApiClient {
             };
         }
 
+        // Return empty response for successful requests without content
         return {
             success: true,
+            data: {} as T,
+            message: '',
             achievements: [],
             totalPoints: 0,
         };
@@ -518,18 +524,18 @@ export const getWordsLearned = (period: string = 'month') =>
 
 export const addStreak = (data?: { action: string; date?: string }) => {
     const requestData = data || { action: 'add', date: new Date().toISOString().split('T')[0] };
-    
+
     return apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.STREAK_ADD, requestData);
 };
 
 // إضافة دوال جديدة للستريك
 export const resetStreak = () => {
-    
+
     return apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.STREAK_ADD, { action: 'reset' });
 };
 
 export const initializeStreak = () => {
-        
+
     return apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.STREAK_ADD, { action: 'initialize' });
 };
 
@@ -626,4 +632,25 @@ export const isApiError = (response: ApiResponse): boolean => {
 
 export const getApiErrorMessage = (response: ApiResponse): string => {
     return response.error || 'حدث خطأ غير متوقع';
+};
+
+// Utility function to create empty API response
+export const createEmptyResponse = <T>(): ApiResponse<T> => {
+    return {
+        success: true,
+        data: {} as T,
+        message: '',
+        achievements: [],
+        totalPoints: 0,
+    };
+};
+
+// Utility function to check if response is empty
+export const isEmptyResponse = <T>(response: ApiResponse<T>): boolean => {
+    return response.success &&
+        (!response.data ||
+            (typeof response.data === 'object' && Object.keys(response.data).length === 0)) &&
+        !response.message &&
+        response.achievements.length === 0 &&
+        response.totalPoints === 0;
 }; 

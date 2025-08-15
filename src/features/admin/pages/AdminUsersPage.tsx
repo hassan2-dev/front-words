@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { apiClient } from "../../../core/utils/api";
 import { API_ENDPOINTS } from "../../../core/config/api";
 import { Loading } from "../../../presentation/components";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 /**
  * صفحة إدارة المستخدمين للمدير
@@ -24,50 +24,82 @@ import toast, { Toaster } from "react-hot-toast";
  * بينما المستخدمون العاديون والمدراء يتم إرسالهم إلى (/admin/users)
  */
 
+// Helper function to format date for input field
+const formatDateForInput = (dateString: string): string => {
+  if (!dateString) return "";
+  try {
+    const date = new Date(dateString);
+    return date.toISOString().split("T")[0]; // Returns YYYY-MM-DD format
+  } catch (error) {
+    return "";
+  }
+};
+
 // Helper function to validate user data
 const validateUserData = (
   userData: any,
   isNewUser: boolean = false
 ): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
+  let hasErrors = false;
 
   // التحقق من الاسم (يجب أن يكون باللغة الإنجليزية)
   if (!userData.name || userData.name.trim().length < 2) {
+    toast.error("الاسم يجب أن يكون على الأقل حرفين");
     errors.push("الاسم يجب أن يكون على الأقل حرفين");
+    hasErrors = true;
   } else if (userData.name.trim().length > 50) {
+    toast.error("الاسم يجب أن يكون أقل من 50 حرف");
     errors.push("الاسم يجب أن يكون أقل من 50 حرف");
+    hasErrors = true;
   } else if (!/^[a-zA-Z\s]+$/.test(userData.name.trim())) {
+    toast.error("الاسم يجب أن يكون باللغة الإنجليزية (أحرف لاتينية فقط)");
     errors.push("الاسم يجب أن يكون باللغة الإنجليزية (أحرف لاتينية فقط)");
+    hasErrors = true;
   }
 
   // التحقق من رقم الهاتف
   if (!userData.phone || userData.phone.trim().length < 9) {
+    toast.error("رقم الهاتف يجب أن يكون صحيحاً (9 أرقام على الأقل)");
     errors.push("رقم الهاتف يجب أن يكون صحيحاً (9 أرقام على الأقل)");
+    hasErrors = true;
   } else if (userData.phone.trim().length > 15) {
+    toast.error("رقم الهاتف طويل جداً");
     errors.push("رقم الهاتف طويل جداً");
+    hasErrors = true;
   }
 
   // التحقق من كلمة المرور للمستخدمين الجدد
   if (isNewUser) {
     if (!userData.password || userData.password.length < 8) {
+      toast.error("كلمة المرور يجب أن تكون على الأقل 8 أحرف");
       errors.push("كلمة المرور يجب أن تكون على الأقل 8 أحرف");
+      hasErrors = true;
     } else if (userData.password.length > 10) {
+      toast.error("كلمة المرور طويلة جداً");
       errors.push("كلمة المرور طويلة جداً");
+      hasErrors = true;
     } else if (!/^[a-zA-Z\s 0-9]+$/.test(userData.password.trim())) {
+      toast.error(
+        "كلمة المرور يجب أن يكون باللغة الإنجليزية (أحرف لاتينية فقط)"
+      );
       errors.push(
         "كلمة المرور يجب أن يكون باللغة الإنجليزية (أحرف لاتينية فقط)"
       );
+      hasErrors = true;
     }
   }
 
   // التحقق من الدور
   if (!userData.role || !["USER", "TRAINER", "ADMIN"].includes(userData.role)) {
+    toast.error("يجب تحديد دور صحيح للمستخدم (مستخدم، مدرب، أو مدير)");
     errors.push("يجب تحديد دور صحيح للمستخدم (مستخدم، مدرب، أو مدير)");
+    hasErrors = true;
   }
 
   return {
-    isValid: errors.length === 0,
-    errors,
+    isValid: !hasErrors,
+    errors: errors,
   };
 };
 
@@ -168,9 +200,7 @@ export const AdminUsersPage: React.FC = () => {
           )
         );
       }
-    } catch (error) {
-      console.error("Error activating user:", error);
-    }
+    } catch (error) {}
   };
 
   const handleDeactivateUser = async (userId: string) => {
@@ -196,9 +226,7 @@ export const AdminUsersPage: React.FC = () => {
           )
         );
       }
-    } catch (error) {
-      console.error("Error deactivating user:", error);
-    }
+    } catch (error) {}
   };
 
   const handleBulkToggleStatus = async (
@@ -221,9 +249,7 @@ export const AdminUsersPage: React.FC = () => {
         );
         setSelectedUsers([]);
       }
-    } catch (error) {
-      console.error("Error bulk toggling user status:", error);
-    }
+    } catch (error) {}
   };
 
   const handleSelectUser = (userId: string) => {
@@ -244,7 +270,6 @@ export const AdminUsersPage: React.FC = () => {
 
   const handleBulkActivate = () => {
     if (selectedUsers.length === 0) {
-      toast.error("يرجى اختيار مستخدمين أولاً");
       return;
     }
     handleBulkToggleStatus(selectedUsers, true);
@@ -252,7 +277,6 @@ export const AdminUsersPage: React.FC = () => {
 
   const handleBulkDeactivate = () => {
     if (selectedUsers.length === 0) {
-      toast.error("يرجى اختيار مستخدمين أولاً");
       return;
     }
     handleBulkToggleStatus(selectedUsers, false);
@@ -260,7 +284,6 @@ export const AdminUsersPage: React.FC = () => {
 
   const handleBulkDelete = async () => {
     if (selectedUsers.length === 0) {
-      toast.error("يرجى اختيار مستخدمين أولاً");
       return;
     }
 
@@ -290,6 +313,16 @@ export const AdminUsersPage: React.FC = () => {
     }
   };
 
+  const levels = [
+    { id: "L1", name: "L1" },
+    { id: "L2", name: "L2" },
+    { id: "L3", name: "L3" },
+    { id: "L4", name: "L4" },
+    { id: "L5", name: "L5" },
+    { id: "L6", name: "L6" },
+    { id: "L7", name: "L7" },
+    { id: "L8", name: "L8" },
+  ];
   const fetchUsers = async () => {
     setLoading(true);
     setError(null);
@@ -340,7 +373,6 @@ export const AdminUsersPage: React.FC = () => {
 
       setUsers(allUsers);
     } catch (error: any) {
-      console.error("Error fetching users:", error);
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         setError("مشكلة في المصادقة. يرجى إعادة تسجيل الدخول.");
       } else {
@@ -360,7 +392,6 @@ export const AdminUsersPage: React.FC = () => {
         setAvailableTrainers(response.data?.trainers || []);
       }
     } catch (error) {
-      console.error("خطأ في جلب المدربين المتاحين:", error);
     } finally {
       setIsLoadingTrainers(false);
     }
@@ -385,7 +416,7 @@ export const AdminUsersPage: React.FC = () => {
         toast.error("فشل في ربط المستخدم بالمدرب");
       }
     } catch (error) {
-      console.error("خطأ في ربط المستخدم بالمدرب:", error);
+      console.error("Error assigning trainer:", error);
       toast.error("حدث خطأ في ربط المستخدم بالمدرب");
     }
   };
@@ -402,14 +433,10 @@ export const AdminUsersPage: React.FC = () => {
       );
 
       if (response.success) {
-        toast.success("تم إزالة ربط المستخدم من المدرب بنجاح");
         fetchUsers(); // إعادة تحميل قائمة المستخدمين
-      } else {
-        toast.error("فشل في إزالة ربط المستخدم من المدرب");
       }
     } catch (error) {
-      console.error("خطأ في إزالة ربط المستخدم من المدرب:", error);
-      toast.error("حدث خطأ في إزالة ربط المستخدم من المدرب");
+      console.error("Error removing trainer:", error);
     }
   };
 
@@ -533,9 +560,7 @@ export const AdminUsersPage: React.FC = () => {
         if (deleteRes.success) {
           setUsers(users.filter((user) => user.id !== userId));
         }
-      } catch (error) {
-        console.error("Error deleting user:", error);
-      }
+      } catch (error) {}
     }
   };
 
@@ -565,9 +590,7 @@ export const AdminUsersPage: React.FC = () => {
           )
         );
       }
-    } catch (error) {
-      console.error("Error changing user role:", error);
-    }
+    } catch (error) {}
   };
 
   const handleEditUser = async (user: any) => {
@@ -579,24 +602,27 @@ export const AdminUsersPage: React.FC = () => {
         const response = await apiClient.get<any>(`/admin/trainers/${user.id}`);
         if (response.success) {
           userDetails = response.data?.trainer;
+        } else {
         }
       } else {
         const response = await apiClient.get<any>(`/admin/users/${user.id}`);
         if (response.success) {
           userDetails = response.data?.user;
+        } else {
         }
       }
 
       if (userDetails) {
+        // استخدام البيانات من الخادم مع fallback للبيانات المحلية
         setEditingUser({
           id: user.id,
-          name: userDetails.name || user.name,
-          phone: userDetails.phone || user.email,
+          name: userDetails.name || user.name || "",
+          phone: userDetails.phone || user.email || "",
           email: userDetails.email || "",
           level: userDetails.level || "L1",
           goal: userDetails.goal || "",
           birthDate: userDetails.birthDate || "",
-          password: "",
+          password: "", // دائماً فارغ للتعديل
           role: user.role,
           trainerId: userDetails.trainerId || "",
         });
@@ -604,8 +630,8 @@ export const AdminUsersPage: React.FC = () => {
         // إذا فشل جلب التفاصيل، استخدم البيانات المتاحة
         setEditingUser({
           id: user.id,
-          name: user.name,
-          phone: user.email,
+          name: user.name || "",
+          phone: user.email || "",
           email: "",
           level: "L1",
           goal: "",
@@ -617,13 +643,15 @@ export const AdminUsersPage: React.FC = () => {
       }
 
       setShowEditModal(true);
-    } catch (error) {
-      console.error("خطأ في جلب تفاصيل المستخدم:", error);
+    } catch (error: any) {
+      // معالجة الأخطاء
+      console.error("Error loading user details:", error);
+
       // استخدم البيانات المتاحة في حالة الخطأ
       setEditingUser({
         id: user.id,
-        name: user.name,
-        phone: user.email,
+        name: user.name || "",
+        phone: user.email || "",
         email: "",
         level: "L1",
         goal: "",
@@ -638,22 +666,30 @@ export const AdminUsersPage: React.FC = () => {
 
   const handleUpdateUser = async () => {
     try {
+      // التحقق من وجود بيانات التعديل
+      if (!editingUser || !editingUser.id) {
+        return;
+      }
+
+      // تحضير البيانات للإرسال
       const updateData = {
-        name: editingUser.name,
-        phone: editingUser.phone,
-        email: editingUser.email,
+        name: editingUser.name?.trim(),
+        phone: editingUser.phone?.trim(),
+        email: editingUser.email?.trim(),
         level: editingUser.level,
-        goal: editingUser.goal,
+        goal: editingUser.goal?.trim(),
         birthDate: editingUser.birthDate,
         role: editingUser.role,
-        ...(editingUser.password && { password: editingUser.password }),
+        ...(editingUser.password &&
+          editingUser.password.trim() && {
+            password: editingUser.password.trim(),
+          }),
         ...(editingUser.trainerId && { trainerId: editingUser.trainerId }),
       };
 
       // التحقق من صحة البيانات
       const validation = validateUserData(updateData, false);
       if (!validation.isValid) {
-        toast.error(`أخطاء في البيانات:\n${validation.errors.join("\n")}`);
         return;
       }
 
@@ -673,30 +709,24 @@ export const AdminUsersPage: React.FC = () => {
       }
 
       if (updateRes.success) {
+        // إعادة تحميل قائمة المستخدمين
         await fetchUsers();
+
+        // إغلاق النافذة وإعادة تعيين البيانات
         setShowEditModal(false);
         setEditingUser(null);
-        toast.success("تم تحديث بيانات المستخدم بنجاح");
+
+        toast.success("تم تحديث بيانات المستخدم بنجاح ✅");
       } else {
         const errorMessage =
           updateRes.error ||
           updateRes.message ||
           "حدث خطأ في تحديث بيانات المستخدم";
-        toast.error(errorMessage);
+        toast.error(`فشل في التحديث: ${errorMessage}`);
       }
     } catch (error: any) {
       console.error("Error updating user:", error);
-      let errorMessage = "حدث خطأ في تحديث بيانات المستخدم";
-
-      if (error.name === "AbortError") {
-        errorMessage = "انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.";
-      } else if (error.message) {
-        errorMessage = `خطأ: ${error.message}`;
-      } else if (error.error) {
-        errorMessage = `خطأ: ${error.error}`;
-      }
-
-      toast.error(`${errorMessage}\nيرجى المحاولة مرة أخرى.`);
+      toast.error("حدث خطأ في تحديث بيانات المستخدم");
     }
   };
 
@@ -709,6 +739,7 @@ export const AdminUsersPage: React.FC = () => {
         name: newUser.name.trim(),
         phone: newUser.phone.trim(),
         password: newUser.password,
+        level: newUser.level,
         role: newUser.role,
         // إضافة trainerId إذا كان المستخدم عادي وتم اختيار مدرب
         ...(newUser.role === "USER" &&
@@ -720,17 +751,14 @@ export const AdminUsersPage: React.FC = () => {
       // التحقق من صحة البيانات
       const validation = validateUserData(userData, true);
       if (!validation.isValid) {
-        toast.error(`أخطاء في البيانات:\n${validation.errors.join("\n")}`);
         return;
       }
 
       // التحقق من اختيار المدرب للمستخدم العادي
       if (newUser.role === "USER" && !selectedTrainerForNewUser) {
-        toast.error("يجب اختيار مدرب للمستخدم العادي");
         return;
       }
 
-      
       let addUserRes;
 
       if (newUser.role === "TRAINER") {
@@ -747,7 +775,6 @@ export const AdminUsersPage: React.FC = () => {
         );
       }
 
-
       if (addUserRes.success) {
         // نجح إنشاء المستخدم
         await fetchUsers(); // إعادة تحميل قائمة المستخدمين
@@ -757,12 +784,13 @@ export const AdminUsersPage: React.FC = () => {
           phone: "",
           password: "",
           trainerId: "",
-          level: "L1",
+          level: "",
           goal: "",
           birthDate: "",
           email: "",
           role: "USER",
         });
+
         toast.success(
           `تم إضافة ${
             newUser.role === "TRAINER" ? "المدرب" : "المستخدم"
@@ -773,27 +801,13 @@ export const AdminUsersPage: React.FC = () => {
           }`
         );
       } else {
-        // فشل إنشاء المستخدم
         const errorMessage =
           addUserRes.error || addUserRes.message || "حدث خطأ غير معروف";
-        console.error("خطأ في إنشاء المستخدم:", errorMessage);
-        toast.error(`فشل في إضافة المستخدم:\n${errorMessage}`);
+        toast.error(errorMessage);
       }
     } catch (error: any) {
-      console.error("خطأ في دالة handleAddUser:", error);
-
-      // رسائل خطأ مفصلة
-      let errorMessage = "حدث خطأ في إضافة المستخدم";
-
-      if (error.name === "AbortError") {
-        errorMessage = "انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.";
-      } else if (error.message) {
-        errorMessage = `خطأ: ${error.message}`;
-      } else if (error.error) {
-        errorMessage = `خطأ: ${error.error}`;
-      }
-
-      toast.error(`${errorMessage}\nيرجى المحاولة مرة أخرى.`);
+      console.error("Error adding user:", error);
+      toast.error("حدث خطأ في إضافة المستخدم");
     } finally {
       setIsAddingUser(false); // إنهاء التحميل
     }
@@ -1562,7 +1576,7 @@ export const AdminUsersPage: React.FC = () => {
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       الاسم <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1578,7 +1592,7 @@ export const AdminUsersPage: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       رقم الهاتف <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -1597,7 +1611,7 @@ export const AdminUsersPage: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       كلمة المرور <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
@@ -1663,7 +1677,7 @@ export const AdminUsersPage: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       الدور <span className="text-red-500">*</span>
                     </label>
                     <select
@@ -1716,7 +1730,25 @@ export const AdminUsersPage: React.FC = () => {
                   {/* اختيار المدرب للمستخدم العادي */}
                   {newUser.role === "USER" && (
                     <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                      <label className="block text-sm font-bold text-gray-700 dark:text-white">
+                        المستوى <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={newUser.level}
+                        onChange={(e) =>
+                          setNewUser({ ...newUser, level: e.target.value })
+                        }
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 text-right shadow-inner"
+                        required
+                      >
+                        {levels.map((level) => (
+                          <option key={level.id} value={level.id}>
+                            {level.name}
+                          </option>
+                        ))}
+                      </select>
+
+                        <label className="block text-sm font-bold text-gray-700 dark:text-white">
                         المدرب المسؤول <span className="text-red-500">*</span>
                       </label>
                       {isLoadingTrainers ? (
@@ -1747,6 +1779,7 @@ export const AdminUsersPage: React.FC = () => {
                           ))}
                         </select>
                       )}
+
                       {availableTrainers.length === 0 && !isLoadingTrainers && (
                         <div className="mt-2 p-3 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200 dark:border-red-700 rounded-lg">
                           <div className="flex items-center gap-2 text-red-800 dark:text-red-300">
@@ -1838,67 +1871,82 @@ export const AdminUsersPage: React.FC = () => {
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  handleUpdateUser();
+
+                  // التحقق من البيانات قبل الإرسال
+                  if (!editingUser?.name?.trim()) {
+                    return;
+                  }
+
+                  if (!editingUser?.phone?.trim()) {
+                    return;
+                  }
+
+                  // إرسال البيانات
+                  await handleUpdateUser();
                 }}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       الاسم <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      value={editingUser.name}
+                      value={editingUser.name || ""}
                       onChange={(e) =>
                         setEditingUser({ ...editingUser, name: e.target.value })
                       }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                        className="w-full px-4 py-3  bg-black dark:bg-white border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                       placeholder="Enter user name (English only)"
                       required
+                      minLength={2}
+                      maxLength={50}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       رقم الهاتف <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="tel"
-                      value={editingUser.phone}
+                      value={editingUser.phone || ""}
                       onChange={(e) =>
                         setEditingUser({
                           ...editingUser,
                           phone: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                      className="w-full px-4 py-3  bg-black dark:bg-white border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                       placeholder="أدخل رقم الهاتف"
                       required
+                      minLength={9}
+                      maxLength={15}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                      <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       البريد الإلكتروني
                     </label>
                     <input
                       type="email"
-                      value={editingUser.email}
+                      value={editingUser.email || ""}
                       onChange={(e) =>
                         setEditingUser({
                           ...editingUser,
                           email: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                      className="w-full px-4 py-3  bg-black dark:bg-white border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                       placeholder="أدخل البريد الإلكتروني"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       المستوى
                     </label>
                     <select
@@ -1909,65 +1957,73 @@ export const AdminUsersPage: React.FC = () => {
                           level: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                      className="w-full px-4 py-3  bg-black dark:bg-white border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                     >
                       <option value="L1">مبتدئ (L1)</option>
                       <option value="L2">متوسط (L2)</option>
                       <option value="L3">متقدم (L3)</option>
+                      <option value="L4">متقدم (L4)</option>
+                      <option value="L5">متقدم (L5)</option>
+                      <option value="L6">متقدم (L6)</option>
+                      <option value="L7">متقدم (L7)</option>
+                      <option value="L8">متقدم (L8)</option>
                     </select>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       الهدف
                     </label>
                     <input
                       type="text"
-                      value={editingUser.goal}
+                      value={editingUser.goal || ""}
                       onChange={(e) =>
                         setEditingUser({
                           ...editingUser,
                           goal: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                      className="w-full px-4 py-3  bg-black dark:bg-white border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                       placeholder="أدخل هدف التعلم"
+                      maxLength={200}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       تاريخ الميلاد
                     </label>
                     <input
                       type="date"
-                      value={editingUser.birthDate}
+                      value={formatDateForInput(editingUser.birthDate)}
                       onChange={(e) =>
                         setEditingUser({
                           ...editingUser,
                           birthDate: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                      className="w-full px-4 py-3  bg-black dark:bg-white border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                      <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       كلمة المرور الجديدة (اختياري)
                     </label>
                     <div className="relative">
                       <input
                         type={showEditPassword ? "text" : "password"}
-                        value={editingUser.password}
+                        value={editingUser.password || ""}
                         onChange={(e) =>
                           setEditingUser({
                             ...editingUser,
                             password: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                        className="w-full px-4 py-3  bg-black dark:bg-white border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                         placeholder="اتركها فارغة إذا لم ترد تغييرها"
+                        minLength={8}
+                        maxLength={10}
                       />
                       <button
                         type="button"
@@ -2017,66 +2073,20 @@ export const AdminUsersPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                      الدور <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={editingUser.role}
-                      onChange={(e) =>
-                        setEditingUser({ ...editingUser, role: e.target.value })
-                      }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
-                    >
-                      <option value="USER">مستخدم عادي</option>
-                      <option value="TRAINER">مدرب</option>
-                      <option value="ADMIN">مدير</option>
-                    </select>
-                    {editingUser.role === "TRAINER" && (
-                      <div className="mt-2 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
-                        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
-                          <span className="text-lg">💪</span>
-                          <span className="text-sm font-semibold">
-                            سيتم تحديث الحساب ليكون مدرب مع صلاحيات إدارة الطلاب
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {editingUser.role === "ADMIN" && (
-                      <div className="mt-2 p-3 bg-gradient-to-r from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/20 border border-rose-200 dark:border-rose-700 rounded-lg">
-                        <div className="flex items-center gap-2 text-rose-800 dark:text-rose-300">
-                          <span className="text-lg">👑</span>
-                          <span className="text-sm font-semibold">
-                            سيتم تحديث الحساب ليكون مدير مع صلاحيات كاملة على
-                            النظام
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
 
-                <div className="md:col-span-2 mt-6">
-                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">⚠️</span>
-                      <div>
-                        <h4 className="font-bold text-amber-800 dark:text-amber-300 mb-1">
-                          تنبيه
-                        </h4>
-                        <p className="text-sm text-amber-700 dark:text-amber-400">
-                          اترك حقل كلمة المرور فارغاً إذا كنت لا تريد تغييرها.
-                          سيتم الاحتفاظ بكلمة المرور الحالية.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
                 <div className="flex gap-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-600">
                   <button
                     type="submit"
-                    className="flex-1 bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 shadow-lg flex items-center justify-center gap-3"
+                    disabled={
+                      !editingUser?.name?.trim() || !editingUser?.phone?.trim()
+                    }
+                    className={`flex-1 bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 shadow-lg flex items-center justify-center gap-3 ${
+                      !editingUser?.name?.trim() || !editingUser?.phone?.trim()
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    }`}
                   >
                     <span className="text-xl">💾</span>
                     <span>حفظ التغييرات</span>
@@ -2231,29 +2241,6 @@ export const AdminUsersPage: React.FC = () => {
           </div>
         </div>
       )}
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: "#363636",
-            color: "#fff",
-            fontSize: "14px",
-            borderRadius: "8px",
-            padding: "12px 16px",
-          },
-          success: {
-            style: {
-              background: "#10B981",
-            },
-          },
-          error: {
-            style: {
-              background: "#EF4444",
-            },
-          },
-        }}
-      />
     </div>
   );
 };

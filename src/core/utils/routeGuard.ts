@@ -40,20 +40,17 @@ export const ROUTE_ACCESS = {
 // Strict user validation function
 export const validateUser = (user: any): boolean => {
     if (!user || typeof user !== 'object') {
-        console.warn('Invalid user object');
         return false;
     }
 
     // Check required fields
     if (!user.id || !user.role) {
-        console.warn('User missing required fields: id or role');
         return false;
     }
 
     // Validate role
     const validRoles = Object.values(USER_ROLES);
     if (!validRoles.includes(user.role)) {
-        console.warn(`Invalid user role: ${user.role}`);
         return false;
     }
 
@@ -62,8 +59,7 @@ export const validateUser = (user: any): boolean => {
 
 // Strict authentication validation function
 export const validateAuthentication = (user: any, isAuthenticated: boolean): boolean => {
-    if (!isAuthenticated || !user) {
-        console.warn('User not authenticated or missing user data');
+    if (!isAuthenticated || !user) {    
         return false;
     }
 
@@ -78,7 +74,6 @@ export const validateAuthentication = (user: any, isAuthenticated: boolean): boo
     // Check if token exists
     const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (!token) {
-        console.warn('No auth token in localStorage');
         return false;
     }
 
@@ -109,7 +104,6 @@ export const validateUserRole = (user: any, allowedRoles: string[]): boolean => 
 // Route access validation function
 export const validateRouteAccess = (currentPath: string, userRole: string | undefined, isAuthenticated: boolean): boolean => {
     if (!isAuthenticated || !userRole) {
-        console.warn(`Route access validation failed: isAuthenticated=${isAuthenticated}, userRole=${userRole}`);
         return false;
     }
 
@@ -166,7 +160,5 @@ export const clearAuthData = (): void => {
 
 // Log unauthorized access attempt
 export const logUnauthorizedAccess = (path: string, userRole: string | undefined, allowedRoles: string[]): void => {
-    console.warn(`Unauthorized access attempt to: ${path}`);
-    console.warn(`User role: ${userRole}, Required roles: ${allowedRoles.join(', ')}`);
-    console.warn(`Timestamp: ${new Date().toISOString()}`);
+
 };

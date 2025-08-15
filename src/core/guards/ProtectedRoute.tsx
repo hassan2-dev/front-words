@@ -37,10 +37,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   // Log authentication issues
   useEffect(() => {
     if (!isLoading && !isUserAuthenticated) {
-      console.warn(`Authentication failed for route: ${location.pathname}`);
-      console.warn(`User:`, user);
-      console.warn(`Actual user:`, actualUser);
-      console.warn(`Is authenticated:`, isAuthenticated);
+     
       toast.error("يرجى تسجيل الدخول مرة أخرى");
     }
   }, [
@@ -59,8 +56,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   // Redirect to login if not authenticated
   if (!isUserAuthenticated) {
-    console.warn("User not authenticated, redirecting to login");
-    // Clear any invalid data using utility function
+      // Clear any invalid data using utility function
     clearAuthData();
 
     return (

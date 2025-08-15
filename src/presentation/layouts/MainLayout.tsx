@@ -204,14 +204,11 @@ export const MainLayout: React.FC = () => {
       );
 
       if (!hasAccess) {
-        console.warn(`Unauthorized access attempt to: ${location.pathname}`);
-        console.warn(`User role: ${displayUser?.role}`);
-        console.warn(`Current path: ${location.pathname}`);
+      
         toast.error("ليس لديك صلاحية للوصول إلى هذه الصفحة");
 
         // Redirect to appropriate dashboard using utility function
         const redirectPath = getRedirectPath(displayUser?.role);
-        console.warn(`Redirecting to: ${redirectPath}`);
         navigate(redirectPath, { replace: true });
       }
     }

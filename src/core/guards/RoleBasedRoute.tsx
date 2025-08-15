@@ -111,7 +111,7 @@ export const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
 
   // Redirect to login if not authenticated
   if (!isUserAuthenticated) {
-    console.warn("User not authenticated, redirecting to login");
+   
     return (
       <Navigate to={ROUTES.LOGIN} state={{ from: location.pathname }} replace />
     );
@@ -124,7 +124,6 @@ export const RoleBasedRoute: React.FC<RoleBasedRouteProps> = ({
     } else {
       // Redirect to appropriate dashboard based on user role using utility function
       const redirectPath = getRedirectPath(actualUser?.role);
-      console.warn(`Redirecting unauthorized user to: ${redirectPath}`);
       return <Navigate to={redirectPath} replace />;
     }
   }

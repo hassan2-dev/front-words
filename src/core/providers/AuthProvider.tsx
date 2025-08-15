@@ -232,11 +232,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error?.message === "UNAUTHORIZED"
       ) {
         // لا تسجل خروج تلقائياً، فقط أظهر رسالة
-        console.warn("Token validation failed, but keeping user logged in");
         // يمكنك هنا إظهار رسالة للمستخدم
       } else {
         // إذا كان خطأ شبكة أو أي خطأ آخر، لا تفعل شيئاً
-        console.warn("Network error during token validation:", error);
+       
       }
     }
   };

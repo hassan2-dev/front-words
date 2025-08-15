@@ -69,7 +69,6 @@ export const TrainerStudentDailyStoriesPage: React.FC = () => {
         );
       if (storiesRes.success && storiesRes.data) {
         setDailyStories(storiesRes.data.stories);
-        console.log(storiesRes.data.stories)
         setStats({
           totalCount: storiesRes.data.totalCount,
           completedCount: storiesRes.data.completedCount,

@@ -24,7 +24,6 @@ export const useAchievements = () => {
 
             if (response.success && response.data?.achievement) {
                 // يمكن إضافة إشعار هنا
-                console.log('تم تحقيق إنجاز:', response.data.achievement);
                 return response.data;
             }
 
@@ -46,7 +45,6 @@ export const useAchievements = () => {
             });
 
             if (response.success && response.data?.achievement) {
-                console.log('تم تحقيق إنجاز الكلمات اليومية:', response.data.achievement);
                 return response.data;
             }
 
@@ -67,7 +65,6 @@ export const useAchievements = () => {
             });
 
             if (response.success && response.data?.achievement) {
-                console.log('تم تحقيق إنجاز الكلمات الخاصة:', response.data.achievement);
                 return response.data;
             }
 
@@ -89,7 +86,6 @@ export const useAchievements = () => {
             });
 
             if (response.success && response.data?.achievement) {
-                console.log('تم تحقيق إنجاز تعلم الكلمات:', response.data.achievement);
                 return response.data;
             }
 
@@ -100,7 +96,7 @@ export const useAchievements = () => {
         }
     }, [user?.id]);
 
-    const handleStudyStreak = useCallback(async (streakDays: number) => {
+    const handleStudyStreak = useCallback(async (streakDays: number) => {   
         if (!user?.id) return null;
 
         try {
@@ -110,7 +106,6 @@ export const useAchievements = () => {
             });
 
             if (response.success && response.data?.achievement) {
-                console.log('تم تحقيق إنجاز الاستمرارية:', response.data.achievement);
                 return response.data;
             }
 

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { apiClient } from "../../../core/utils/api";
 import { API_ENDPOINTS } from "../../../core/config/api";
 import { Loading } from "../../../presentation/components";
+import toast, { Toaster } from "react-hot-toast";
 
 /**
  * صفحة إدارة المستخدمين للمدير
@@ -105,6 +106,7 @@ export const AdminUsersPage: React.FC = () => {
   });
   const [selectedTrainerForNewUser, setSelectedTrainerForNewUser] =
     useState("");
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   const handleToggleUserStatus = async (
     userId: string,
@@ -131,13 +133,15 @@ export const AdminUsersPage: React.FC = () => {
             user.id === userId ? { ...user, isActive: !currentStatus } : user
           )
         );
-        // Toast notification would be better than alert
+        toast.success(
+          `تم ${currentStatus ? "إلغاء تفعيل" : "تفعيل"} المستخدم بنجاح`
+        );
       } else {
-        alert("حدث خطأ في تغيير حالة المستخدم");
+        toast.error("حدث خطأ في تغيير حالة المستخدم");
       }
     } catch (error) {
       console.error("Error toggling user status:", error);
-      alert("حدث خطأ في تغيير حالة المستخدم");
+      toast.error("حدث خطأ في تغيير حالة المستخدم");
     }
   };
 
@@ -240,7 +244,7 @@ export const AdminUsersPage: React.FC = () => {
 
   const handleBulkActivate = () => {
     if (selectedUsers.length === 0) {
-      alert("يرجى اختيار مستخدمين أولاً");
+      toast.error("يرجى اختيار مستخدمين أولاً");
       return;
     }
     handleBulkToggleStatus(selectedUsers, true);
@@ -248,7 +252,7 @@ export const AdminUsersPage: React.FC = () => {
 
   const handleBulkDeactivate = () => {
     if (selectedUsers.length === 0) {
-      alert("يرجى اختيار مستخدمين أولاً");
+      toast.error("يرجى اختيار مستخدمين أولاً");
       return;
     }
     handleBulkToggleStatus(selectedUsers, false);
@@ -256,7 +260,7 @@ export const AdminUsersPage: React.FC = () => {
 
   const handleBulkDelete = async () => {
     if (selectedUsers.length === 0) {
-      alert("يرجى اختيار مستخدمين أولاً");
+      toast.error("يرجى اختيار مستخدمين أولاً");
       return;
     }
 
@@ -307,7 +311,7 @@ export const AdminUsersPage: React.FC = () => {
           name: user.name,
           email: user.phone,
           joinDate: user.createdAt
-            ? new Date(user.createdAt).toLocaleDateString("ar-SA")
+            ? new Date(user.createdAt).toLocaleDateString("en-US")
             : "غير محدد",
           status: user.role === "ADMIN" ? "مدير" : "مستخدم",
           role: user.role,
@@ -373,16 +377,16 @@ export const AdminUsersPage: React.FC = () => {
       );
 
       if (response.success) {
-        alert("تم ربط المستخدم بالمدرب بنجاح");
+        toast.success("تم ربط المستخدم بالمدرب بنجاح");
         fetchUsers(); // إعادة تحميل قائمة المستخدمين
         setShowAssignTrainerModal(false);
         setSelectedUserForTrainer(null);
       } else {
-        alert("فشل في ربط المستخدم بالمدرب");
+        toast.error("فشل في ربط المستخدم بالمدرب");
       }
     } catch (error) {
       console.error("خطأ في ربط المستخدم بالمدرب:", error);
-      alert("حدث خطأ في ربط المستخدم بالمدرب");
+      toast.error("حدث خطأ في ربط المستخدم بالمدرب");
     }
   };
 
@@ -398,14 +402,14 @@ export const AdminUsersPage: React.FC = () => {
       );
 
       if (response.success) {
-        alert("تم إزالة ربط المستخدم من المدرب بنجاح");
+        toast.success("تم إزالة ربط المستخدم من المدرب بنجاح");
         fetchUsers(); // إعادة تحميل قائمة المستخدمين
       } else {
-        alert("فشل في إزالة ربط المستخدم من المدرب");
+        toast.error("فشل في إزالة ربط المستخدم من المدرب");
       }
     } catch (error) {
       console.error("خطأ في إزالة ربط المستخدم من المدرب:", error);
-      alert("حدث خطأ في إزالة ربط المستخدم من المدرب");
+      toast.error("حدث خطأ في إزالة ربط المستخدم من المدرب");
     }
   };
 
@@ -441,7 +445,76 @@ export const AdminUsersPage: React.FC = () => {
   const currentUsers = filteredUsers.slice(startIndex, endIndex);
 
   const handleDeleteUser = async (userId: string) => {
-    if (window.confirm("هل أنت متأكد من حذف هذا المستخدم؟")) {
+    const confirmed = await new Promise<boolean>((resolve) => {
+      // استخدم نافذة تأكيد صغيرة (Yes/No) مخصصة بدل window.confirm
+      const modal = document.createElement("div");
+      modal.style.position = "fixed";
+      modal.style.top = "0";
+      modal.style.left = "0";
+      modal.style.width = "100vw";
+      modal.style.height = "100vh";
+      modal.style.background = "rgba(0,0,0,0.3)";
+      modal.style.display = "flex";
+      modal.style.alignItems = "center";
+      modal.style.justifyContent = "center";
+      modal.style.zIndex = "9999";
+
+      const box = document.createElement("div");
+      box.style.background = "#fff";
+      box.style.borderRadius = "12px";
+      box.style.boxShadow = "0 2px 16px rgba(0,0,0,0.15)";
+      box.style.padding = "24px 20px";
+      box.style.textAlign = "center";
+      box.style.minWidth = "240px";
+      box.style.fontFamily = "inherit";
+
+      const msg = document.createElement("div");
+      msg.textContent = "هل أنت متأكد من حذف هذا المستخدم؟";
+      msg.style.fontSize = "16px";
+      msg.style.marginBottom = "18px";
+      box.appendChild(msg);
+
+      const btns = document.createElement("div");
+      btns.style.display = "flex";
+      btns.style.justifyContent = "center";
+      btns.style.gap = "12px";
+
+      const yesBtn = document.createElement("button");
+      yesBtn.textContent = "نعم";
+      yesBtn.style.background = "#ef4444";
+      yesBtn.style.color = "#fff";
+      yesBtn.style.border = "none";
+      yesBtn.style.borderRadius = "6px";
+      yesBtn.style.padding = "8px 20px";
+      yesBtn.style.fontWeight = "bold";
+      yesBtn.style.cursor = "pointer";
+      yesBtn.onclick = () => {
+        document.body.removeChild(modal);
+        resolve(true);
+      };
+
+      const noBtn = document.createElement("button");
+      noBtn.textContent = "لا";
+      noBtn.style.background = "#e5e7eb";
+      noBtn.style.color = "#222";
+      noBtn.style.border = "none";
+      noBtn.style.borderRadius = "6px";
+      noBtn.style.padding = "8px 20px";
+      noBtn.style.fontWeight = "bold";
+      noBtn.style.cursor = "pointer";
+      noBtn.onclick = () => {
+        document.body.removeChild(modal);
+        resolve(false);
+      };
+
+      btns.appendChild(yesBtn);
+      btns.appendChild(noBtn);
+      box.appendChild(btns);
+      modal.appendChild(box);
+      document.body.appendChild(modal);
+    });
+
+    if (confirmed) {
       try {
         // البحث عن المستخدم لتحديد نوعه
         const user = users.find((u) => u.id === userId);
@@ -497,15 +570,70 @@ export const AdminUsersPage: React.FC = () => {
     }
   };
 
-  const handleEditUser = (user: any) => {
-    setEditingUser({
-      id: user.id,
-      name: user.name,
-      phone: user.email,
-      password: "",
-      role: user.role,
-    });
-    setShowEditModal(true);
+  const handleEditUser = async (user: any) => {
+    try {
+      // جلب معلومات المستخدم الكاملة من الباك إند
+      let userDetails;
+
+      if (user.role === "TRAINER") {
+        const response = await apiClient.get<any>(`/admin/trainers/${user.id}`);
+        if (response.success) {
+          userDetails = response.data?.trainer;
+        }
+      } else {
+        const response = await apiClient.get<any>(`/admin/users/${user.id}`);
+        if (response.success) {
+          userDetails = response.data?.user;
+        }
+      }
+
+      if (userDetails) {
+        setEditingUser({
+          id: user.id,
+          name: userDetails.name || user.name,
+          phone: userDetails.phone || user.email,
+          email: userDetails.email || "",
+          level: userDetails.level || "L1",
+          goal: userDetails.goal || "",
+          birthDate: userDetails.birthDate || "",
+          password: "",
+          role: user.role,
+          trainerId: userDetails.trainerId || "",
+        });
+      } else {
+        // إذا فشل جلب التفاصيل، استخدم البيانات المتاحة
+        setEditingUser({
+          id: user.id,
+          name: user.name,
+          phone: user.email,
+          email: "",
+          level: "L1",
+          goal: "",
+          birthDate: "",
+          password: "",
+          role: user.role,
+          trainerId: "",
+        });
+      }
+
+      setShowEditModal(true);
+    } catch (error) {
+      console.error("خطأ في جلب تفاصيل المستخدم:", error);
+      // استخدم البيانات المتاحة في حالة الخطأ
+      setEditingUser({
+        id: user.id,
+        name: user.name,
+        phone: user.email,
+        email: "",
+        level: "L1",
+        goal: "",
+        birthDate: "",
+        password: "",
+        role: user.role,
+        trainerId: "",
+      });
+      setShowEditModal(true);
+    }
   };
 
   const handleUpdateUser = async () => {
@@ -513,14 +641,19 @@ export const AdminUsersPage: React.FC = () => {
       const updateData = {
         name: editingUser.name,
         phone: editingUser.phone,
+        email: editingUser.email,
+        level: editingUser.level,
+        goal: editingUser.goal,
+        birthDate: editingUser.birthDate,
         role: editingUser.role,
         ...(editingUser.password && { password: editingUser.password }),
+        ...(editingUser.trainerId && { trainerId: editingUser.trainerId }),
       };
 
       // التحقق من صحة البيانات
       const validation = validateUserData(updateData, false);
       if (!validation.isValid) {
-        alert(`أخطاء في البيانات:\n${validation.errors.join("\n")}`);
+        toast.error(`أخطاء في البيانات:\n${validation.errors.join("\n")}`);
         return;
       }
 
@@ -540,16 +673,30 @@ export const AdminUsersPage: React.FC = () => {
       }
 
       if (updateRes.success) {
-        fetchUsers();
+        await fetchUsers();
         setShowEditModal(false);
         setEditingUser(null);
-        alert("تم تحديث بيانات المستخدم بنجاح");
+        toast.success("تم تحديث بيانات المستخدم بنجاح");
       } else {
-        alert("حدث خطأ في تحديث بيانات المستخدم");
+        const errorMessage =
+          updateRes.error ||
+          updateRes.message ||
+          "حدث خطأ في تحديث بيانات المستخدم";
+        toast.error(errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating user:", error);
-      alert("حدث خطأ في تحديث بيانات المستخدم. يرجى المحاولة مرة أخرى.");
+      let errorMessage = "حدث خطأ في تحديث بيانات المستخدم";
+
+      if (error.name === "AbortError") {
+        errorMessage = "انتهت مهلة الطلب. يرجى المحاولة مرة أخرى.";
+      } else if (error.message) {
+        errorMessage = `خطأ: ${error.message}`;
+      } else if (error.error) {
+        errorMessage = `خطأ: ${error.error}`;
+      }
+
+      toast.error(`${errorMessage}\nيرجى المحاولة مرة أخرى.`);
     }
   };
 
@@ -573,37 +720,33 @@ export const AdminUsersPage: React.FC = () => {
       // التحقق من صحة البيانات
       const validation = validateUserData(userData, true);
       if (!validation.isValid) {
-        alert(`أخطاء في البيانات:\n${validation.errors.join("\n")}`);
+        toast.error(`أخطاء في البيانات:\n${validation.errors.join("\n")}`);
         return;
       }
 
       // التحقق من اختيار المدرب للمستخدم العادي
       if (newUser.role === "USER" && !selectedTrainerForNewUser) {
-        alert("يجب اختيار مدرب للمستخدم العادي");
+        toast.error("يجب اختيار مدرب للمستخدم العادي");
         return;
       }
 
-      console.log("إرسال بيانات المستخدم:", userData);
-
+      
       let addUserRes;
 
       if (newUser.role === "TRAINER") {
         // إرسال بيانات المدرب إلى endpoint المدربين
-        console.log("إنشاء مدرب جديد...");
         addUserRes = await apiClient.post(
           API_ENDPOINTS.ADMIN.TRAINERS.CREATE,
           userData
         );
       } else {
         // إرسال بيانات المستخدم العادي إلى endpoint المستخدمين
-        console.log("إنشاء مستخدم عادي...");
         addUserRes = await apiClient.post(
           API_ENDPOINTS.ADMIN.USERS.CREATE,
           userData
         );
       }
 
-      console.log("استجابة الباك إند:", addUserRes);
 
       if (addUserRes.success) {
         // نجح إنشاء المستخدم
@@ -620,17 +763,21 @@ export const AdminUsersPage: React.FC = () => {
           email: "",
           role: "USER",
         });
-        alert(
+        toast.success(
           `تم إضافة ${
             newUser.role === "TRAINER" ? "المدرب" : "المستخدم"
-          } بنجاح `
+          } بنجاح${
+            newUser.role === "USER" && selectedTrainerForNewUser
+              ? " وربطه بالمدرب المختار"
+              : ""
+          }`
         );
       } else {
         // فشل إنشاء المستخدم
         const errorMessage =
           addUserRes.error || addUserRes.message || "حدث خطأ غير معروف";
         console.error("خطأ في إنشاء المستخدم:", errorMessage);
-        alert(`فشل في إضافة المستخدم:\n${errorMessage}`);
+        toast.error(`فشل في إضافة المستخدم:\n${errorMessage}`);
       }
     } catch (error: any) {
       console.error("خطأ في دالة handleAddUser:", error);
@@ -646,7 +793,7 @@ export const AdminUsersPage: React.FC = () => {
         errorMessage = `خطأ: ${error.error}`;
       }
 
-      alert(`${errorMessage}\nيرجى المحاولة مرة أخرى.`);
+      toast.error(`${errorMessage}\nيرجى المحاولة مرة أخرى.`);
     } finally {
       setIsAddingUser(false); // إنهاء التحميل
     }
@@ -1707,7 +1854,7 @@ export const AdminUsersPage: React.FC = () => {
                       onChange={(e) =>
                         setEditingUser({ ...editingUser, name: e.target.value })
                       }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                       placeholder="Enter user name (English only)"
                       required
                     />
@@ -1726,7 +1873,7 @@ export const AdminUsersPage: React.FC = () => {
                           phone: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                       placeholder="أدخل رقم الهاتف"
                       required
                     />
@@ -1734,20 +1881,140 @@ export const AdminUsersPage: React.FC = () => {
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
-                      كلمة المرور الجديدة (اختياري)
+                      البريد الإلكتروني
                     </label>
                     <input
-                      type="password"
-                      value={editingUser.password}
+                      type="email"
+                      value={editingUser.email}
                       onChange={(e) =>
                         setEditingUser({
                           ...editingUser,
-                          password: e.target.value,
+                          email: e.target.value,
                         })
                       }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
-                      placeholder="اتركها فارغة إذا لم ترد تغييرها"
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                      placeholder="أدخل البريد الإلكتروني"
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                      المستوى
+                    </label>
+                    <select
+                      value={editingUser.level}
+                      onChange={(e) =>
+                        setEditingUser({
+                          ...editingUser,
+                          level: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                    >
+                      <option value="L1">مبتدئ (L1)</option>
+                      <option value="L2">متوسط (L2)</option>
+                      <option value="L3">متقدم (L3)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                      الهدف
+                    </label>
+                    <input
+                      type="text"
+                      value={editingUser.goal}
+                      onChange={(e) =>
+                        setEditingUser({
+                          ...editingUser,
+                          goal: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                      placeholder="أدخل هدف التعلم"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                      تاريخ الميلاد
+                    </label>
+                    <input
+                      type="date"
+                      value={editingUser.birthDate}
+                      onChange={(e) =>
+                        setEditingUser({
+                          ...editingUser,
+                          birthDate: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                      كلمة المرور الجديدة (اختياري)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showEditPassword ? "text" : "password"}
+                        value={editingUser.password}
+                        onChange={(e) =>
+                          setEditingUser({
+                            ...editingUser,
+                            password: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                        placeholder="اتركها فارغة إذا لم ترد تغييرها"
+                      />
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-300 focus:outline-none"
+                        onClick={() => setShowEditPassword((prev) => !prev)}
+                        aria-label={
+                          showEditPassword
+                            ? "إخفاء كلمة المرور"
+                            : "إظهار كلمة المرور"
+                        }
+                      >
+                        {showEditPassword ? (
+                          // Eye Off Icon
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.336-3.234.938-4.675M15 12a3 3 0 11-6 0 3 3 0 016 0zm6.062-4.675A9.956 9.956 0 0122 9c0 5.523-4.477 10-10 10a9.956 9.956 0 01-4.675-.938M3 3l18 18"
+                            />
+                          </svg>
+                        ) : (
+                          // Eye Icon
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm7 0c0 5-4.03 9-9 9s-9-4-9-9 4.03-9 9-9 9 4 9 9z"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -1759,7 +2026,7 @@ export const AdminUsersPage: React.FC = () => {
                       onChange={(e) =>
                         setEditingUser({ ...editingUser, role: e.target.value })
                       }
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                      className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                     >
                       <option value="USER">مستخدم عادي</option>
                       <option value="TRAINER">مدرب</option>
@@ -1964,6 +2231,29 @@ export const AdminUsersPage: React.FC = () => {
           </div>
         </div>
       )}
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: "#363636",
+            color: "#fff",
+            fontSize: "14px",
+            borderRadius: "8px",
+            padding: "12px 16px",
+          },
+          success: {
+            style: {
+              background: "#10B981",
+            },
+          },
+          error: {
+            style: {
+              background: "#EF4444",
+            },
+          },
+        }}
+      />
     </div>
   );
 };

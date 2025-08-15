@@ -236,7 +236,6 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       // تهيئة الأصوات عند تحميل الصفحة
       const initVoices = () => {
         const voices = window.speechSynthesis.getVoices();
-        console.log("🔊 Initialized voices:", voices.length);
         if (voices.length === 0) {
           // إذا لم تكن الأصوات جاهزة، انتظر قليلاً وحاول مرة أخرى
           setTimeout(initVoices, 100);

@@ -36,14 +36,7 @@ class ApiClient {
         this.baseURL = import.meta.env.VITE_API_URL;
         this.timeout = parseInt(import.meta.env.VITE_API_TIMEOUT || '180000'); // 180 ثانية (3 دقائق) للـ GPT-4 (دقيقة ونصف + buffer)
 
-        // طباعة معلومات التكوين للتأكد من صحة الإعدادات
-        if (import.meta.env.DEV) {
-            console.log('API Configuration:', {
-                baseURL: this.baseURL,
-                timeout: this.timeout,
-                env: import.meta.env.MODE
-            });
-        }
+       
     }
 
 
@@ -115,7 +108,6 @@ class ApiClient {
         options: RequestInit = {}
     ): Promise<ApiResponse<T>> {
         const url = getApiUrl(endpoint);
-        console.log(`API Request: ${options.method || 'GET'} ${url}`);
 
         const config: RequestInit = {
             ...options,
@@ -526,21 +518,18 @@ export const getWordsLearned = (period: string = 'month') =>
 
 export const addStreak = (data?: { action: string; date?: string }) => {
     const requestData = data || { action: 'add', date: new Date().toISOString().split('T')[0] };
-    console.log("addStreak API call:", {
-        endpoint: API_ENDPOINTS.ACTIVITIES.STREAK_ADD,
-        data: requestData
-    });
+    
     return apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.STREAK_ADD, requestData);
 };
 
 // إضافة دوال جديدة للستريك
 export const resetStreak = () => {
-    console.log("resetStreak API call");
+    
     return apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.STREAK_ADD, { action: 'reset' });
 };
 
 export const initializeStreak = () => {
-    console.log("initializeStreak API call");
+        
     return apiClient.post<ApiResponse<any>>(API_ENDPOINTS.ACTIVITIES.STREAK_ADD, { action: 'initialize' });
 };
 

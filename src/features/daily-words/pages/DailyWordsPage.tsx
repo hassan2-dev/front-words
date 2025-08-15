@@ -148,7 +148,6 @@ export const DailyWordsPage: React.FC = () => {
 
     setLoadingTab(true);
     const res = await getLearnedWords();
-    console.log("LearnedWords API result:", res);
     if (res.success && res.data) {
       // إذا كانت الاستجابة تحتوي على public وprivate
       if (Array.isArray((res.data as any).public)) {
@@ -195,7 +194,6 @@ export const DailyWordsPage: React.FC = () => {
     setLoadingTab(true);
     try {
       const res = await getAllCategories();
-      console.log("All Categories API result:", res);
       if (res.success && res.data) {
         const data = res.data as any;
         setAllCategoriesData(data);

@@ -164,7 +164,6 @@ const DarkModeToggle: React.FC = () => {
 const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
   streakDates,
 }) => {
-  console.log("WeeklyStreakDisplay render:", { streakDates });
   const weekDayNames = [
     "السبت",
     "الأحد",
@@ -196,10 +195,6 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
     d.setDate(currentWeekStart.getDate() + i);
     weekDays.push(d);
   }
-  console.log(
-    "Current week days:",
-    weekDays.map((d) => d.toISOString().split("T")[0])
-  );
 
   // Helper functions
   const isStreakDay = (date: Date) => {
@@ -234,7 +229,6 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
 
   // If no streaks at all
   if (!streakDates.length) {
-    console.log("No streak dates found, showing empty state");
     return (
       <div className="flex flex-col items-center justify-center py-4">
         <span className="text-gray-400 text-sm mb-2">
@@ -250,15 +244,10 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
 
   // Sort streak dates to ensure they're in chronological order
   const sortedStreakDates = [...streakDates].sort();
-  console.log("WeeklyStreakDisplay sorted dates:", {
-    sortedStreakDates,
-    weekDays: weekDays.map((d) => d.toISOString().split("T")[0]),
-  });
 
   return (
     <div className="w-full max-w-xl mx-auto">
       {(() => {
-        console.log("Rendering streak calendar with dates:", streakDates);
         return null;
       })()}
       <div className="text-center text-xs text-gray-500 dark:text-gray-400 mt-2 mb-2">
@@ -276,13 +265,7 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
           const todayHighlight = isToday(d);
           const isPastDay = isPast(d);
 
-          console.log("Day check:", {
-            dateStr,
-            isStreak,
-            todayHighlight,
-            isPastDay,
-          });
-
+          
           return (
             <div
               key={dateStr}
@@ -491,18 +474,7 @@ export const DashboardPage: React.FC = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  console.log("Dashboard Auth State:", {
-    user: user
-      ? {
-          name: user.name,
-          role: user.role || "USER", // Default to USER if role is undefined
-          id: user.id,
-          fullUser: user,
-        }
-      : null,
-    isAuthenticated,
-    authLoading,
-  });
+  
 
   // State
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -553,7 +525,6 @@ export const DashboardPage: React.FC = () => {
     localStorage.removeItem("lastDailyStoryDate");
     localStorage.removeItem("welcomeShown");
     localStorage.removeItem("lastWelcomeShownDate");
-    console.log("LocalStorage cleared successfully");
 
     // إعادة تعيين الحالة
     setStreakAddedToday(false);
@@ -572,39 +543,25 @@ export const DashboardPage: React.FC = () => {
   // دالة للتحقق من وجود ستريك
   const hasStreak = (): boolean => {
     const result = streak > 0 || streakAddedToday;
-    console.log("🔍 hasStreak check:", {
-      streak,
-      streakAddedToday,
-      result,
-    });
     return result;
   };
 
   // دالة للتحقق من الستريك في قاعدة البيانات
   const verifyStreakInDatabase = async (): Promise<boolean> => {
     try {
-      console.log("🔍 Verifying streak in database...");
       const streakResponse = await getStreak();
-      console.log("📊 Full streak response:", streakResponse);
 
       if (streakResponse.success && streakResponse.data) {
         const data = streakResponse.data as any;
-        console.log("📊 Streak data structure:", data);
 
         // Check multiple possible field names for streak count
         const currentStreak =
           data.currentStreak || data.streak || data.streakCount || 0;
-        console.log("📊 Current streak in database:", currentStreak);
 
         const hasValidStreak = currentStreak > 0;
-        console.log(
-          hasValidStreak
-            ? "✅ Streak verified successfully"
-            : "❌ No valid streak found"
-        );
+      
         return hasValidStreak;
       }
-      console.log("❌ No streak data found in response");
       return false;
     } catch (error) {
       console.error("❌ Error verifying streak in database:", error);
@@ -614,7 +571,7 @@ export const DashboardPage: React.FC = () => {
 
   // Functions
   const fetchDailyStory = async () => {
-    try {
+    try {   
       const response = await getDailyStory();
       if (response.success && response.data) {
         setDailyStory(response.data as unknown as DailyStory);
@@ -626,42 +583,31 @@ export const DashboardPage: React.FC = () => {
 
   // New function to check if story exists and handle loading
   const checkAndLoadDailyStory = async () => {
-    console.log("=== checkAndLoadDailyStory called ===");
 
     // بداية قياس الوقت
     const startTime = performance.now();
-    console.log("⏱️ Starting story loading timer...");
 
     // منع الاستدعاءات المتكررة
-    if (storyLoadingRef.current) {
-      console.log("⏳ Story loading already in progress, skipping...");
+    if (storyLoadingRef.current) {    
       return;
     }
 
     storyLoadingRef.current = true;
 
     // التحقق من وجود ستريك في قاعدة البيانات مباشرة
-    console.log("🔍 Verifying streak in database...");
     const streakVerified = await verifyStreakInDatabase();
-    console.log("📊 Streak verification result:", streakVerified);
 
     if (!streakVerified) {
-      console.log("❌ Streak not verified in database, retrying...");
       // انتظار إضافي وإعادة المحاولة
       await new Promise((resolve) => setTimeout(resolve, 500)); // تقليل الوقت إلى 500ms
       const retryVerification = await verifyStreakInDatabase();
-      console.log("📊 Retry verification result:", retryVerification);
 
       if (!retryVerification) {
-        console.log("❌ Streak still not verified, showing welcome modal");
         setShowWelcomeModal(true);
         return;
       }
     }
 
-    console.log(
-      "✅ Streak verified in database, proceeding with daily story check..."
-    );
     const now = new Date();
     const today =
       now.getFullYear() +
@@ -672,34 +618,22 @@ export const DashboardPage: React.FC = () => {
 
     const lastStoryDate = localStorage.getItem("lastStoryShownDate");
 
-    console.log("📊 Story check conditions:", {
-      today,
-      lastStoryDate,
-      isSameDay: lastStoryDate === today,
-      shouldSkip: lastStoryDate === today,
-      hasStreak: streak > 0 || streakAddedToday,
-    });
 
     // إذا تم عرض القصة اليوم، لا نحتاج لتحميلها مرة أخرى
     if (lastStoryDate === today) {
-      console.log("📝 Story already shown today, skipping...");
       setDailyStoryCompleted(true);
       return;
     }
 
     // منع المحاولات المتكررة
     if (isLoadingStory) {
-      console.log("⏳ Story is already being loaded, skipping...");
       return;
     }
 
-    console.log("🚀 About to start loading story...");
 
-    console.log("📝 Setting isLoadingStory to true");
     setIsLoadingStory(true);
     setStoryLoadingError(null);
     setLoadingMessage("جاري التحقق من القصة...");
-    console.log("📝 Setting loading message: جاري التحقق من القصة...");
 
     // تأخير قصير
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -750,10 +684,7 @@ export const DashboardPage: React.FC = () => {
 
         clearInterval(messageInterval);
       } catch (apiError) {
-        console.log(
-          "❌ Story request failed, creating fallback story:",
-          apiError
-        );
+      
         // إذا فشل الـ API، ننتقل لإنشاء قصة احتياطية
         await createFallbackStory();
         return;
@@ -807,7 +738,6 @@ export const DashboardPage: React.FC = () => {
         setLoadingMessage("");
       } else {
         // القصة غير موجودة، نحتاج لإنشاء قصة احتياطية
-        console.log("Story doesn't exist, creating fallback...");
       }
     } catch (error: any) {
       console.error("Error requesting story:", error);
@@ -1152,7 +1082,7 @@ export const DashboardPage: React.FC = () => {
       } catch (error) {
         console.error("Error in checkAndLoadDailyStory:", error);
         // إذا فشل، جرب التوجيه المباشر
-        console.log("Attempting direct navigation to story...");
+
         // Clear story localStorage to force navigation
         localStorage.removeItem("lastStoryShownDate");
 
@@ -1271,7 +1201,6 @@ export const DashboardPage: React.FC = () => {
       } catch (error) {
         console.error("Error in checkAndLoadDailyStory:", error);
         // إذا فشل، جرب التوجيه المباشر
-        console.log("Attempting direct navigation to story...");
         // Clear story localStorage to force navigation
         localStorage.removeItem("lastStoryShownDate");
 
@@ -1477,23 +1406,7 @@ export const DashboardPage: React.FC = () => {
       const currentHour = now.getHours();
       const isAfterMidnight = currentHour >= 0;
 
-      console.log("🔍 Welcome Modal Logic Check:", {
-        today,
-        yesterday: yesterdayStr,
-        hasAnyStreak,
-        isFirstTime,
-        lastWelcomeShown,
-        shouldShowWelcomeToday,
-        lastStreakDate,
-        hadStreakYesterday,
-        needsStreakToday,
-        isAfterMidnight,
-        currentHour,
-        isProcessingStreak,
-        alreadyAddedTodayLocal,
-        streak,
-        streakAddedToday,
-      });
+      
 
       // إذا كان المستخدم جديد أو يحتاج لإضافة ستريك اليوم بعد 12 صباحاً، اعرض البوب الترحيبي
       if (
@@ -1507,19 +1420,13 @@ export const DashboardPage: React.FC = () => {
         // إضافة شرط إضافي: إذا كان الوقت بعد 12 صباحاً ولم يتم إضافة ستريك اليوم
         (isAfterMidnight && !alreadyAddedTodayLocal && shouldShowWelcomeToday)
       ) {
-        console.log("✅ Showing welcome modal - conditions met");
+       
         setIsNewUser(isFirstTime);
         setShowWelcomeModal(true);
         localStorage.setItem("welcomeShown", "true");
         localStorage.setItem("lastWelcomeShownDate", today);
       } else if (hasAnyStreak || alreadyAddedTodayLocal) {
-        // إذا كان هناك ستريك، تأكد من إخفاء البوب الترحيبي
-        console.log(
-          "❌ Hiding welcome modal - user has streak or already added today"
-        );
         setShowWelcomeModal(false);
-      } else {
-        console.log("❌ Not showing welcome modal - other conditions not met");
       }
     }
   }, [
@@ -1587,19 +1494,10 @@ export const DashboardPage: React.FC = () => {
         const needsStreakToday = lastStreakDate !== today;
         const shouldShowWelcomeToday = lastWelcomeShown !== today;
 
-        console.log("🕛 Midnight check - New day started:", {
-          today,
-          yesterday: yesterdayStr,
-          hadStreakYesterday,
-          needsStreakToday,
-          shouldShowWelcomeToday,
-          lastStreakDate,
-          lastWelcomeShown,
-        });
+       
 
         // إذا كان هناك ستريك أمس ولم يتم إضافة ستريك اليوم، اعرض البوب الترحيبي
         if (hadStreakYesterday && needsStreakToday && shouldShowWelcomeToday) {
-          console.log("✅ Midnight: Showing welcome modal for new day");
           setShowWelcomeModal(true);
           setIsNewUser(false);
           setStreakAddedToday(false); // تأكد من أن الستريك لم يضف اليوم
@@ -1691,35 +1589,8 @@ export const DashboardPage: React.FC = () => {
     const shouldShowWelcomeToday = lastWelcomeShown !== today;
     const isAfterMidnight = currentHour >= 0;
 
-    console.log("🕐 Current Time Check:", {
-      currentTime: now.toLocaleString(),
-      currentHour,
-      currentMinute,
-      today,
-      yesterday: yesterdayStr,
-      hadStreakYesterday,
-      needsStreakToday,
-      shouldShowWelcomeToday,
-      isAfterMidnight,
-      lastStreakDate,
-      lastWelcomeShown,
-      wouldShowModal:
-        hadStreakYesterday &&
-        needsStreakToday &&
-        shouldShowWelcomeToday &&
-        isAfterMidnight,
-    });
+   
 
-    alert(
-      `الوقت الحالي: ${now.toLocaleString()}\nالساعة: ${currentHour}:${currentMinute}\nاليوم: ${today}\nأمس: ${yesterdayStr}\nهل سيظهر البوب: ${
-        hadStreakYesterday &&
-        needsStreakToday &&
-        shouldShowWelcomeToday &&
-        isAfterMidnight
-          ? "نعم"
-          : "لا"
-      }`
-    );
   };
 
   return (
@@ -1909,7 +1780,6 @@ export const DashboardPage: React.FC = () => {
                   role="button"
                   tabIndex={0}
                   onClick={() => {
-                    console.log("Streak card clicked");
                     setShowStreakModal(true);
                   }}
                   onKeyDown={(e) =>

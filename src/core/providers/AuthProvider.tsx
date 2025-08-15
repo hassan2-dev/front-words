@@ -252,7 +252,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       // لا تفعل شيئاً في حالة الخطأ
-      console.log("Silent refresh failed, keeping current session");
     }
   };
 

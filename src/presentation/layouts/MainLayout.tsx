@@ -154,7 +154,6 @@ export const MainLayout: React.FC = () => {
   const handelAllNotifications = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log("Navigating to notifications page...");
     setIsNotificationsOpen(false);
     setTimeout(() => {
       navigate("/notifications", { replace: true });

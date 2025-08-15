@@ -100,7 +100,6 @@ export const validateUserRole = (user: any, allowedRoles: string[]): boolean => 
     // For admin role, just check if the user has ADMIN role in their data
     // No need for additional localStorage checks since we're already in admin routes
     if (actualUser.role === USER_ROLES.ADMIN) {
-        console.log('Admin user validated successfully');
         return true;
     }
 
@@ -117,14 +116,12 @@ export const validateRouteAccess = (currentPath: string, userRole: string | unde
     // Admin routes - if we're in admin path, user must be admin
     if (currentPath.startsWith('/admin')) {
         const hasAccess = userRole === USER_ROLES.ADMIN;
-        console.log(`Admin route access check: ${currentPath} - ${hasAccess} (role: ${userRole})`);
         return hasAccess;
     }
 
     // Trainer routes
     if (currentPath.startsWith('/trainer')) {
         const hasAccess = userRole === USER_ROLES.TRAINER;
-        console.log(`Trainer route access check: ${currentPath} - ${hasAccess} (role: ${userRole})`);
         return hasAccess;
     }
 
@@ -145,23 +142,18 @@ export const validateRouteAccess = (currentPath: string, userRole: string | unde
         return route === currentPath;
     });
 
-    console.log(`User route access check: ${currentPath} - ${hasAccess} (role: ${userRole})`);
     return hasAccess;
 };
 
 // Get appropriate redirect path based on user role
-export const getRedirectPath = (userRole: string | undefined): string => {
-    console.log(`Getting redirect path for role: ${userRole}`);
+export const getRedirectPath = (userRole: string | undefined): string => {  
 
     switch (userRole) {
         case USER_ROLES.ADMIN:
-            console.log(`Redirecting ADMIN to: ${ROUTES.ADMIN_DASHBOARD}`);
             return ROUTES.ADMIN_DASHBOARD;
         case USER_ROLES.TRAINER:
-            console.log(`Redirecting TRAINER to: ${ROUTES.TRAINER_DASHBOARD}`);
             return ROUTES.TRAINER_DASHBOARD;
         default:
-            console.log(`Redirecting USER to: ${ROUTES.DASHBOARD}`);
             return ROUTES.DASHBOARD;
     }
 };

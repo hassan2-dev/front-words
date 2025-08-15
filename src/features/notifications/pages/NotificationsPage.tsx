@@ -25,18 +25,15 @@ export const NotificationsPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await getNotifications();
-      console.log("Notifications response:", res);
 
       if (res.success && res.data) {
         const data = res.data as any;
         if (data.notifications && Array.isArray(data.notifications)) {
           setNotifications(data.notifications);
         } else {
-          console.log("No notifications found or invalid data structure");
           setNotifications([]);
         }
-      } else {
-        console.log("No notifications found or invalid data structure");
+      } else {  
         setNotifications([]);
       }
     } catch (error) {

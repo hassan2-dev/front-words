@@ -42,11 +42,9 @@ export const TrainerNotificationsPage: React.FC = () => {
     setLoading(true);
     try {
       const studentsRes = await apiClient.get<any>("/trainer/students");
-      console.log("Students response:", studentsRes); // للتأكد من البيانات
 
       if (studentsRes.success && studentsRes.data && studentsRes.data.data) {
         setStudents(studentsRes.data.data);
-        console.log("Students set:", studentsRes.data.data); // للتأكد من البيانات
       } else if (
         studentsRes.success &&
         studentsRes.data &&
@@ -54,10 +52,6 @@ export const TrainerNotificationsPage: React.FC = () => {
       ) {
         // إذا كانت البيانات مباشرة في data
         setStudents(studentsRes.data);
-        console.log("Students set (direct):", studentsRes.data);
-      } else {
-        console.log("Using fallback data");
-        // بيانات تجريبية للطلاب
       }
     } catch (error) {
       console.error("Error fetching students:", error);

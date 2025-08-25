@@ -39,7 +39,7 @@ export const API_ENDPOINTS = {
     // طلب قصة جديدة
     REQUEST: '/stories/daily/story/request',
     // الحصول على القصة الحالية
-    GET: '/stories',
+    GET: '/stories/daily/story',
     // الحصول على كل الكلمات
     GET_ALL_WORDS: '/stories/daily/story/all-words',
     GET_COMPLEMENTARY_WORDS: '/stories/daily/story/complementary-words',
@@ -47,7 +47,7 @@ export const API_ENDPOINTS = {
     GET_STORY_WORDS: (storyId: string) => `/stories/daily/story/${storyId}/words`,
     // الطلبات المتبقية
     REMAINING: '/stories/daily/story/remaining',
-    GET_ALL_STORIES: '/stories/daily/story/all-stories',
+    GET_ALL_STORIES: (studentId?: string) => studentId ? `/stories/daily-stories/student/${studentId}` : '/stories/daily/story/all-stories',
     // التفاعل مع الكلمات
     WORD_INTERACTION: '/stories/daily/story/word-interaction',
     // إحصائيات الكلمات

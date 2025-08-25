@@ -34,7 +34,7 @@ class ApiClient {
     constructor() {
         // استخدام متغيرات البيئة أو القيم الافتراضية
         this.baseURL = import.meta.env.VITE_API_URL;
-        this.timeout = parseInt(import.meta.env.VITE_API_TIMEOUT || '180000'); // 180 ثانية (3 دقائق) للـ GPT-4 (دقيقة ونصف + buffer)
+        this.timeout = parseInt(import.meta.env.VITE_API_TIMEOUT || '300000'); // 180 ثانية (3 دقائق) للـ GPT-4 (دقيقة ونصف + buffer)
 
 
     }
@@ -77,12 +77,25 @@ class ApiClient {
                 };
             }
 
-            // Return empty data if the response indicates empty content
-            const isEmptyResponse = !data.data && !data.message && !data.achievements;
+            // تحسين منطق التحقق من البيانات
+            console.log("Raw API response data:", data);
+
+            // التحقق من وجود البيانات في المكان الصحيح
+            let responseData = null;
+
+            if (data.data && typeof data.data === 'object') {
+                responseData = data.data;
+                console.log("Found data in data.data:", responseData);
+            } else if (data && typeof data === 'object' && (data.content || data.words || data.id)) {
+                responseData = data;
+                console.log("Found data directly in response:", responseData);
+            } else {
+                console.log("No valid data found in response");
+            }
 
             return {
                 success: true,
-                data: isEmptyResponse ? ({} as T) : (data.data || data),
+                data: responseData || ({} as T),
                 message: data.message || '',
                 achievements: data.achievements || [],
                 totalPoints: data.totalPoints || 0,

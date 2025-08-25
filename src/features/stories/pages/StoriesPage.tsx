@@ -53,10 +53,14 @@ export const StoriesPage: React.FC = () => {
     setDailyStoryLoading(true);
     setDailyStoryError(null);
     try {
-      const checkResponse = await apiClient.get("/stories/daily/story/check");
+      const checkResponse = await apiClient.get(
+        API_ENDPOINTS.DAILY_STORIES.CHECK
+      );
 
       if (checkResponse.success && (checkResponse.data as any)?.hasStory) {
-        const storyResponse = await apiClient.get("/stories/daily/story");
+        const storyResponse = await apiClient.get(
+          API_ENDPOINTS.DAILY_STORIES.GET
+        );
         if (storyResponse.success && storyResponse.data) {
           setDailyStory(storyResponse.data);
         } else {
@@ -113,13 +117,21 @@ export const StoriesPage: React.FC = () => {
     }
 
     try {
+      // Use the correct endpoint for students
       const storiesRes = await apiClient.get(
-        `/trainer/daily-stories/student/${user.id}`
+        API_ENDPOINTS.DAILY_STORIES.GET_ALL_STORIES(user.id)
       );
       if (storiesRes.success && storiesRes.data) {
         const responseData = storiesRes.data as any;
         const storiesData = responseData.stories || [];
-        setStories(storiesData);
+
+        // Sort stories by date (newest first)
+        const sortedStories = storiesData.sort(
+          (a: any, b: any) =>
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        setStories(sortedStories);
         setStats({
           totalCount: responseData.totalCount || 0,
           completedCount: responseData.completedCount || 0,
@@ -127,7 +139,7 @@ export const StoriesPage: React.FC = () => {
 
         // Set today's story if available
         const today = new Date().toISOString().split("T")[0];
-        const todayStory = storiesData.find(
+        const todayStory = sortedStories.find(
           (story: any) =>
             story.date === today ||
             new Date(story.date).toDateString() === new Date().toDateString()
@@ -135,9 +147,17 @@ export const StoriesPage: React.FC = () => {
         if (todayStory) {
           setDailyStory(todayStory);
         }
+
+        console.log("Fetched stories:", sortedStories);
+        console.log("Today's story:", todayStory);
+      } else {
+        console.error("Failed to fetch stories:", storiesRes);
       }
     } catch (error) {
       console.error("Error fetching daily stories:", error);
+      // Set a default error state
+      setStories([]);
+      setStats({ totalCount: 0, completedCount: 0 });
     } finally {
       setLoading(false);
     }
@@ -157,6 +177,7 @@ export const StoriesPage: React.FC = () => {
   useEffect(() => {
     fetchRemainingDailyRequests();
     fetchAllDailyStories();
+    fetchDailyStory(); // Add this to fetch the daily story
   }, [user?.id]);
 
   useEffect(() => {
@@ -224,25 +245,57 @@ export const StoriesPage: React.FC = () => {
 
             {/* Daily Story Content */}
             <div className="p-4 sm:p-8">
+              {/* Always show loading spinner until dailyStory is loaded or error occurs */}
               {dailyStoryLoading && (
                 <div className="text-center py-8 sm:py-12">
                   <Loading
                     size="lg"
                     variant="video"
                     text="جاري تحميل القصة اليومية..."
-                    isOverlay
+                    isOverlay={true}
                   />
                 </div>
               )}
 
-              {dailyStoryError && (
-                <ErrorDisplay
-                  error={dailyStoryError}
-                  onRetry={fetchDailyStory}
-                />
+              {/* Show error if there is an error */}
+              {!dailyStoryLoading && dailyStoryError && (
+                <div className="space-y-4">
+                  <ErrorDisplay
+                    error={dailyStoryError}
+                    onRetry={fetchDailyStory}
+                  />
+                  {dailyStoryError.includes("لا توجد قصة متاحة") && (
+                    <div className="text-center">
+                      <button
+                        onClick={async () => {
+                          try {
+                            setDailyStoryLoading(true);
+                            const response = await apiClient.post(
+                              API_ENDPOINTS.DAILY_STORIES.REQUEST,
+                              {}
+                            );
+                            if (response.success) {
+                              await fetchDailyStory();
+                              await fetchRemainingDailyRequests();
+                            }
+                          } catch (error) {
+                            console.error("Error requesting new story:", error);
+                            setDailyStoryError("فشل في طلب قصة جديدة");
+                          } finally {
+                            setDailyStoryLoading(false);
+                          }
+                        }}
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105 shadow-lg"
+                      >
+                        🚀 طلب قصة جديدة
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
 
-              {dailyStory && !dailyStoryLoading && !dailyStoryError && (
+              {/* Show content only if dailyStory is loaded and not loading and no error */}
+              {!dailyStoryLoading && !dailyStoryError && dailyStory && (
                 <div className="space-y-4 sm:space-y-6">
                   {/* Story Title & Info */}
                   <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 rounded-2xl p-4 sm:p-6">
@@ -328,7 +381,7 @@ export const StoriesPage: React.FC = () => {
         </div>
 
         {/* Progress Summary */}
-        {(stories.length > 0 || stats.totalCount > 0) && (
+        {(stories.length > 0 || stats.totalCount > 0 || !loading) && (
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-3xl shadow-xl p-6 sm:p-8 border border-white/20 dark:border-gray-700/50">
             <div className="text-center mb-6">
               <h2 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
@@ -338,43 +391,79 @@ export const StoriesPage: React.FC = () => {
                 تتبع إنجازاتك في القراءة
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
-              <div className="text-center bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl p-4 sm:p-6">
-                <div className="text-2xl sm:text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
-                  {stats.completedCount ||
-                    stories.filter((s) => s.isCompleted).length}
-                </div>
-                <p className="text-sm sm:text-base text-blue-700 dark:text-blue-300 font-medium">
-                  قصص مكتملة
+
+            {stories.length === 0 && stats.totalCount === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-6xl mb-4">📚</div>
+                <h3 className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-2">
+                  لا توجد قصص بعد
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">
+                  ابدأ رحلتك التعليمية بطلب قصة جديدة
                 </p>
+                <button
+                  onClick={async () => {
+                    try {
+                      setDailyStoryLoading(true);
+                      const response = await apiClient.post(
+                        API_ENDPOINTS.DAILY_STORIES.REQUEST,
+                        {}
+                      );
+                      if (response.success) {
+                        await fetchDailyStory();
+                        await fetchRemainingDailyRequests();
+                        await fetchAllDailyStories();
+                      }
+                    } catch (error) {
+                      console.error("Error requesting new story:", error);
+                    } finally {
+                      setDailyStoryLoading(false);
+                    }
+                  }}
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  🚀 طلب قصة جديدة
+                </button>
               </div>
-              <div className="text-center bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 rounded-2xl p-4 sm:p-6">
-                <div className="text-2xl sm:text-4xl font-bold text-orange-600 dark:text-orange-400 mb-2">
-                  {(stats.totalCount || stories.length) -
-                    (stats.completedCount ||
-                      stories.filter((s) => s.isCompleted).length)}
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
+                <div className="text-center bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl p-4 sm:p-6">
+                  <div className="text-2xl sm:text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                    {stats.completedCount ||
+                      stories.filter((s) => s.isCompleted).length}
+                  </div>
+                  <p className="text-sm sm:text-base text-blue-700 dark:text-blue-300 font-medium">
+                    قصص مكتملة
+                  </p>
                 </div>
-                <p className="text-sm sm:text-base text-orange-700 dark:text-orange-300 font-medium">
-                  قصص متبقية
-                </p>
-              </div>
-              <div className="text-center bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/30 rounded-2xl p-4 sm:p-6">
-                <div className="text-2xl sm:text-4xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
-                  {(stats.totalCount || stories.length) > 0
-                    ? Math.round(
-                        ((stats.completedCount ||
-                          stories.filter((s) => s.isCompleted).length) /
-                          (stats.totalCount || stories.length)) *
-                          100
-                      )
-                    : 0}
-                  %
+                <div className="text-center bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 rounded-2xl p-4 sm:p-6">
+                  <div className="text-2xl sm:text-4xl font-bold text-orange-600 dark:text-orange-400 mb-2">
+                    {(stats.totalCount || stories.length) -
+                      (stats.completedCount ||
+                        stories.filter((s) => s.isCompleted).length)}
+                  </div>
+                  <p className="text-sm sm:text-base text-orange-700 dark:text-orange-300 font-medium">
+                    قصص متبقية
+                  </p>
                 </div>
-                <p className="text-sm sm:text-base text-emerald-700 dark:text-emerald-300 font-medium">
-                  نسبة الإكمال
-                </p>
+                <div className="text-center bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/30 rounded-2xl p-4 sm:p-6">
+                  <div className="text-2xl sm:text-4xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
+                    {(stats.totalCount || stories.length) > 0
+                      ? Math.round(
+                          ((stats.completedCount ||
+                            stories.filter((s) => s.isCompleted).length) /
+                            (stats.totalCount || stories.length)) *
+                            100
+                        )
+                      : 0}
+                    %
+                  </div>
+                  <p className="text-sm sm:text-base text-emerald-700 dark:text-emerald-300 font-medium">
+                    نسبة الإكمال
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>

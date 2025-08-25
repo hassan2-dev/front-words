@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { Loading } from "@/presentation/components";
 import React from "react";
 
 interface Story {
@@ -27,6 +28,9 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
   stories = [],
   onSelectDate,
 }) => {
+  // Debug logging
+  console.log("DailyStoryCalendar - stories:", stories);
+  console.log("DailyStoryCalendar - monthDate:", monthDate);
   const today = new Date();
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
@@ -44,7 +48,8 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
       const storyDate = new Date(story.date);
       return (
         storyDate.toDateString() === date.toDateString() ||
-        story.date === dateString
+        story.date === dateString ||
+        storyDate.toISOString().split("T")[0] === dateString
       );
     });
   };
@@ -229,6 +234,15 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
                   </div>
                 )}
 
+                {/* Loading indicator for all dates when loading */}
+                {isLoading && !isToday && (
+                  <Loading
+                    variant="video"
+                    text="جاري تحميل القصة اليومية..."
+                    isOverlay={true}
+                  />
+                )}
+
                 {/* Subtle dot for dates with stories */}
                 {hasStory && !isToday && (
                   <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2">
@@ -245,6 +259,14 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
                   <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2">
                     <div className="w-1 h-1 bg-gray-400 dark:bg-gray-500 rounded-full opacity-30" />
                   </div>
+                )}
+
+                {/* Debug info for development */}
+                {process.env.NODE_ENV === "development" && hasStory && (
+                  <div
+                    className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full opacity-50"
+                    title={`Story: ${getStoryForDate(item.date)?.title}`}
+                  />
                 )}
               </button>
 
@@ -286,21 +308,27 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
       </div>
 
       {/* Today's story preview (if applicable) */}
-      {today && !isLoading && (
+      {!isLoading && (
         <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
           <div className="flex items-center gap-2 text-sm">
             <span className="text-lg">📚</span>
             <div className="flex-1">
               <p className="text-blue-700 dark:text-blue-300 font-medium">
-                {isCompleted
+                {stories.length === 0
+                  ? "لا توجد قصص متاحة"
+                  : isCompleted
                   ? "تم إكمال قصة اليوم!"
                   : "قصة اليوم جاهزة للقراءة"}
               </p>
               <p className="text-blue-600 dark:text-blue-400 text-xs mt-0.5">
-                {isCompleted ? "يمكنك إعادة القراءة" : "اضغط لبدء القراءة"}
+                {stories.length === 0
+                  ? "اطلب قصة جديدة لتبدأ"
+                  : isCompleted
+                  ? "يمكنك إعادة القراءة"
+                  : "اضغط لبدء القراءة"}
               </p>
             </div>
-            {!isCompleted && (
+            {stories.length > 0 && !isCompleted && (
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
             )}
           </div>

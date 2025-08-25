@@ -363,6 +363,31 @@ export const DailyWordsPage: React.FC = () => {
   const [wordError, setWordError] = useState("");
   const [meaningError, setMeaningError] = useState("");
 
+  // دالة لإعادة تعيين حالة البوب عند بداية يوم جديد
+  const resetDailyModalState = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const lastShownDate = localStorage.getItem("dailyWordsModalLastShown");
+
+    // إذا كان اليوم مختلف، نعيد تعيين حالة البوب
+    if (lastShownDate !== today) {
+      localStorage.removeItem("dailyWordsModalShown");
+      localStorage.removeItem("dailyWordsModalLastShown");
+      localStorage.removeItem("dailyWordsCompleted");
+      localStorage.removeItem("dailyWordsCompletedDate");
+    }
+  };
+
+  // دالة لمسح جميع البيانات المحفوظة (للتطوير والاختبار)
+  const clearAllStoredData = () => {
+    localStorage.removeItem("unknownWords");
+    localStorage.removeItem("lastFetchDate");
+    localStorage.removeItem("dailyWordsModalShown");
+    localStorage.removeItem("dailyWordsModalLastShown");
+    localStorage.removeItem("dailyWordsCompleted");
+    localStorage.removeItem("dailyWordsCompletedDate");
+    console.log("All stored data cleared");
+  };
+
   if (user?.role === "ADMIN" || user?.role === "TRAINER") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -451,6 +476,19 @@ export const DailyWordsPage: React.FC = () => {
                   ＋
                 </span>
                 <span>أضف كلمة خاصة</span>
+              </button>
+
+              {/* زر إعادة تعيين حالة البوب */}
+              <button
+                onClick={() => {
+                  clearAllStoredData();
+                  window.location.reload();
+                }}
+                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-3 px-6 rounded-xl shadow-xl transition-all duration-300 flex items-center gap-2 group transform hover:scale-105"
+                title="إعادة تعيين حالة البوب"
+              >
+                <span className="text-lg">🔄</span>
+                <span>إعادة تعيين</span>
               </button>
             </div>
           </div>

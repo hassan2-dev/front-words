@@ -1,15 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * StoryReaderPage - صفحة قراءة القصص اليومية
- *
- * نظام الألوان الجديد - نص فقط بدون خلفية:
- * 🔵 أزرق: كلمات اليوم - الحالة NOT_LEARNED
- * 🟢 أخضر: كلمات معروفة - الحالة KNOWN
- * 🟡 أصفر: كلمات جزئية - الحالة PARTIALLY_KNOWN
- * 🔴 أحمر: كلمات غير معروفة - الحالة UNKNOWN
- * ⚫ أسود: كلمات غير متعلمة - الحالة NOT_LEARNED
- *
- * النظام يستخدم الحالة الأصلية من الباك إند مع إمكانية التحديث المحلي
+ * نظام الألوان: أزرق (كلمات اليوم) | أخضر (معروفة) | أصفر (جزئية) | أحمر (غير معروفة)
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -31,9 +23,16 @@ import {
   Target,
   RefreshCw,
   ArrowRight,
+  Clock,
+  BarChart3,
+  Volume2,
+  VolumeX,
+  Award,
+  TrendingUp,
+  Zap,
 } from "lucide-react";
 import type { DailyStory, DailyStoryWord } from "@/core/types";
-import { enhanceStory, enhanceWords } from "@/core/utils/storyEnhancer";
+import { enhanceStory } from "@/core/utils/storyEnhancer";
 import {
   apiClient,
   checkDailyStory,
@@ -46,42 +45,69 @@ import {
 import { Loading } from "@/presentation/components";
 import { useAuth } from "@/core/providers/AuthProvider";
 
+// ============================================================================
+// TYPES & INTERFACES
+// ============================================================================
+
 interface StoryReaderProps {
   story?: DailyStory;
   onComplete?: () => void;
   onClose?: () => void;
 }
 
+type WordStatus = "KNOWN" | "PARTIALLY_KNOWN" | "UNKNOWN" | "NOT_LEARNED";
+type NotificationType = "success" | "error" | "info";
+
+interface Notification {
+  id: string;
+  message: string;
+  type: NotificationType;
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
 export const StoryReaderPage: React.FC<StoryReaderProps> = ({
   story: propStory,
   onComplete,
   onClose,
 }) => {
+  // ============================================================================
+  // HOOKS & CONTEXT
+  // ============================================================================
   const location = useLocation();
   const navigate = useNavigate();
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
   const { user } = useAuth();
+
+  // ============================================================================
+  // STATE MANAGEMENT
+  // ============================================================================
+
+  // Story State
   const [currentStory, setCurrentStory] = useState<DailyStory | null>(
     propStory || null
   );
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Word Interaction State
   const [selectedWord, setSelectedWord] = useState<DailyStoryWord | null>(null);
   const [showWordModal, setShowWordModal] = useState(false);
-  const [wordStatus, setWordStatus] = useState<
-    Record<string, "KNOWN" | "PARTIALLY_KNOWN" | "UNKNOWN" | "NOT_LEARNED">
-  >({});
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [wordsLearned, setWordsLearned] = useState(0);
-  const [notifications, setNotifications] = useState<
-    Array<{ id: string; message: string; type: "success" | "error" | "info" }>
-  >([]);
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [wordStatus, setWordStatus] = useState<Record<string, WordStatus>>({});
   const [wordInteractionCount, setWordInteractionCount] = useState<
     Record<string, number>
   >({});
+
+  // Daily Words Modal State
+  const [showDailyWordsModal, setShowDailyWordsModal] = useState(false);
+  const [dailyWordsCompleted, setDailyWordsCompleted] = useState(false);
+
+  // Progress & Statistics State
+  const [wordsLearned, setWordsLearned] = useState(0);
   const [readingTime, setReadingTime] = useState(0);
   const [readingProgress, setReadingProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [wordStatistics, setWordStatistics] = useState({
     totalWords: 0,
     knownWords: 0,
@@ -90,9 +116,18 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     progressPercentage: 0,
   });
   const [remainingRequests, setRemainingRequests] = useState(0);
+
+  // UI State
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [modalCountdown, setModalCountdown] = useState(10);
 
-  // دالة تنظيف الكلمات المكررة
+  // ============================================================================
+  // UTILITY FUNCTIONS
+  // ============================================================================
+
+  // Clean duplicate words from story
   const cleanDuplicateWords = (words: DailyStoryWord[]) => {
     const uniqueWords = new Map();
 
@@ -100,17 +135,24 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       const key = word.word.toLowerCase();
       const existingWord = uniqueWords.get(key);
 
-      // إذا لم توجد الكلمة، أو الكلمة الجديدة لها حالة أفضل، استبدلها
       if (
         !existingWord ||
         (word.status !== "UNKNOWN" && existingWord.status === "UNKNOWN") ||
         (word.status === "KNOWN" && existingWord.status !== "KNOWN")
       ) {
         uniqueWords.set(key, {
-          ...word,
-          // تحسين المعاني الفارغة أو المكررة
-          meaning:
-            word.meaning === word.word ? `معنى ${word.word}` : word.meaning,
+          word: word.word || "",
+          meaning: word.meaning || "",
+          sentence: word.sentence || "",
+          sentence_ar: word.sentence_ar || word.sentenceAr || "",
+          status: word.status || "NOT_LEARNED",
+          type: word.type || "NOT_LEARNED",
+          isDailyWord: word.isDailyWord || word.type === "daily" || false,
+          canInteract: word.canInteract !== false,
+          isClickable: word.isClickable !== false,
+          hasDefinition: word.hasDefinition !== false,
+          hasSentence: word.hasSentence !== false,
+          color: word.color || "black",
         });
       }
     });
@@ -118,45 +160,111 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     return Array.from(uniqueWords.values());
   };
 
-  if (isLoading) {
-    return (
-      <Loading size="lg" variant="video" text="جاري تحميل القصة..." isOverlay />
-    );
-  }
+  // Format reading time
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
-  // Load story from location if not provided
-  useEffect(() => {
-    if (!currentStory && location.state?.story) {
-      // Check if story is valid before enhancing
-      if (!location.state.story || typeof location.state.story !== "object") {
-        console.error(
-          "Invalid story object in location state:",
-          location.state.story
-        );
-        setError("قصة غير صحيحة. يرجى المحاولة مرة أخرى.");
-        return;
-      }
+  // دالة لإعادة تعيين حالة البوب
+  const resetModalState = () => {
+    const today = new Date().toISOString().split("T")[0];
 
-      try {
-        // تنظيف وتحسين البيانات
-        const originalStory = {
-          ...location.state.story,
-          words: cleanDuplicateWords(location.state.story.words || []),
-        };
-        setCurrentStory(originalStory as DailyStory);
+    // مسح البيانات المحفوظة لليوم الحالي فقط
+    localStorage.removeItem("dailyWordsModalShownDate");
+    localStorage.removeItem("dailyWordsCompletedDate");
 
-        // مسح جميع الحالات السابقة عند تحميل قصة جديدة
-        setWordStatus({});
-        setWordsLearned(0);
-        setReadingProgress(0);
-      } catch (error) {
-        console.error("Error loading story:", error);
-        setError("حدث خطأ في تحميل القصة. يرجى المحاولة مرة أخرى.");
-      }
+    // إعادة تعيين الحالة
+    setShowDailyWordsModal(true);
+    setDailyWordsCompleted(false);
+
+    console.log("Modal state reset for today:", today);
+  };
+
+  // دالة للتحقق من بداية يوم جديد وإعادة تعيين الحالة
+  const checkAndResetForNewDay = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const lastShownDate = localStorage.getItem("dailyWordsModalShownDate");
+    const lastCompletedDate = localStorage.getItem("dailyWordsCompletedDate");
+
+    // التحقق من صحة التواريخ المحفوظة
+    const isValidDate = (dateStr: string | null) => {
+      if (!dateStr) return false;
+      const date = new Date(dateStr);
+      return !isNaN(date.getTime()) && date <= new Date();
+    };
+
+    // إذا كان التاريخ غير صحيح أو في المستقبل، نعيد تعيين الحالة
+    if (!isValidDate(lastShownDate) || !isValidDate(lastCompletedDate)) {
+      localStorage.removeItem("dailyWordsModalShownDate");
+      localStorage.removeItem("dailyWordsCompletedDate");
+      console.log("Invalid date detected, modal state reset for:", today);
+      return;
     }
-  }, [location.state, currentStory]);
 
-  // جلب إحصائيات الكلمات
+    // إذا كان اليوم مختلف عن آخر مرة تم فيها عرض البوب، نعيد تعيين الحالة
+    if (lastShownDate !== today && lastCompletedDate !== today) {
+      localStorage.removeItem("dailyWordsModalShownDate");
+      localStorage.removeItem("dailyWordsCompletedDate");
+      console.log("New day detected, modal state reset for:", today);
+    }
+
+    // دائماً نعيد تعيين الحالة عند بداية يوم جديد
+    if (lastShownDate !== today) {
+      localStorage.removeItem("dailyWordsModalShownDate");
+      console.log("Modal will be shown for new day:", today);
+    }
+  };
+
+  // دالة لمسح localStorage بالكامل وإعادة تعيين الحالة
+  const clearAllModalData = () => {
+    localStorage.removeItem("dailyWordsModalShownDate");
+    localStorage.removeItem("dailyWordsCompletedDate");
+    localStorage.removeItem("dailyWordsModalShown");
+    localStorage.removeItem("dailyWordsModalLastShown");
+    localStorage.removeItem("dailyWordsCompleted");
+
+    // إعادة تعيين الحالة
+    setShowDailyWordsModal(true);
+    setDailyWordsCompleted(false);
+
+    console.log("All modal data cleared and state reset");
+  };
+
+  // دالة لإعادة تعيين البوب للاختبار
+  const resetModalForTesting = () => {
+    const today = new Date().toISOString().split("T")[0];
+    localStorage.removeItem("dailyWordsModalShownDate");
+    localStorage.removeItem("dailyWordsCompletedDate");
+
+    setShowDailyWordsModal(true);
+    setDailyWordsCompleted(false);
+
+    console.log("Modal reset for testing on:", today);
+    addNotification("تم إعادة تعيين البوب للاختبار", "success");
+  };
+
+  // دالة لاختبار النظام وإعادة تعيين الحالة
+  const testAndResetSystem = () => {
+    const today = new Date().toISOString().split("T")[0];
+
+    // مسح جميع البيانات
+    clearAllModalData();
+
+    // إعادة تعيين الحالة لليوم الحالي
+    setShowDailyWordsModal(true);
+    setDailyWordsCompleted(false);
+
+    console.log("System reset for today:", today);
+    addNotification("تم إعادة تعيين النظام بنجاح", "success");
+  };
+
+  // ============================================================================
+  // API FUNCTIONS
+  // ============================================================================
+
+  // Fetch word statistics
   const fetchWordStatistics = async () => {
     try {
       const response = await getDailyStoryWordStatistics();
@@ -175,7 +283,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     }
   };
 
-  // جلب الطلبات المتبقية
+  // Fetch remaining requests
   const fetchRemainingRequests = async () => {
     try {
       const response = await getDailyStoryRemaining();
@@ -188,106 +296,472 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     }
   };
 
-  // تحديث تلقائي للإحصائيات كل 30 ثانية
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchWordStatistics();
-      fetchRemainingRequests();
-    }, 30000); // تحديث كل 30 ثانية
+  // ============================================================================
+  // SPEECH SYNTHESIS
+  // ============================================================================
 
-    return () => clearInterval(interval);
-  }, []);
-
-  // تحديث تلقائي عند تغيير حالة الكلمات
-  useEffect(() => {
-    if (Object.keys(wordStatus).length > 0) {
-      // تحديث الإحصائيات بعد 2 ثانية من تغيير حالة الكلمة
-      const timeout = setTimeout(() => {
-        fetchWordStatistics();
-      }, 2000);
-
-      return () => clearTimeout(timeout);
+  // Speak text with speech synthesis
+  const speakText = (text: string, lang: string = "en-US") => {
+    if (!text || text.trim() === "") {
+      addNotification("لا يوجد نص للقراءة", "error");
+      return;
     }
-  }, [wordStatus]);
 
-  // تحديث تلقائي عند تغيير وقت القراءة
-  useEffect(() => {
-    if (readingTime > 0 && readingTime % 60 === 0) {
-      // كل دقيقة
-      fetchRemainingRequests();
-    }
-  }, [readingTime]);
-
-  // تحديث خلفي عند تغيير التقدم
-  useEffect(() => {
-    if (readingProgress > 0) {
-      // تحديث الإحصائيات كل 10% من التقدم
-      if (readingProgress % 10 === 0) {
-        setTimeout(() => {
-          fetchWordStatistics();
-        }, 1000);
-      }
-    }
-  }, [readingProgress]);
-
-  // Initialize speech synthesis voices
-  useEffect(() => {
     if ("speechSynthesis" in window) {
-      // تهيئة الأصوات عند تحميل الصفحة
-      const initVoices = () => {
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length === 0) {
-          // إذا لم تكن الأصوات جاهزة، انتظر قليلاً وحاول مرة أخرى
-          setTimeout(initVoices, 100);
-        }
-      };
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new window.SpeechSynthesisUtterance(text);
+        utterance.lang = lang;
+        utterance.rate = 0.8;
+        utterance.pitch = 1;
+        utterance.volume = 1;
 
-      // بعض المتصفحات تحتاج إلى انتظار لتحميل الأصوات
-      if (window.speechSynthesis.onvoiceschanged !== undefined) {
-        window.speechSynthesis.onvoiceschanged = initVoices;
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          setTimeout(() => fetchRemainingRequests(), 500);
+        };
+        utterance.onerror = () => setIsSpeaking(false);
+
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          const preferredVoice =
+            voices.find((voice) => voice.lang.startsWith(lang.split("-")[0])) ||
+            voices[0];
+          utterance.voice = preferredVoice;
+        }
+
+        speechRef.current = utterance;
+        window.speechSynthesis.speak(utterance);
+      } catch (error) {
+        setIsSpeaking(false);
+        addNotification("خطأ في تشغيل الصوت", "error");
+      }
+    }
+  };
+
+  // Stop speaking
+  const stopSpeaking = () => {
+    if ("speechSynthesis" in window) {
+      try {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+      } catch (error) {
+        console.error("Error stopping speech:", error);
+      }
+    }
+  };
+
+  // ============================================================================
+  // WORD INTERACTION HANDLERS
+  // ============================================================================
+
+  // Handle word click
+  const handleWordClick = async (word: DailyStoryWord) => {
+    setSelectedWord(word);
+    setShowWordModal(true);
+    speakText(word.word, "en-US");
+    setWordInteractionCount((prev) => ({
+      ...prev,
+      [word.word]: (prev[word.word] || 0) + 1,
+    }));
+  };
+
+  // Handle word status change
+  const handleWordStatusChange = async (word: string, status: WordStatus) => {
+    setShowWordModal(false);
+
+    setWordStatus((prev) => {
+      const newStatus = { ...prev, [word]: status };
+      const knownCount = Object.values(newStatus).filter(
+        (s) => s === "KNOWN"
+      ).length;
+      setWordsLearned(knownCount);
+      setReadingProgress(
+        (knownCount / (currentStory?.words.length || 1)) * 100
+      );
+
+      const dailyWords =
+        currentStory?.words?.filter(
+          (w) => w.isDailyWord || w.type === "daily"
+        ) || [];
+
+      // إذا لم تكن هناك كلمات يومية محددة، استخدم أول 7 كلمات
+      const wordsToCheck =
+        dailyWords.length > 0
+          ? dailyWords
+          : currentStory?.words?.slice(0, 7) || [];
+
+      const completedDailyWords = wordsToCheck.filter(
+        (word) => newStatus[word.word] && newStatus[word.word] !== "NOT_LEARNED"
+      );
+
+      // تحقق من إكمال الكلمات اليومية (يجب أن تكون 7 كلمات على الأقل)
+      if (completedDailyWords.length >= 7 && wordsToCheck.length > 0) {
+        setDailyWordsCompleted(true);
+        setShowDailyWordsModal(false);
+
+        // حفظ حالة إكمال الكلمات اليوم في localStorage
+        const today = new Date().toISOString().split("T")[0];
+        localStorage.setItem("dailyWordsCompletedDate", today);
+
+        // لا نغلق البوب تلقائياً، نترك المستخدم يغلقه يدوياً
+        addNotification(
+          "🎉 تم إكمال جميع الكلمات اليومية! يمكنك الآن قراءة القصة",
+          "success"
+        );
       }
 
-      // معالجة مشاكل المتصفحات المختلفة
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === "visible") {
-          // إعادة تهيئة الأصوات عند العودة للصفحة
-          setTimeout(initVoices, 100);
+      return newStatus;
+    });
+
+    try {
+      if (!currentStory?.id || !word || word.trim() === "") return;
+
+      const response = await updateWordStatus({ word, status });
+      if (response.success) {
+        addNotification("تم تحديث حالة الكلمة بنجاح", "success");
+      } else {
+        addNotification("خطأ في تحديث حالة الكلمة", "error");
+      }
+    } catch (error) {
+      addNotification("خطأ في تحديث حالة الكلمة", "error");
+    }
+  };
+
+  // Complete story
+  const handleCompleteStory = async () => {
+    const dailyWords =
+      currentStory?.words?.filter((w) => w.isDailyWord || w.type === "daily") ||
+      [];
+
+    // إذا لم تكن هناك كلمات يومية محددة، استخدم أول 7 كلمات
+    const wordsToCheck =
+      dailyWords.length > 0
+        ? dailyWords
+        : currentStory?.words?.slice(0, 7) || [];
+
+    const interactedDailyWords = wordsToCheck.filter(
+      (word) => wordStatus[word.word] && wordStatus[word.word] !== "NOT_LEARNED"
+    );
+
+    if (interactedDailyWords.length < wordsToCheck.length) {
+      const remainingWords = wordsToCheck.length - interactedDailyWords.length;
+      addNotification(
+        `يجب عليك التفاعل مع جميع الكلمات اليومية أولاً (${remainingWords} كلمة متبقية)`,
+        "error"
+      );
+      return;
+    }
+
+    try {
+      const response = await completeDailyStory({
+        storyId: currentStory?.id || "",
+        level: (user?.level as unknown as string) || "L1",
+        points: wordsLearned * 10,
+      });
+
+      if (response.success) {
+        setShowCompletionModal(true);
+        addNotification("🎉 تم إكمال القصة بنجاح!", "success");
+        localStorage.setItem("dailyStoryCompleted", "true");
+        if (onComplete) onComplete();
+      } else {
+        addNotification("خطأ في إكمال القصة", "error");
+      }
+    } catch (error) {
+      addNotification("خطأ في إكمال القصة", "error");
+    }
+  };
+
+  // ============================================================================
+  // NOTIFICATION HANDLERS
+  // ============================================================================
+
+  // Add notification
+  const addNotification = (
+    message: string,
+    type: NotificationType = "info"
+  ) => {
+    const id = Date.now().toString();
+    setNotifications((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    }, 4000);
+  };
+
+  // Remove notification
+  const removeNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  // ============================================================================
+  // STYLING FUNCTIONS
+  // ============================================================================
+
+  // Get word color based on status
+  const getWordColor = (word: DailyStoryWord) => {
+    const status = wordStatus[word.word] || word.status || "NOT_LEARNED";
+    const isDailyWord = word.isDailyWord || false;
+
+    const colorMap = {
+      KNOWN:
+        "text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300",
+      PARTIALLY_KNOWN:
+        "text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300",
+      UNKNOWN:
+        "text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300",
+      NOT_LEARNED: isDailyWord
+        ? "text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+        : "text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300",
+    };
+
+    return `${colorMap[status]} cursor-pointer transition-all duration-200 hover:underline hover:scale-105 font-medium px-1 py-0.5 rounded-sm hover:bg-slate-100 dark:hover:bg-slate-800`;
+  };
+
+  // ============================================================================
+  // CONTENT RENDERING
+  // ============================================================================
+
+  // Render content with interactive words
+  const renderContent = (content: string) => {
+    const words = content.split(/(\s+)/);
+
+    return words.map((word, index) => {
+      const cleanWord = word.toLowerCase().replace(/[.,!?;:"*()[\]]/g, "");
+
+      if (!cleanWord.trim()) {
+        return <span key={index}>{word}</span>;
+      }
+
+      let storyWord = currentStory?.words.find(
+        (w) => w.word.toLowerCase() === cleanWord
+      );
+
+      if (!storyWord) {
+        storyWord = currentStory?.words.find((w) => {
+          const wordLower = w.word.toLowerCase();
+          const cleanWordLower = cleanWord.toLowerCase();
+
+          if (wordLower.length <= 3 || cleanWordLower.length <= 3) {
+            return wordLower === cleanWordLower;
+          }
+
+          if (wordLower.length >= 4 && cleanWordLower.length >= 4) {
+            return (
+              (wordLower.includes(cleanWordLower) &&
+                Math.abs(wordLower.length - cleanWordLower.length) <= 2) ||
+              (cleanWordLower.includes(wordLower) &&
+                Math.abs(wordLower.length - cleanWordLower.length) <= 2)
+            );
+          }
+
+          return false;
+        });
+      }
+
+      if (word.trim()) {
+        return (
+          <span
+            key={index}
+            onClick={() => {
+              if (storyWord && storyWord.canInteract !== false) {
+                handleWordClick(storyWord);
+              } else if (!storyWord) {
+                // إنشاء كلمة مؤقتة
+                const tempWord: DailyStoryWord = {
+                  word: cleanWord,
+                  meaning: "",
+                  sentence: "",
+                  sentenceAr: "",
+                  sentence_ar: "",
+                  status: "NOT_LEARNED",
+                  type: "NOT_LEARNED",
+                  color: "black",
+                  isDailyWord: false,
+                  canInteract: true,
+                  isClickable: true,
+                  hasDefinition: true,
+                  hasSentence: true,
+                };
+                handleWordClick(tempWord);
+              }
+              setTimeout(() => fetchWordStatistics(), 1500);
+            }}
+            className={
+              storyWord
+                ? getWordColor(storyWord)
+                : "text-slate-700 dark:text-slate-300 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 hover:underline hover:scale-105 px-1 py-0.5 rounded-sm hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            }
+            title={`انقر لمعرفة المزيد عن "${cleanWord}"`}
+          >
+            {word}
+          </span>
+        );
+      }
+      return <span key={index}>{word}</span>;
+    });
+  };
+
+  // Loading screen
+  if (isLoading) {
+    return <Loading isOverlay text="جاري تحميل القصة..." size="sm" />;
+  }
+
+  // تحسين useEffect لتحميل القصة
+  useEffect(() => {
+    // التحقق من بداية يوم جديد أولاً
+    checkAndResetForNewDay();
+
+    if (!currentStory && location.state?.story) {
+      try {
+        // التحقق من صحة البيانات قبل التحميل
+        const storyData = location.state.story;
+
+        if (
+          !storyData.content ||
+          !storyData.words ||
+          storyData.words.length === 0
+        ) {
+          console.error("Invalid story data received:", storyData);
+          setError("بيانات القصة غير صحيحة. يرجى العودة للصفحة السابقة.");
+          return;
+        }
+
+        // تنظيف الكلمات
+        const cleanedWords = cleanDuplicateWords(storyData.words || []);
+
+        const originalStory = {
+          ...storyData,
+          id: storyData.id || `story-${Date.now()}`,
+          title: storyData.title || "قصة اليوم",
+          content: storyData.content || "",
+          translation: storyData.translation || "",
+          words: cleanedWords,
+          totalWords: storyData.totalWords || storyData.words?.length || 0,
+          dailyWordsCount: storyData.dailyWordsCount || 0,
+          complementaryWordsCount: storyData.complementaryWordsCount || 0,
+          date: storyData.date || new Date().toISOString(),
+          isCompleted: storyData.isCompleted || false,
+          level: storyData.level || "L1",
+          createdAt: storyData.createdAt || new Date().toISOString(),
+          userId: storyData.userId || user?.id || "",
+          updatedAt: storyData.updatedAt || new Date().toISOString(),
+        } as unknown as DailyStory;
+
+        // التحقق النهائي من صحة القصة
+        if (!originalStory.content || originalStory.words.length === 0) {
+          setError("القصة غير مكتملة. يرجى العودة للصفحة السابقة.");
+          return;
+        }
+
+        setCurrentStory(originalStory);
+        setWordStatus({});
+        setWordsLearned(0);
+        setReadingProgress(0);
+
+        const dailyWords =
+          originalStory.words?.filter(
+            (word: any) => word.isDailyWord || word.type === "daily"
+          ) || [];
+
+        // التحقق من حالة البوب المحفوظة في localStorage
+        const today = new Date().toISOString().split("T")[0];
+        const dailyWordsModalShownToday = localStorage.getItem(
+          "dailyWordsModalShownDate"
+        );
+        const dailyWordsCompletedToday = localStorage.getItem(
+          "dailyWordsCompletedDate"
+        );
+
+        if (dailyWords.length > 0) {
+          // تحقق من عدد الكلمات المكتملة
+          const completedDailyWords = dailyWords.filter(
+            (word: any) => word.status && word.status !== "NOT_LEARNED"
+          );
+
+          // تحقق من عدد الكلمات المكتملة
+          if (completedDailyWords.length >= 7) {
+            setDailyWordsCompleted(true);
+            setShowDailyWordsModal(false);
+            // حفظ حالة إكمال الكلمات اليوم
+            localStorage.setItem("dailyWordsCompletedDate", today);
+          } else {
+            // دائماً اعرض البوب إذا لم تكتمل الكلمات
+            setShowDailyWordsModal(true);
+            setDailyWordsCompleted(false);
+            // حفظ حالة عرض البوب اليوم
+            localStorage.setItem("dailyWordsModalShownDate", today);
+          }
+        } else {
+          // إذا لم تكن هناك كلمات يومية محددة، اعرض أول 7 كلمات ككلمات يومية
+          const firstSevenWords = originalStory.words?.slice(0, 7) || [];
+          if (firstSevenWords.length > 0) {
+            // تحقق من عدد الكلمات المكتملة
+            const completedFirstWords = firstSevenWords.filter(
+              (word: any) => word.status && word.status !== "NOT_LEARNED"
+            );
+
+            if (completedFirstWords.length >= 7) {
+              setDailyWordsCompleted(true);
+              setShowDailyWordsModal(false);
+              // حفظ حالة إكمال الكلمات اليوم
+              localStorage.setItem("dailyWordsCompletedDate", today);
+            } else {
+              // دائماً اعرض البوب إذا لم تكتمل الكلمات
+              setShowDailyWordsModal(true);
+              setDailyWordsCompleted(false);
+              // حفظ حالة عرض البوب اليوم
+              localStorage.setItem("dailyWordsModalShownDate", today);
+            }
+          } else {
+            setDailyWordsCompleted(true);
+            setShowDailyWordsModal(false);
+          }
+        }
+
+        // إضافة رسالة نجاح
+        addNotification("تم تحميل القصة بنجاح! 🎉", "success");
+      } catch (error) {
+        console.error("Error loading story:", error);
+        setError("حدث خطأ في تحميل القصة. يرجى المحاولة مرة أخرى.");
+      }
+    } else if (!currentStory && !location.state?.story) {
+      // إذا لم تكن هناك قصة في location state، حاول جلبها من API
+      const fetchStoryFromAPI = async () => {
+        setIsLoading(true);
+        try {
+          const response = await checkDailyStory();
+          if (response.success && response.data) {
+            // إعادة توجيه مع البيانات الجديدة
+            navigate("/stories/daily", {
+              state: { story: response.data, fromDashboard: false },
+              replace: true,
+            });
+          } else {
+            setError("لم يتم العثور على قصة. يرجى العودة للصفحة السابقة.");
+          }
+        } catch (error) {
+          console.error("Error fetching story from API:", error);
+          setError("حدث خطأ في جلب القصة. يرجى المحاولة مرة أخرى.");
+        } finally {
+          setIsLoading(false);
         }
       };
 
-      document.addEventListener("visibilitychange", handleVisibilityChange);
-
-      initVoices();
-
-      return () => {
-        document.removeEventListener(
-          "visibilitychange",
-          handleVisibilityChange
-        );
-      };
+      fetchStoryFromAPI();
     }
-  }, []);
+  }, [location.state, currentStory, user?.id, navigate]);
 
-  // Initialize word statuses and fetch all words - Force NOT_LEARNED for all words initially
+  // Initialize word statuses
   useEffect(() => {
     if (currentStory?.words && currentStory.words.length > 0) {
-      const initialStatus: Record<
-        string,
-        "KNOWN" | "PARTIALLY_KNOWN" | "UNKNOWN" | "NOT_LEARNED"
-      > = {};
+      const initialStatus: Record<string, WordStatus> = {};
       let knownCount = 0;
 
       currentStory.words.forEach((word) => {
-        // استخدام الحالة الأصلية من الباك إند
-        const status =
-          (word.status as
-            | "KNOWN"
-            | "PARTIALLY_KNOWN"
-            | "UNKNOWN"
-            | "NOT_LEARNED") || "NOT_LEARNED";
+        const status = (word.status as WordStatus) || "NOT_LEARNED";
         initialStatus[word.word] = status;
-
-        // حساب الكلمات المعروفة
         if (status === "KNOWN") knownCount++;
       });
 
@@ -297,7 +771,6 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
         (knownCount / (currentStory?.words?.length || 1)) * 100
       );
 
-      // تحديثات خلفية عند تحميل القصة
       setTimeout(() => {
         fetchWordStatistics();
         fetchRemainingRequests();
@@ -318,467 +791,299 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     };
   }, [currentStory]);
 
-  // تحديث خلفي عند إغلاق الصفحة أو تغيير التبويب
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      // تحديث نهائي قبل إغلاق الصفحة
-      fetchWordStatistics();
-      fetchRemainingRequests();
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        // تحديث عند العودة للصفحة
-        setTimeout(() => {
-          fetchWordStatistics();
-          fetchRemainingRequests();
-        }, 1000);
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, []);
-
-  // Speech synthesis
-  const speakText = (text: string, lang: string = "en-US") => {
-    if (!text || text.trim() === "") {
-      console.error("❌ No text to speak");
-      addNotification("لا يوجد نص للقراءة", "error");
-      return;
-    }
-
-    if ("speechSynthesis" in window) {
-      try {
-        // إيقاف أي قراءة سابقة
-        window.speechSynthesis.cancel();
-
-        const utterance = new window.SpeechSynthesisUtterance(text);
-        utterance.lang = lang;
-        utterance.rate = 0.8; // أبطأ قليلاً للوضوح
-        utterance.pitch = 1;
-        utterance.volume = 1;
-
-        // إضافة معالجات الأحداث
-        utterance.onstart = () => {
-          setIsSpeaking(true);
-        };
-
-        utterance.onend = () => {
-          setIsSpeaking(false);
-          // تحديث خلفي بعد انتهاء التحدث
-          setTimeout(() => {
-            fetchRemainingRequests();
-          }, 500);
-        };
-
-        utterance.onerror = (event) => {
-          setIsSpeaking(false);
-        };
-
-        utterance.onpause = () => {
-          setIsSpeaking(false);
-        };
-
-        utterance.onresume = () => {
-          setIsSpeaking(true);
-        };
-
-        speechRef.current = utterance;
-
-        // محاولة الحصول على الأصوات المتاحة
-        const voices = window.speechSynthesis.getVoices();
-
-        // اختيار صوت مناسب للغة
-        if (voices.length > 0) {
-          const preferredVoice =
-            voices.find((voice) => voice.lang.startsWith(lang.split("-")[0])) ||
-            voices[0];
-          utterance.voice = preferredVoice;
-        }
-
-        // بدء القراءة
-        window.speechSynthesis.speak(utterance);
-      } catch (error) {
-        setIsSpeaking(false);
-      }
-    } else {
-    }
-  };
-
-  const stopSpeaking = () => {
-    if ("speechSynthesis" in window) {
-      try {
-        window.speechSynthesis.cancel();
-        setIsSpeaking(false);
-      } catch (error) {}
-    }
-  };
-
-  // Word interaction
-  const handleWordClick = async (word: DailyStoryWord) => {
-    setSelectedWord(word);
-    setShowWordModal(true);
-    speakText(word.word, "en-US");
-    setWordInteractionCount((prev) => ({
-      ...prev,
-      [word.word]: (prev[word.word] || 0) + 1,
-    }));
-
-    // إغلاق تلقائي للنافذة بعد 10 ثوانٍ إذا لم ينقر المستخدم
-    setModalCountdown(10);
-    const countdownInterval = setInterval(() => {
-      setModalCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(countdownInterval);
-          setShowWordModal(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    setTimeout(() => {
-      clearInterval(countdownInterval);
-      if (showWordModal) {
-        setShowWordModal(false);
-      }
-    }, 10000);
-
-    // تحديث خلفي للإحصائيات بعد تفاعل الكلمة
-    setTimeout(() => {
-      fetchWordStatistics();
-    }, 1000);
-  };
-
-  // دالة لتحديث لون الكلمة بناءً على حالتها
-  const getColorForStatus = (
-    status: string,
-    isDailyWord: boolean = false
-  ): string => {
-    switch (status) {
-      case "KNOWN":
-        return "green";
-      case "PARTIALLY_KNOWN":
-        return "yellow";
-      case "UNKNOWN":
-        return "red";
-      case "NOT_LEARNED":
-        return isDailyWord ? "blue" : "black";
-      default:
-        return isDailyWord ? "blue" : "black";
-    }
-  };
-
-  // Word status change - updated for new system
-  const handleWordStatusChange = async (
-    word: string,
-    status: "KNOWN" | "PARTIALLY_KNOWN" | "UNKNOWN" | "NOT_LEARNED"
-  ) => {
-    // إغلاق النافذة فوراً عند النقر
-    setShowWordModal(false);
-
-    setWordStatus((prev) => {
-      const newStatus = { ...prev, [word]: status };
-      const knownCount = Object.values(newStatus).filter(
-        (s) => s === "KNOWN"
-      ).length;
-      setWordsLearned(knownCount);
-      setReadingProgress(
-        (knownCount / (currentStory?.words.length || 1)) * 100
-      );
-      return newStatus;
-    });
-
-    try {
-      if (!currentStory?.id) {
-        return;
-      }
-
-      if (!word || word.trim() === "") {
-        return;
-      }
-
-      const response = await updateWordStatus({
-        word: word,
-        status: status,
-      });
-
-      if (response.success) {
-        addNotification("تم تحديث حالة الكلمة بنجاح", "success");
-        // تحديث الإحصائيات بعد تغيير حالة الكلمة
-        fetchWordStatistics();
-      } else {
-        addNotification("خطأ في تحديث حالة الكلمة", "error");
-      }
-    } catch (error) {
-      addNotification("خطأ في تحديث حالة الكلمة", "error");
-    }
-  };
-
-  // Word coloring based on new color system - Text only, no background
-  const getWordColor = (word: DailyStoryWord) => {
-    const status = wordStatus[word.word] || word.status || "NOT_LEARNED";
-    const isDailyWord = word.isDailyWord || false;
-
-    // استخدام الحالة المحلية أو الأصلية من الباك إند
-    let color = "black";
-
-    switch (status) {
-      case "KNOWN":
-        color = "green";
-        break;
-      case "PARTIALLY_KNOWN":
-        color = "yellow";
-        break;
-      case "UNKNOWN":
-        color = "red";
-        break;
-      case "NOT_LEARNED":
-      default:
-        color = isDailyWord ? "blue" : "black";
-        break;
-    }
-
-    // Return text color classes only - no background
-    switch (color) {
-      case "blue":
-        return "text-blue-600 dark:text-blue-400 cursor-pointer hover:underline font-medium";
-      case "green":
-        return "text-green-600 dark:text-green-400 cursor-pointer hover:underline font-medium";
-      case "yellow":
-        return "text-yellow-600 dark:text-yellow-400 cursor-pointer hover:underline font-medium";
-      case "red":
-        return "text-red-600 dark:text-red-400 cursor-pointer hover:underline font-medium";
-      case "black":
-        return "text-gray-600 dark:text-gray-400 cursor-pointer hover:underline font-medium";
-      default:
-        return "text-gray-800 dark:text-gray-200 cursor-pointer hover:underline";
-    }
-  };
-
-  // Complete story
-  const handleCompleteStory = async () => {
-    const userLevel = user?.level as unknown as string;
-    try {
-      const response = await completeDailyStory({
-        storyId: currentStory?.id || "",
-        level: userLevel || "L1",
-        points: wordsLearned * 10,
-      });
-
-      if (response.success) {
-        setShowCompletionModal(true);
-        addNotification("🎉 تم إكمال القصة بنجاح!", "success");
-        localStorage.setItem("dailyStoryCompleted", "true");
-
-        // تحديثات خلفية بعد إكمال القصة
-        setTimeout(() => {
-          fetchWordStatistics();
-          fetchRemainingRequests();
-        }, 1000);
-
-        if (onComplete) onComplete();
-      } else {
-        addNotification("خطأ في إكمال القصة", "error");
-      }
-    } catch (error) {
-      addNotification("خطأ في إكمال القصة", "error");
-    }
-  };
-
-  // Test speech synthesis
-
-  // Add notification
-  const addNotification = (
-    message: string,
-    type: "success" | "error" | "info" = "info"
-  ) => {
-    const id = Date.now().toString();
-    setNotifications((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    }, 3000);
-  };
-
-  const removeNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  // دالة محسنة لعرض المحتوى مع الكلمات القابلة للضغط - النظام الجديد
-  const renderContent = (content: string) => {
-    const words = content.split(/(\s+)/);
-
-    return words.map((word, index) => {
-      const cleanWord = word.toLowerCase().replace(/[.,!?;:"*()[\]]/g, "");
-
-      // تجاهل المسافات والكلمات الفارغة
-      if (!cleanWord.trim()) {
-        return <span key={index}>{word}</span>;
-      }
-
-      // البحث عن تطابق دقيق أولاً
-      let storyWord = currentStory?.words.find(
-        (w) => w.word.toLowerCase() === cleanWord
-      );
-
-      // إذا لم نجد تطابق دقيق، نبحث بشروط أكثر صرامة
-      if (!storyWord) {
-        storyWord = currentStory?.words.find((w) => {
-          const wordLower = w.word.toLowerCase();
-          const cleanWordLower = cleanWord.toLowerCase();
-
-          // تجنب التطابقات الخاطئة للكلمات القصيرة
-          if (wordLower.length <= 3 || cleanWordLower.length <= 3) {
-            return wordLower === cleanWordLower;
-          }
-
-          // للكلمات الطويلة، نسمح بالتطابق الجزئي المنطقي فقط
-          if (wordLower.length >= 4 && cleanWordLower.length >= 4) {
-            return (
-              (wordLower.includes(cleanWordLower) &&
-                Math.abs(wordLower.length - cleanWordLower.length) <= 2) ||
-              (cleanWordLower.includes(wordLower) &&
-                Math.abs(wordLower.length - cleanWordLower.length) <= 2)
-            );
-          }
-
-          return false;
-        });
-      }
-
-      // جعل كل كلمة قابلة للضغط
-      if (word.trim()) {
-        return (
-          <span
-            key={index}
-            onClick={() => {
-              if (storyWord && storyWord.canInteract !== false) {
-                handleWordClick(storyWord);
-              } else if (!storyWord) {
-                // إنشاء كلمة مؤقتة للكلمات غير الموجودة في القائمة
-                const tempWord: DailyStoryWord = {
-                  word: cleanWord,
-                  meaning: `معنى "${cleanWord}"`,
-                  sentence: `"${word}" is used in context.`,
-                  sentenceAr: `"${word}" تستخدم في السياق.`,
-                  sentence_ar: `"${word}" تستخدم في السياق.`,
-                  status: "NOT_LEARNED",
-                  type: "NOT_LEARNED",
-                  color: "black",
-                  isDailyWord: false,
-                  canInteract: true,
-                  isClickable: true,
-                  hasDefinition: true,
-                  hasSentence: true,
-                };
-                handleWordClick(tempWord);
-              }
-
-              // تحديث خلفي بعد التفاعل مع الكلمة
-              setTimeout(() => {
-                fetchWordStatistics();
-              }, 1500);
-            }}
-            className={`${
-              storyWord
-                ? getWordColor(storyWord)
-                : "text-gray-800 dark:text-gray-200 cursor-pointer hover:underline hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded px-1 transition-colors"
-            }`}
-            title={`انقر لمعرفة المزيد عن "${cleanWord}"`}
-          >
-            {word}
-          </span>
-        );
-      }
-      return <span key={index}>{word}</span>;
-    });
-  };
-
-  if (!currentStory) {
+  // Error state
+  if (!currentStory && error) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
-        <div className="text-center">
-          <BookOpen className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            لا توجد قصة متاحة
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+        <div className="text-center max-w-md w-full">
+          <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-rose-100 to-orange-100 dark:from-rose-900/50 dark:to-orange-900/50 rounded-full flex items-center justify-center">
+            <BookOpen className="w-10 h-10 text-rose-600 dark:text-rose-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4">
+            {error}
           </h2>
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            العودة للقصص
-          </button>
+          <p className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+            يرجى العودة للصفحة السابقة أو المحاولة مرة أخرى
+          </p>
+          <div className="flex gap-4 justify-center">
+            <button
+              onClick={() => navigate(-1)}
+              className="px-6 py-3 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-xl hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
+            >
+              <ArrowRight className="w-4 h-4" />
+              العودة
+            </button>
+            <button
+              onClick={() => navigate("/stories")}
+              className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
+            >
+              <BookOpen className="w-4 h-4" />
+              جميع القصص
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
+  // Daily words modal
+  if (showDailyWordsModal && !dailyWordsCompleted) {
+    const dailyWords =
+      currentStory?.words?.filter(
+        (word) => word.isDailyWord || word.type === "daily"
+      ) || [];
+
+    // إذا لم تكن هناك كلمات يومية محددة، استخدم أول 7 كلمات
+    const wordsToShow =
+      dailyWords.length > 0
+        ? dailyWords
+        : currentStory?.words?.slice(0, 7) || [];
+
+    const completedCount = wordsToShow.filter(
+      (word) => wordStatus[word.word] && wordStatus[word.word] !== "NOT_LEARNED"
+    ).length;
+    const progressPercentage =
+      wordsToShow.length > 0 ? (completedCount / wordsToShow.length) * 100 : 0;
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 sm:p-6 md:p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto mx-2">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                <Target className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-3">
+                🎯 الكلمات اليومية
+              </h2>
+              <p className="text-slate-600 dark:text-slate-400 text-base sm:text-lg mb-4 px-2">
+                يجب عليك التفاعل مع جميع الكلمات اليومية قبل قراءة القصة
+              </p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <span className="text-blue-800 dark:text-blue-200 font-semibold text-sm sm:text-base">
+                    التقدم: {completedCount} من {wordsToShow.length} كلمة
+                  </span>
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {Math.round(progressPercentage)}%
+                </div>
+              </div>
+              <div className="w-full h-3 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden shadow-inner">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500 ease-out shadow-sm"
+                  style={{ width: `${progressPercentage}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Debug Button */}
+            <div className="mb-4 text-center">
+              <button
+                onClick={resetModalForTesting}
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600 transition-colors"
+              >
+                🔄 إعادة تعيين البوب للاختبار
+              </button>
+            </div>
+
+            {/* Daily Words Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+              {wordsToShow.map((word, index) => {
+                const isCompleted =
+                  wordStatus[word.word] &&
+                  wordStatus[word.word] !== "NOT_LEARNED";
+                const status = wordStatus[word.word] || "NOT_LEARNED";
+
+                return (
+                  <div
+                    key={index}
+                    className={`group p-4 sm:p-6 rounded-xl border-2 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
+                      isCompleted
+                        ? "  shadow-emerald-100 dark:shadow-emerald-900/20"
+                        : "shadow-blue-100 dark:shadow-blue-900/20"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        {word.word}
+                      </h3>
+                      <div className="flex items-center gap-3">
+                        {isCompleted && (
+                          <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+                            <Check className="w-5 h-5 text-white" />
+                          </div>
+                        )}
+                        <div
+                          className={`w-4 h-4 rounded-full shadow-sm ${
+                            status === "KNOWN"
+                              ? "bg-emerald-500"
+                              : status === "PARTIALLY_KNOWN"
+                              ? "bg-amber-500"
+                              : status === "UNKNOWN"
+                              ? "bg-rose-500"
+                              : "bg-blue-500"
+                          }`}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="mb-4">
+                      <p className="text-slate-700 dark:text-slate-300 text-sm sm:text-base leading-relaxed mb-3">
+                        {word.meaning}
+                      </p>
+                      {word.sentence && (
+                        <div className="space-y-2">
+                          <p className="text-sm text-slate-600 dark:text-slate-400 italic bg-slate-100 dark:bg-slate-700 rounded-lg p-3">
+                            "{word.sentence}"
+                          </p>
+                          {word.sentence_ar && (
+                            <p className="text-sm text-slate-500 dark:text-slate-500 italic text-right bg-slate-50 dark:bg-slate-800 rounded-lg p-3">
+                              "{word.sentence_ar}"
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      {[
+                        {
+                          status: "KNOWN",
+                          label: "أعرفها",
+                          color: "emerald",
+                          icon: Check,
+                        },
+                        {
+                          status: "PARTIALLY_KNOWN",
+                          label: "جزئياً",
+                          color: "amber",
+                          icon: HelpCircle,
+                        },
+                        {
+                          status: "UNKNOWN",
+                          label: "لا أعرف",
+                          color: "rose",
+                          icon: X,
+                        },
+                      ].map((option) => {
+                        const isSelected =
+                          wordStatus[word.word] === option.status;
+                        const colorClasses = {
+                          emerald: isSelected
+                            ? "bg-emerald-500 text-white shadow-lg ring-2 ring-emerald-200 dark:ring-emerald-400"
+                            : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-800/50",
+                          amber: isSelected
+                            ? "bg-amber-500 text-white shadow-lg ring-2 ring-amber-200 dark:ring-amber-400"
+                            : "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-800/50",
+                          rose: isSelected
+                            ? "bg-rose-500 text-white shadow-lg ring-2 ring-rose-200 dark:ring-rose-400"
+                            : "bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-800/50",
+                        };
+
+                        return (
+                          <button
+                            key={option.status}
+                            onClick={() =>
+                              handleWordStatusChange(
+                                word.word,
+                                option.status as any
+                              )
+                            }
+                            className={`flex-1 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center justify-center gap-1 sm:gap-2 transform hover:scale-105 ${
+                              colorClasses[
+                                option.color as keyof typeof colorClasses
+                              ]
+                            }`}
+                          >
+                            <option.icon className="w-3 h-3 sm:w-3 sm:h-3" />
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentStory) return null;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <header className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      {/* Enhanced Header */}
+      <header className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40 shadow-sm">
+        <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <button
                   onClick={() => {
-                    // تحديث خلفي قبل العودة
                     fetchWordStatistics();
                     fetchRemainingRequests();
-                    setTimeout(() => {
-                      navigate("/stories");
-                    }, 500);
+                    setTimeout(() => navigate("/stories"), 500);
                   }}
-                  className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                  className="p-2 sm:p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all duration-200 flex-shrink-0"
                 >
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white">
-                  {currentStory?.title
-                    ? currentStory.title.split(" - ")[0]
-                    : "القصة"}
-                </h1>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-base sm:text-xl font-bold text-slate-900 dark:text-slate-100 truncate">
+                    {currentStory?.title
+                      ? currentStory.title.split(" - ")[0]
+                      : "القصة"}
+                  </h1>
+                  <div className="flex items-center gap-1 sm:gap-2 mt-1">
+                    <Clock className="w-3 h-3 text-slate-500" />
+                    <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                      {formatTime(readingTime)}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div></div>
             </div>
-            <div className="flex items-center gap-2">
+
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
               <button
                 onClick={() => {
                   if (isSpeaking) {
                     stopSpeaking();
                   } else {
                     speakText(currentStory?.content || "");
-                    // تحديث خلفي عند بدء التحدث
                     fetchRemainingRequests();
                   }
                 }}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`p-2 sm:p-2.5 rounded-xl transition-all duration-200 ${
                   isSpeaking
-                    ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-                    : "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
+                    ? "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 shadow-lg"
+                    : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 shadow-sm hover:shadow-md"
                 }`}
                 title={isSpeaking ? "إيقاف القراءة" : "استمع للقصة"}
               >
                 {isSpeaking ? (
-                  <Pause className="w-5 h-5" />
+                  <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />
                 ) : (
-                  <Play className="w-5 h-5" />
+                  <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </button>
 
               <button
                 onClick={handleCompleteStory}
-                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+                className="px-2 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center gap-1 sm:gap-2 shadow-lg hover:shadow-xl hover:scale-105 font-medium text-xs sm:text-sm"
               >
-                <Check className="w-4 h-4" />
-                إنهاء القصة
+                <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">إنهاء القصة</span>
+                <span className="sm:hidden">إنهاء</span>
               </button>
             </div>
           </div>
@@ -786,127 +1091,163 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <main className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="max-w-5xl mx-auto space-y-4 sm:space-y-8">
           {/* Story Content */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
-            <div className="max-w-none">
-              <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-xl   text-justify">
+          <div
+            dir="ltr"
+            className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-4 sm:p-8 lg:p-10"
+          >
+            <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              </div>
+              <h2 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
+                story
+              </h2>
+            </div>
+            <div className="prose prose-sm sm:prose-lg dark:prose-invert max-w-none">
+              <div className="text-slate-800 dark:text-slate-200 leading-relaxed text-base sm:text-xl lg:text-2xl text-justify font-light">
                 {renderContent(currentStory?.content || "")}
               </div>
             </div>
           </div>
 
           {/* Translation */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <span className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-sm">
-                  ع
-                </span>
-                الترجمة العربية
-              </h3>
+          <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-4 sm:p-8 lg:p-10">
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm sm:text-lg">
+                    ع
+                  </span>
+                </div>
+                <h3 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  الترجمة العربية
+                </h3>
+              </div>
               <button
                 onClick={() => {
                   if (isSpeaking) {
                     stopSpeaking();
                   } else {
                     speakText(currentStory?.translation || "", "ar-SA");
-                    // تحديث خلفي عند بدء التحدث بالعربية
-                    setTimeout(() => {
-                      fetchRemainingRequests();
-                    }, 2000);
+                    setTimeout(() => fetchRemainingRequests(), 2000);
                   }
                 }}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`p-2 sm:p-3 rounded-xl transition-all duration-200 ${
                   isSpeaking
-                    ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-                    : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
+                    ? "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 shadow-lg"
+                    : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 shadow-sm hover:shadow-md"
                 }`}
                 title={isSpeaking ? "إيقاف القراءة" : "استمع للترجمة"}
               >
                 {isSpeaking ? (
-                  <Pause className="w-5 h-5" />
+                  <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />
                 ) : (
-                  <Mic className="w-5 h-5" />
+                  <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </button>
             </div>
-            <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg text-right ">
+            <div className="text-slate-700 dark:text-slate-300 leading-relaxed text-base sm:text-lg lg:text-xl text-right font-light">
               {currentStory?.translation || ""}
             </div>
           </div>
 
-          {/* Learning Progress */}
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-6">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Brain className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              إحصائيات التعلم
-            </h3>
-            <div className="grid grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-white/60 dark:bg-gray-800/60 rounded-lg">
-                <div className="w-5 h-5 bg-blue-500 rounded-full mx-auto mb-2"></div>
-                <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                  {currentStory?.words?.filter((w) => w.isDailyWord).length ||
-                    0}
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  كلمات اليوم
-                </div>
+          {/* Enhanced Learning Progress */}
+          <div className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50 rounded-xl sm:rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-4 sm:p-8">
+            <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center">
+                <Brain className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <div className="text-center p-4 bg-white/60 dark:bg-gray-800/60 rounded-lg">
-                <div className="w-5 h-5 bg-green-500 rounded-full mx-auto mb-2"></div>
-                <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                  {
-                    Object.values(wordStatus).filter((s) => s === "KNOWN")
-                      .length
-                  }
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  معروفة
-                </div>
-              </div>
-              <div className="text-center p-4 bg-white/60 dark:bg-gray-800/60 rounded-lg">
-                <div className="w-5 h-5 bg-yellow-500 rounded-full mx-auto mb-2"></div>
-                <div className="text-xl font-bold text-yellow-600 dark:text-yellow-400">
-                  {
-                    Object.values(wordStatus).filter(
-                      (s) => s === "PARTIALLY_KNOWN"
-                    ).length
-                  }
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  جزئية
-                </div>
-              </div>
-              <div className="text-center p-4 bg-white/60 dark:bg-gray-800/60 rounded-lg">
-                <div className="w-5 h-5 bg-red-500 rounded-full mx-auto mb-2"></div>
-                <div className="text-xl font-bold text-red-600 dark:text-red-400">
-                  {
-                    Object.values(wordStatus).filter((s) => s === "UNKNOWN")
-                      .length
-                  }
-                </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  جديدة
-                </div>
-              </div>
+              <h3 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
+                إحصائيات التعلم
+              </h3>
             </div>
 
-            {/* Progress Bar */}
-            <div className="mt-4">
-              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
-                <span>التقدم</span>
-                <span>
+            {/* Statistics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+              {[
+                {
+                  label: "كلمات اليوم",
+                  value:
+                    currentStory?.words?.filter((w) => w.isDailyWord).length ||
+                    0,
+                  color: "blue",
+                  gradient: "from-blue-500 to-blue-600",
+                  bgColor: "bg-blue-50 dark:bg-blue-900/20",
+                  icon: Star,
+                },
+                {
+                  label: "معروفة",
+                  value: Object.values(wordStatus).filter((s) => s === "KNOWN")
+                    .length,
+                  color: "emerald",
+                  gradient: "from-emerald-500 to-emerald-600",
+                  bgColor: "bg-emerald-50 dark:bg-emerald-900/20",
+                  icon: Check,
+                },
+                {
+                  label: "جزئية",
+                  value: Object.values(wordStatus).filter(
+                    (s) => s === "PARTIALLY_KNOWN"
+                  ).length,
+                  color: "amber",
+                  gradient: "from-amber-500 to-amber-600",
+                  bgColor: "bg-amber-50 dark:bg-amber-900/20",
+                  icon: HelpCircle,
+                },
+                {
+                  label: "جديدة",
+                  value: Object.values(wordStatus).filter(
+                    (s) => s === "UNKNOWN"
+                  ).length,
+                  color: "rose",
+                  gradient: "from-rose-500 to-rose-600",
+                  bgColor: "bg-rose-50 dark:bg-rose-900/20",
+                  icon: X,
+                },
+              ].map((stat, index) => (
+                <div
+                  key={index}
+                  className={`text-center p-3 sm:p-6 ${stat.bgColor} rounded-xl border border-${stat.color}-200 dark:border-${stat.color}-800 hover:scale-105 transition-transform duration-200`}
+                >
+                  <div
+                    className={`w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-r ${stat.gradient} rounded-full mx-auto mb-2 sm:mb-4 flex items-center justify-center shadow-lg`}
+                  >
+                    <stat.icon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <div
+                    className={`text-xl sm:text-3xl font-bold text-${stat.color}-600 dark:text-${stat.color}-400 mb-1 sm:mb-2`}
+                  >
+                    {stat.value}
+                  </div>
+                  <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 font-medium">
+                    {stat.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Progress Section */}
+            <div className="space-y-3 sm:space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                  <span className="text-sm sm:text-base text-slate-700 dark:text-slate-300 font-medium">
+                    التقدم الإجمالي
+                  </span>
+                </div>
+                <div className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
                   {Math.round(
                     (wordsLearned / (currentStory.words?.length || 1)) * 100
                   )}
                   %
-                </span>
+                </div>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 sm:h-4 overflow-hidden shadow-inner">
                 <div
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
+                  className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-full transition-all duration-700 ease-out shadow-sm"
                   style={{
                     width: `${Math.round(
                       (wordsLearned / (currentStory.words?.length || 1)) * 100
@@ -916,199 +1257,238 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
               </div>
             </div>
 
-            {/* Remaining Requests */}
-            <div className="mt-4 text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                الطلبات المتبقية: {remainingRequests}
-              </p>
+            {/* Additional Stats */}
+            <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-slate-200 dark:border-slate-700">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+                <div>
+                  <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                    الطلبات المتبقية
+                  </div>
+                  <div className="text-sm sm:text-lg font-bold text-slate-700 dark:text-slate-300">
+                    {remainingRequests}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                    وقت القراءة
+                  </div>
+                  <div className="text-sm sm:text-lg font-bold text-slate-700 dark:text-slate-300">
+                    {formatTime(readingTime)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                    النقاط المكتسبة
+                  </div>
+                  <div className="text-sm sm:text-lg font-bold text-slate-700 dark:text-slate-300">
+                    {wordsLearned * 10}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </main>
 
-      {/* Word Modal */}
+      {/* Enhanced Word Modal */}
       {showWordModal && selectedWord && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 max-w-lg w-full">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 sm:p-8 max-w-lg w-full relative animate-in fade-in slide-in-from-bottom-4 duration-300 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShowWordModal(false)}
+              className="absolute top-2 sm:top-4 right-2 sm:right-4 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 text-2xl font-bold focus:outline-none transition-colors duration-200 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+              aria-label="إغلاق"
+            >
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+
             <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-4">
+              {/* Word Status Tags */}
+              <div className="flex items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6 flex-wrap">
                 {selectedWord.isDailyWord && (
-                  <div className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full text-sm">
-                    <Star className="w-3 h-3" />
+                  <div className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1 sm:py-2 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs sm:text-sm font-medium border border-blue-200 dark:border-blue-700">
+                    <Star className="w-3 h-3 sm:w-4 sm:h-4" />
                     كلمة يومية
                   </div>
                 )}
-                <div
-                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm ${
-                    (wordStatus[selectedWord.word] || "NOT_LEARNED") === "KNOWN"
-                      ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-                      : (wordStatus[selectedWord.word] || "NOT_LEARNED") ===
-                        "PARTIALLY_KNOWN"
-                      ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400"
-                      : (wordStatus[selectedWord.word] || "NOT_LEARNED") ===
-                        "UNKNOWN"
-                      ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-                      : selectedWord.isDailyWord
-                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                      : "bg-gray-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-400"
-                  }`}
-                >
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      (wordStatus[selectedWord.word] || "NOT_LEARNED") ===
-                      "KNOWN"
-                        ? "bg-green-500"
-                        : (wordStatus[selectedWord.word] || "NOT_LEARNED") ===
-                          "PARTIALLY_KNOWN"
-                        ? "bg-yellow-500"
-                        : (wordStatus[selectedWord.word] || "NOT_LEARNED") ===
-                          "UNKNOWN"
-                        ? "bg-red-500"
-                        : selectedWord.isDailyWord
-                        ? "bg-blue-500"
-                        : "bg-gray-500"
-                    }`}
-                  ></div>
-                  {(wordStatus[selectedWord.word] ||
+                {(() => {
+                  const status =
+                    wordStatus[selectedWord.word] ||
                     selectedWord.status ||
-                    "NOT_LEARNED") === "KNOWN"
-                    ? "معروفة"
-                    : (wordStatus[selectedWord.word] ||
-                        selectedWord.status ||
-                        "NOT_LEARNED") === "PARTIALLY_KNOWN"
-                    ? "جزئية"
-                    : (wordStatus[selectedWord.word] ||
-                        selectedWord.status ||
-                        "NOT_LEARNED") === "UNKNOWN"
-                    ? "غير معروفة"
-                    : "غير متعلمة"}
-                </div>
+                    "NOT_LEARNED";
+                  const statusConfig = {
+                    KNOWN: { color: "emerald", label: "معروفة", icon: Check },
+                    PARTIALLY_KNOWN: {
+                      color: "amber",
+                      label: "جزئية",
+                      icon: HelpCircle,
+                    },
+                    UNKNOWN: { color: "rose", label: "غير معروفة", icon: X },
+                    NOT_LEARNED: {
+                      color: selectedWord.isDailyWord ? "blue" : "slate",
+                      label: "غير متعلمة",
+                      icon: Brain,
+                    },
+                  };
+                  const config =
+                    statusConfig[status as keyof typeof statusConfig] ||
+                    statusConfig.NOT_LEARNED;
+
+                  return (
+                    <div
+                      className={`inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1 sm:py-2 bg-gradient-to-r from-${config.color}-100 to-${config.color}-200 dark:from-${config.color}-900/30 dark:to-${config.color}-800/30 text-${config.color}-700 dark:text-${config.color}-300 rounded-full text-xs sm:text-sm font-medium border border-${config.color}-200 dark:border-${config.color}-700`}
+                    >
+                      <config.icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                      {config.label}
+                    </div>
+                  );
+                })()}
               </div>
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <h3 className="text-4xl font-bold text-gray-900 dark:text-white">
+
+              {/* Word Display */}
+              <div className="mb-4 sm:mb-6">
+                <h3 className="text-3xl sm:text-5xl font-bold text-slate-900 dark:text-slate-100 mb-2 sm:mb-3 tracking-tight">
                   {selectedWord.word}
                 </h3>
-                <div className="bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
-                  {modalCountdown}
-                </div>
+                <p className="text-base sm:text-xl text-slate-600 dark:text-slate-400 leading-relaxed">
+                  {selectedWord.meaning}
+                </p>
               </div>
-              <p className="text-xl text-gray-600 dark:text-gray-400 mb-4">
-                {selectedWord.meaning}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                اختر حالة الكلمة قبل انتهاء الوقت
-              </p>
+
+              {/* Example Sentences */}
               {selectedWord.sentence && (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6 mb-6">
-                  <p className="text-gray-800 dark:text-gray-200 mb-3 text-lg">
-                    "{selectedWord.sentence}"
-                  </p>
-                  {selectedWord.sentence_ar && (
-                    <p className="text-gray-600 dark:text-gray-400 text-base text-right">
-                      "{selectedWord.sentence_ar}"
+                <div className="mb-6 sm:mb-8 space-y-3">
+                  <div className="bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-700 dark:to-blue-900/20 rounded-xl p-3 sm:p-6 border border-slate-200 dark:border-slate-600">
+                    <p className="text-slate-800 dark:text-slate-200 text-sm sm:text-lg mb-2 sm:mb-3 font-medium">
+                      "{selectedWord.sentence}"
                     </p>
-                  )}
+                    {selectedWord.sentence_ar && (
+                      <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-base text-right leading-relaxed">
+                        "{selectedWord.sentence_ar}"
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <button
-                  onClick={() =>
-                    handleWordStatusChange(selectedWord.word, "KNOWN")
-                  }
-                  className="px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                  <Check className="w-4 h-4" />
-                  أعرفها
-                </button>
-                <button
-                  onClick={() =>
-                    handleWordStatusChange(selectedWord.word, "PARTIALLY_KNOWN")
-                  }
-                  className="px-4 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                  <HelpCircle className="w-4 h-4" />
-                  جزئياً
-                </button>
-                <button
-                  onClick={() =>
-                    handleWordStatusChange(selectedWord.word, "UNKNOWN")
-                  }
-                  className="px-4 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                  <X className="w-4 h-4" />
-                  لا أعرف
-                </button>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    if (isSpeaking) {
-                      stopSpeaking();
-                    } else {
-                      speakText(selectedWord.word);
-                      // تحديث خلفي عند الاستماع للكلمة
-                      setTimeout(() => {
-                        fetchRemainingRequests();
-                      }, 1500);
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
+                {[
+                  {
+                    status: "KNOWN",
+                    label: "أعرفها",
+                    color: "emerald",
+                    icon: Check,
+                  },
+                  {
+                    status: "PARTIALLY_KNOWN",
+                    label: "جزئياً",
+                    color: "amber",
+                    icon: HelpCircle,
+                  },
+                  {
+                    status: "UNKNOWN",
+                    label: "لا أعرف",
+                    color: "rose",
+                    icon: X,
+                  },
+                ].map((option) => (
+                  <button
+                    key={option.status}
+                    onClick={() =>
+                      handleWordStatusChange(
+                        selectedWord.word,
+                        option.status as any
+                      )
                     }
-                  }}
-                  className={`flex-1 px-6 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium ${
-                    isSpeaking
-                      ? "bg-red-500 text-white hover:bg-red-600"
-                      : "bg-blue-500 text-white hover:bg-blue-600"
-                  }`}
-                >
-                  {isSpeaking ? (
-                    <Pause className="w-5 h-5" />
-                  ) : (
-                    <Mic className="w-5 h-5" />
-                  )}
-                  {isSpeaking ? "إيقاف" : "استمع"}
-                </button>
+                    className={`px-2 sm:px-4 py-3 sm:py-4 bg-gradient-to-r from-${option.color}-500 to-${option.color}-600 text-white rounded-xl hover:from-${option.color}-600 hover:to-${option.color}-700 transition-all duration-200 text-xs sm:text-sm font-bold flex items-center justify-center gap-1 sm:gap-2 shadow-lg hover:shadow-xl transform hover:scale-105`}
+                  >
+                    <option.icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                    {option.label}
+                  </button>
+                ))}
               </div>
+
+              {/* Audio Button */}
+              <button
+                onClick={() => {
+                  if (isSpeaking) {
+                    stopSpeaking();
+                  } else {
+                    speakText(selectedWord.word);
+                    setTimeout(() => fetchRemainingRequests(), 1500);
+                  }
+                }}
+                className={`w-full px-4 sm:px-6 py-3 sm:py-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 sm:gap-3 font-medium shadow-lg hover:shadow-xl text-sm sm:text-base ${
+                  isSpeaking
+                    ? "bg-gradient-to-r from-rose-500 to-red-600 text-white hover:from-rose-600 hover:to-red-700"
+                    : "bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700"
+                }`}
+              >
+                {isSpeaking ? (
+                  <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />
+                ) : (
+                  <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                )}
+                {isSpeaking ? "إيقاف الصوت" : "استمع للكلمة"}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Completion Modal */}
+      {/* Enhanced Completion Modal */}
       {showCompletionModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 max-w-md w-full text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-green-500 rounded-full flex items-center justify-center">
-              <Sparkles className="w-8 h-8 text-white" />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-8 max-w-md w-full text-center animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-2xl">
+              <Award className="w-10 h-10 text-white" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+
+            <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-4">
               🎉 مبروك!
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              لقد أكملت قراءة القصة بنجاح وتعلمت {wordsLearned} كلمة جديدة!
+
+            <p className="text-slate-600 dark:text-slate-400 mb-8 text-lg leading-relaxed">
+              لقد أكملت قراءة القصة بنجاح وتعلمت{" "}
+              <span className="font-bold text-emerald-600">{wordsLearned}</span>{" "}
+              كلمة جديدة!
             </p>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <div className="text-lg font-bold text-green-600 dark:text-green-400">
+
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              <div className="p-4 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 rounded-xl border border-emerald-200 dark:border-emerald-700">
+                <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                   {wordsLearned}
                 </div>
-                <div className="text-xs text-green-600 dark:text-green-400">
+                <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                   كلمات معروفة
                 </div>
               </div>
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+              <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                   {Math.round(
                     (wordsLearned / (currentStory?.words?.length || 1)) * 100
                   )}
                   %
                 </div>
-                <div className="text-xs text-blue-600 dark:text-blue-400">
+                <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
                   نسبة الإتمام
                 </div>
               </div>
+              <div className="p-4 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 rounded-xl border border-violet-200 dark:border-violet-700">
+                <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+                  {wordsLearned * 10}
+                </div>
+                <div className="text-xs text-violet-600 dark:text-violet-400 font-medium">
+                  نقاط
+                </div>
+              </div>
             </div>
-            <div className="flex gap-3">
+
+            <div className="flex gap-4">
               <button
                 onClick={() => navigate("/stories")}
-                className="flex-1 px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 px-6 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl font-medium"
               >
                 <Home className="w-4 h-4" />
                 القصص
@@ -1118,7 +1498,7 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                   setShowCompletionModal(false);
                   navigate("/story-exam", { state: { story: currentStory } });
                 }}
-                className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl font-medium"
               >
                 <GraduationCap className="w-4 h-4" />
                 اختبار
@@ -1128,30 +1508,56 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
         </div>
       )}
 
-      {/* Notifications */}
-      <div className="fixed top-4 right-4 z-50 space-y-2">
-        {notifications.map((notification) => (
-          <div
-            key={notification.id}
-            className={`max-w-sm p-4 rounded-lg shadow-lg border transition-all duration-300 ${
-              notification.type === "success"
-                ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-200"
-                : notification.type === "error"
-                ? "bg-red-50 border-red-200 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-200"
-                : "bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/30 dark:border-blue-700 dark:text-blue-200"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">{notification.message}</p>
-              <button
-                onClick={() => removeNotification(notification.id)}
-                className="ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      {/* Enhanced Notifications */}
+      <div className="fixed top-2 sm:top-4 right-2 sm:right-4 z-50 space-y-2 sm:space-y-3 max-w-xs sm:max-w-sm">
+        {notifications.map((notification) => {
+          const notificationStyles = {
+            success: {
+              bg: "bg-emerald-50 dark:bg-emerald-900/30",
+              border: "border-emerald-200 dark:border-emerald-700",
+              text: "text-emerald-800 dark:text-emerald-200",
+              icon: Check,
+            },
+            error: {
+              bg: "bg-rose-50 dark:bg-rose-900/30",
+              border: "border-rose-200 dark:border-rose-700",
+              text: "text-rose-800 dark:text-rose-200",
+              icon: X,
+            },
+            info: {
+              bg: "bg-blue-50 dark:bg-blue-900/30",
+              border: "border-blue-200 dark:border-blue-700",
+              text: "text-blue-800 dark:text-blue-200",
+              icon: Brain,
+            },
+          };
+
+          const style = notificationStyles[notification.type];
+
+          return (
+            <div
+              key={notification.id}
+              className={`${style.bg} ${style.border} ${style.text} p-3 sm:p-4 rounded-xl shadoXw-lg border transition-all duration-300 backdrop-blur-sm animate-in slide-in-from-right-4 fade-in`}
+            >
+              <div className="flex items-start gap-2 sm:gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  <style.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-medium leading-relaxed">
+                    {notification.message}
+                  </p>
+                </div>
+                <button
+                  onClick={() => removeNotification(notification.id)}
+                  className="flex-shrink-0 ml-1 sm:ml-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors duration-200"
+                >
+                  <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

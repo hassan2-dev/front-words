@@ -91,24 +91,18 @@ export const AdminContentPage: React.FC = () => {
       case "words":
         return (
           <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              إدارة الكلمات
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+                يمكنك إدارة جميع الكلمات والمفردات في المنصة من خلال هذه الصفحة.
+                </p>
+            </div>
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 إدارة الكلمات
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                يمكنك إدارة جميع الكلمات والمفردات في المنصة من خلال هذه الصفحة.
-              </p>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => navigate("/admin/content/words")}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                >
-                  عرض جميع الكلمات
-                </button>
-                <button className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
-                  إضافة كلمة جديدة
-                </button>
-              </div>
             </div>
           </div>
         );

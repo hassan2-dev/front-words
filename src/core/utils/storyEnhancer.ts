@@ -60,57 +60,5 @@ export const enhanceStory = (story: any): EnhancedStory => {
   };
 };
 
-// تحسين الكلمات لتكون أكثر تنوعاً
-export const enhanceWords = (words: any[]): any[] => {
-  return words.map((word, index) => {
-    // إضافة جمل أكثر تشويقاً للكلمات الجديدة
-    if (word.status === "UNKNOWN" && !word.sentence) {
-      const enhancedWord = { ...word };
 
-      // جمل محسنة حسب نوع الكلمة
-      const enhancedSentences = {
-        "snip": "The chef snips fresh herbs for the dish.",
-        "Exposed": "The ancient ruins were exposed after the storm.",
-        "Belongs": "This beautiful garden belongs to our family.",
-        "Brotherhood": "The team showed true brotherhood during the game.",
-        "Hit man": "The movie featured a mysterious hit man.",
-        "Pass out": "The student will pass out the papers to everyone.",
-        "king": "The wise king ruled his kingdom with fairness.",
-        "from": "The letter came from my best friend.",
-        "joker": "The joker made everyone laugh at the party.",
-        "reading": "Reading books opens new worlds of imagination.",
-        "letter": "She wrote a beautiful letter to her grandmother.",
-        "kite": "The colorful kite flew high in the blue sky.",
-      };
 
-      if (enhancedSentences[word.word as keyof typeof enhancedSentences]) {
-        enhancedWord.sentence = enhancedSentences[word.word as keyof typeof enhancedSentences];
-        enhancedWord.sentenceAr = getArabicTranslation(enhancedWord.sentence);
-      }
-
-      return enhancedWord;
-    }
-
-    return word;
-  });
-};
-
-// ترجمة بسيطة للجمل
-const getArabicTranslation = (sentence: string): string => {
-  const translations: { [key: string]: string } = {
-    "The chef snips fresh herbs for the dish.": "الطاهي يقص الأعشاب الطازجة للطبق.",
-    "The ancient ruins were exposed after the storm.": "تم كشف الآثار القديمة بعد العاصفة.",
-    "This beautiful garden belongs to our family.": "هذه الحديقة الجميلة تعود لعائلتنا.",
-    "The team showed true brotherhood during the game.": "أظهر الفريق أخوة حقيقية أثناء المباراة.",
-    "The movie featured a mysterious hit man.": "الفيلم تضمن قاتلاً مأجوراً غامضاً.",
-    "The student will pass out the papers to everyone.": "الطالب سيقوم بتوزيع الأوراق على الجميع.",
-    "The wise king ruled his kingdom with fairness.": "حكم الملك الحكيم مملكته بالعدل.",
-    "The letter came from my best friend.": "الرسالة جاءت من صديقي المفضل.",
-    "The joker made everyone laugh at the party.": "المهرج جعل الجميع يضحكون في الحفلة.",
-    "Reading books opens new worlds of imagination.": "قراءة الكتب تفتح عوالم جديدة من الخيال.",
-    "She wrote a beautiful letter to her grandmother.": "كتبت رسالة جميلة لجدتها.",
-    "The colorful kite flew high in the blue sky.": "طارت الطائرة الورقية الملونة عالياً في السماء الزرقاء.",
-  };
-
-  return translations[sentence] || sentence;
-}; 

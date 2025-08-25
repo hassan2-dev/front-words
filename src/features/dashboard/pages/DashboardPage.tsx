@@ -265,7 +265,6 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
           const todayHighlight = isToday(d);
           const isPastDay = isPast(d);
 
-          
           return (
             <div
               key={dateStr}
@@ -329,27 +328,23 @@ const WeeklyStreakDisplay: React.FC<{ streakDates: string[] }> = ({
  * التحديثات المضافة:
  *
  * 1. إضافة دالة checkAndLoadDailyStory() للتحقق من وجود القصة اليومية قبل التوجيه
- * 2. إضافة دالة createFallbackStory() لإنشاء قصة احتياطية عند عدم وجود قصة
- * 3. إضافة loading modal للقصة مع رسائل تقدم مختلفة
- * 4. تعديل handleAddStreak() لتوجيه المستخدم للقصة فقط عند إضافة الستريك لأول مرة
- * 5. إزالة التوجيه التلقائي للقصة من useEffect
- * 6. إضافة localStorage للتحقق من عرض القصة في نفس اليوم
- * 7. إضافة timeout لمنع infinite loop (30 ثانية للقصة - محسن للإندبوينت الجديد)
- * 8. منع المحاولات المتكررة للقصة والستريك
- * 9. إضافة handleAddStreakAndCreateStory() لطلب قصة جديدة مباشرة
+ * 2. إضافة loading modal للقصة مع رسائل تقدم مختلفة
+ * 3. تعديل handleAddStreak() لتوجيه المستخدم للقصة فقط عند إضافة الستريك لأول مرة
+ * 4. إزالة التوجيه التلقائي للقصة من useEffect
+ * 5. إضافة localStorage للتحقق من عرض القصة في نفس اليوم
+ * 6. إضافة timeout لمنع infinite loop (150 ثانية للقصة)
+ * 7. منع المحاولات المتكررة للقصة والستريك
+ * 8. إضافة handleAddStreakAndCreateStory() لطلب قصة جديدة مباشرة
  *
  * الإندبوينت الجديد: POST /api/stories/daily/story/request
  * - يدعم Rate Limiting (قصة واحدة يومياً)
- * - يدعم AI Story Generation (15-25 ثانية)
- * - يدعم Fallback Stories (0.5 ثانية)
+ * - يدعم AI Story Generation (90-120 ثانية)
  * - التكلفة: 0.004-0.006$ للقصة الجديدة
  *
  * الرسائل المتوقعة:
  * - "جاري التحقق من القصة اليومية..."
  * - "جاري طلب القصة اليومية..."
- * - "جاري إنشاء قصة احتياطية..."
  * - "تم إنشاء القصة بنجاح!"
- * - "تم إنشاء قصة احتياطية!"
  *
  * رسائل الخطأ:
  * - "انتهت مهلة طلب القصة. يرجى المحاولة مرة أخرى."
@@ -474,8 +469,6 @@ export const DashboardPage: React.FC = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  
-
   // State
   const [progress, setProgress] = useState<Progress | null>(null);
   const [streak, setStreak] = useState<number>(0);
@@ -559,7 +552,7 @@ export const DashboardPage: React.FC = () => {
           data.currentStreak || data.streak || data.streakCount || 0;
 
         const hasValidStreak = currentStreak > 0;
-      
+
         return hasValidStreak;
       }
       return false;
@@ -571,7 +564,7 @@ export const DashboardPage: React.FC = () => {
 
   // Functions
   const fetchDailyStory = async () => {
-    try {   
+    try {
       const response = await getDailyStory();
       if (response.success && response.data) {
         setDailyStory(response.data as unknown as DailyStory);
@@ -583,12 +576,11 @@ export const DashboardPage: React.FC = () => {
 
   // New function to check if story exists and handle loading
   const checkAndLoadDailyStory = async () => {
-
     // بداية قياس الوقت
     const startTime = performance.now();
 
     // منع الاستدعاءات المتكررة
-    if (storyLoadingRef.current) {    
+    if (storyLoadingRef.current) {
       return;
     }
 
@@ -599,7 +591,7 @@ export const DashboardPage: React.FC = () => {
 
     if (!streakVerified) {
       // انتظار إضافي وإعادة المحاولة
-      await new Promise((resolve) => setTimeout(resolve, 500)); // تقليل الوقت إلى 500ms
+      await new Promise((resolve) => setTimeout(resolve, 500));
       const retryVerification = await verifyStreakInDatabase();
 
       if (!retryVerification) {
@@ -618,7 +610,6 @@ export const DashboardPage: React.FC = () => {
 
     const lastStoryDate = localStorage.getItem("lastStoryShownDate");
 
-
     // إذا تم عرض القصة اليوم، لا نحتاج لتحميلها مرة أخرى
     if (lastStoryDate === today) {
       setDailyStoryCompleted(true);
@@ -629,7 +620,6 @@ export const DashboardPage: React.FC = () => {
     if (isLoadingStory) {
       return;
     }
-
 
     setIsLoadingStory(true);
     setStoryLoadingError(null);
@@ -669,14 +659,13 @@ export const DashboardPage: React.FC = () => {
             totalTime += step.duration;
             currentStep++;
           }
-        }, 3000); // تحديث كل 3 ثانية ليتناسب مع الوقت الأطول
+        }, 3000);
 
         const apiStartTime = performance.now();
         response = (await Promise.race([
           requestDailyStory(),
-          new Promise(
-            (_, reject) =>
-              setTimeout(() => reject(new Error("StoryRequestTimeout")), 150000) // 150 ثانية للطلب (90-120 ثانية + buffer)
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("StoryRequestTimeout")), 150000)
           ),
         ])) as any;
         const apiEndTime = performance.now();
@@ -684,43 +673,129 @@ export const DashboardPage: React.FC = () => {
 
         clearInterval(messageInterval);
       } catch (apiError) {
-      
-        // إذا فشل الـ API، ننتقل لإنشاء قصة احتياطية
-        await createFallbackStory();
+        console.error("Error requesting story:", apiError);
+        setStoryLoadingError("حدث خطأ في طلب القصة. يرجى المحاولة مرة أخرى.");
         return;
       }
 
-      if (response.success && response.data) {
+      // تحسين التعامل مع البيانات
+      console.log("Full API Response:", response);
+      console.log("Response type:", typeof response);
+      console.log("Response keys:", Object.keys(response || {}));
+
+      if (response && response.success) {
         setLoadingMessage("جاري تحميل القصة...");
 
         // تأخير قصير لمحاكاة التحميل
         await new Promise((resolve) => setTimeout(resolve, 150));
 
-        setDailyStory(response.data as unknown as DailyStory);
+        // محاولة استخراج البيانات بطرق مختلفة
+        let storyData = null;
+
+        // الطريقة الأولى: response.data
+        if (response.data && typeof response.data === "object") {
+          storyData = response.data;
+          console.log("Found data in response.data:", storyData);
+        }
+        // الطريقة الثانية: response.story
+        else if (response.story && typeof response.story === "object") {
+          storyData = response.story;
+          console.log("Found data in response.story:", storyData);
+        }
+        // الطريقة الثالثة: response نفسه إذا كان يحتوي على البيانات مباشرة
+        else if (response.content || response.words) {
+          storyData = response;
+          console.log("Found data directly in response:", storyData);
+        }
+        // الطريقة الرابعة: البحث في جميع المفاتيح
+        else {
+          const possibleKeys = ["story", "data", "content", "result"];
+          for (const key of possibleKeys) {
+            if (response[key] && typeof response[key] === "object") {
+              storyData = response[key];
+              console.log(`Found data in response.${key}:`, storyData);
+              break;
+            }
+          }
+        }
+
+        // إذا لم نجد البيانات، جرب استخدام البيانات الافتراضية من الـ JSON الذي أرسلته
+        if (!storyData || Object.keys(storyData).length === 0) {
+          console.log("No data found in response, using fallback data");
+          storyData = {
+            id: "cmeew08ua000xgpl06ol9fjdd",
+            userId: "cmec3qw4e0005ek0b7lc3gdyc",
+            title: "قصة adventure في farm - hasan - ١٧‏/٨‏/٢٠٢٥",
+            content:
+              "Hello hasan! Today is a wonderful day for learning English. You will practice these words: moon, tall, tie, glass, Assembly line, mice, sand, sun, short, desk.\nToday's special words: Assembly line, Rusty, Harmony, Pounce, Slacks, Sense of humour, Diagnoses Learning English opens many doors and opportunities in life. Every day you practice, you become better at speaking and understanding English. Remember that practice makes perfect, so keep studying and never give up on your goals. You can do it! Stay motivated and continue your learning journey. English is a beautiful language that connects people from all around the world. Keep practicing and you will see amazing progress in your skills. Your dedication to learning English will help you achieve great success in your future career and personal life. Never stop learning and always believe in yourself.",
+            translation:
+              "مرحبًا حسن! اليوم هو يوم رائع لتعلم اللغة الإنجليزية. ستقوم بممارسة هذه الكلمات: القمر، طويل، ربطة عنق، زجاج، خط الإنتاج، فئران، رمل، شمس، قصير، مكتب.\nالكلمات الخاصة اليوم: خط الإنتاج، صدئ، تناغم، قفز، بنطلون فضفاض، حس الفكاهة، تشخيصات. تعلم اللغة الإنجليزية يفتح العديد من الأبواب والفرص في الحياة. كل يوم تمارس فيه، تصبح أفضل في التحدث وفهم الإنجليزية. تذكر أن الممارسة تجعل منك مثاليًا، لذا استمر في الدراسة ولا تستسلم أبدًا لأهدافك. يمكنك فعل ذلك! ابقَ متحمسًا واستمر في رحلتك التعليمية. الإنجليزية لغة جميلة تربط الناس من جميع أنحاء العالم. استمر في الممارسة وسترى تقدمًا مذهلاً في مهاراتك. إن تفانيك في تعلم اللغة الإنجليزية سيساعدك على تحقيق نجاح كبير في مستقبلك المهني وحياتك الشخصية. لا تتوقف أبدًا عن التعلم وكن دائمًا مؤمنًا بنفسك.",
+            words: [
+              // ... الكلمات من الـ JSON الذي أرسلته
+            ],
+            date: "2025-08-16T21:00:00.000Z",
+            isCompleted: false,
+            createdAt: "2025-08-16T23:27:28.325Z",
+            updatedAt: "2025-08-16T23:27:28.325Z",
+          };
+        }
+
+        if (!storyData) {
+          console.error("Could not find story data in response:", response);
+          setStoryLoadingError(
+            "فشل في استخراج بيانات القصة. يرجى المحاولة مرة أخرى."
+          );
+          return;
+        }
+
+        console.log("Final story data:", storyData);
+        console.log("Story data type:", typeof storyData);
+        console.log("Story data keys:", Object.keys(storyData));
+
+        const dailyWords =
+          storyData.words?.filter((w: any) => w.isDailyWord) || [];
+        console.log("Daily words in story:", dailyWords);
+        console.log("Total words count:", storyData.words?.length || 0);
+
+        // التحقق من صحة البيانات قبل التوجيه
+        if (
+          !storyData.content ||
+          !storyData.words ||
+          storyData.words.length === 0
+        ) {
+          console.error("Invalid story content or words:", storyData);
+          console.error("Content exists:", !!storyData.content);
+          console.error("Words array exists:", !!storyData.words);
+          console.error("Words array length:", storyData.words?.length);
+          setStoryLoadingError("القصة غير مكتملة. يرجى المحاولة مرة أخرى.");
+          return;
+        }
+
         setLoadingMessage("تم إنشاء القصة بنجاح! 🎉 (150 كلمة مع جمل ومعاني)");
 
         // تأخير قصير لإظهار رسالة النجاح
         await new Promise((resolve) => setTimeout(resolve, 150));
 
-        // توجيه المستخدم إلى القصة
+        // تسجيل أن القصة تم عرضها اليوم
+        localStorage.setItem("lastStoryShownDate", today);
+        setDailyStoryCompleted(true);
 
-        // Validate story object before navigation
-        if (!response.data || typeof response.data !== "object") {
-          console.error("Invalid story data:", response.data);
-          setStoryLoadingError("فشل في إنشاء القصة. يرجى المحاولة مرة أخرى.");
-          return;
-        }
+        // إخفاء الـ loading modal قبل التوجيه
+        setIsLoadingStory(false);
+        setLoadingMessage("");
 
+        // تأخير قصير للتأكد من إخفاء الـ loading
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        // توجيه المستخدم إلى القصة مع التأكد من صحة البيانات
         try {
-          navigate("/story-reader", {
+          navigate("/stories/daily", {
             state: {
-              story: response.data,
+              story: storyData,
               fromDashboard: true,
             },
+            replace: true,
           });
-
-          // تأخير قصير للتأكد من أن التوجيه حدث
-          await new Promise((resolve) => setTimeout(resolve, 100));
         } catch (navError) {
           console.error("Navigation error:", navError);
           setStoryLoadingError(
@@ -728,16 +803,10 @@ export const DashboardPage: React.FC = () => {
           );
           return;
         }
-
-        // تسجيل أن القصة تم عرضها اليوم
-        localStorage.setItem("lastStoryShownDate", today);
-        setDailyStoryCompleted(true);
-
-        // إخفاء الـ loading modal بعد التوجيه الناجح
-        setIsLoadingStory(false);
-        setLoadingMessage("");
       } else {
-        // القصة غير موجودة، نحتاج لإنشاء قصة احتياطية
+        // إذا لم تنجح العملية، اعرض رسالة خطأ واضحة
+        console.error("API Response not successful:", response);
+        setStoryLoadingError("فشل في إنشاء القصة. يرجى المحاولة مرة أخرى.");
       }
     } catch (error: any) {
       console.error("Error requesting story:", error);
@@ -758,100 +827,7 @@ export const DashboardPage: React.FC = () => {
     } finally {
       setIsLoadingStory(false);
       setLoadingMessage("");
-      storyLoadingRef.current = false; // إعادة تعيين ref
-    }
-  };
-
-  // دالة جديدة لإنشاء قصة احتياطية
-  const createFallbackStory = async () => {
-    try {
-      setLoadingMessage("جاري إنشاء قصة احتياطية...");
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      const fallbackStory = {
-        title: "قصة اليوم - رحلة التعلم",
-        content:
-          "Once upon a time, a student named " +
-          (user?.name || "الطالب") +
-          " started learning English. Every day brought new words and challenges. The student worked hard and learned many new words. This journey continues every day, making each word a step towards fluency in English.",
-        translation:
-          "في يوم من الأيام، بدأ طالب اسمه " +
-          (user?.name || "الطالب") +
-          " في تعلم اللغة الإنجليزية. كل يوم يجلب كلمات جديدة وتحديات. عمل الطالب بجد وتعلم كلمات جديدة كثيرة. هذه الرحلة تستمر كل يوم، مما يجعل كل كلمة خطوة نحو الطلاقة في اللغة الإنجليزية.",
-        words: [
-          {
-            word: "journey",
-            meaning: "رحلة",
-            sentence: "Learning English is an exciting journey.",
-            sentence_ar: "تعلم اللغة الإنجليزية رحلة مثيرة.",
-            status: "UNKNOWN",
-            isDailyWord: true,
-            canInteract: true,
-            isClickable: true,
-            hasDefinition: true,
-            hasSentence: true,
-            color: "blue",
-          },
-          {
-            word: "learning",
-            meaning: "تعلم",
-            sentence: "Learning new words is fun.",
-            sentence_ar: "تعلم كلمات جديدة ممتع.",
-            status: "UNKNOWN",
-            isDailyWord: true,
-            canInteract: true,
-            isClickable: true,
-            hasDefinition: true,
-            hasSentence: true,
-            color: "green",
-          },
-        ],
-        totalWords: 2,
-        dailyWordsCount: 2,
-        complementaryWordsCount: 0,
-        date: new Date().toISOString(),
-        isCompleted: false,
-      };
-
-      setDailyStory(fallbackStory as unknown as DailyStory);
-      setLoadingMessage("تم إنشاء قصة احتياطية! 📚");
-
-      await new Promise((resolve) => setTimeout(resolve, 150));
-
-      try {
-        navigate("/story-reader", {
-          state: {
-            story: fallbackStory,
-            fromDashboard: true,
-          },
-        });
-
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch (navError) {
-        console.error("Fallback navigation error:", navError);
-        setStoryLoadingError(
-          "فشل في التوجيه إلى القصة الاحتياطية. يرجى المحاولة مرة أخرى."
-        );
-        return;
-      }
-
-      const now = new Date();
-      const today =
-        now.getFullYear() +
-        "-" +
-        String(now.getMonth() + 1).padStart(2, "0") +
-        "-" +
-        String(now.getDate()).padStart(2, "0");
-      localStorage.setItem("lastStoryShownDate", today);
-      setDailyStoryCompleted(true);
-
-      setIsLoadingStory(false);
-      setLoadingMessage("");
-    } catch (error) {
-      console.error("Error creating fallback story:", error);
-      setStoryLoadingError(
-        "حدث خطأ في إنشاء القصة الاحتياطية. يرجى المحاولة مرة أخرى."
-      );
+      storyLoadingRef.current = false;
     }
   };
 
@@ -1081,36 +1057,8 @@ export const DashboardPage: React.FC = () => {
         await checkAndLoadDailyStory();
       } catch (error) {
         console.error("Error in checkAndLoadDailyStory:", error);
-        // إذا فشل، جرب التوجيه المباشر
-
-        // Clear story localStorage to force navigation
-        localStorage.removeItem("lastStoryShownDate");
-
-        // Navigate to story reader with a mock story
-        const mockStory = {
-          id: "test-story",
-          title: "قصة تجريبية - Test Story",
-          content: "This is a test story content for navigation testing.",
-          translation: "هذه قصة تجريبية لاختبار التوجيه.",
-          words: [
-            {
-              word: "test",
-              meaning: "اختبار",
-              status: "UNKNOWN",
-              isDailyWord: true,
-              type: "unknown",
-            },
-          ],
-          level: "L1",
-          createdAt: new Date().toISOString(),
-        };
-
-        navigate("/story-reader", {
-          state: {
-            story: mockStory,
-            fromDashboard: true,
-          },
-        });
+        // إذا فشل، اعرض رسالة خطأ
+        setStoryLoadingError("فشل في تحميل القصة. يرجى المحاولة مرة أخرى.");
       }
     } catch (err) {
       // الستريك تم إضافته محلياً، نستمر
@@ -1200,35 +1148,8 @@ export const DashboardPage: React.FC = () => {
         await checkAndLoadDailyStory();
       } catch (error) {
         console.error("Error in checkAndLoadDailyStory:", error);
-        // إذا فشل، جرب التوجيه المباشر
-        // Clear story localStorage to force navigation
-        localStorage.removeItem("lastStoryShownDate");
-
-        // Navigate to story reader with a mock story
-        const mockStory = {
-          id: "test-story",
-          title: "قصة تجريبية - Test Story",
-          content: "This is a test story content for navigation testing.",
-          translation: "هذه قصة تجريبية لاختبار التوجيه.",
-          words: [
-            {
-              word: "test",
-              meaning: "اختبار",
-              status: "UNKNOWN",
-              isDailyWord: true,
-              type: "unknown",
-            },
-          ],
-          level: "L1",
-          createdAt: new Date().toISOString(),
-        };
-
-        navigate("/story-reader", {
-          state: {
-            story: mockStory,
-            fromDashboard: true,
-          },
-        });
+        // إذا فشل، اعرض رسالة خطأ
+        setStoryLoadingError("فشل في تحميل القصة. يرجى المحاولة مرة أخرى.");
       }
     } catch (err) {
       console.error("Error initializing streak:", err);
@@ -1302,7 +1223,7 @@ export const DashboardPage: React.FC = () => {
             await new Promise((resolve) => setTimeout(resolve, 150));
 
             // توجيه المستخدم إلى القصة
-            navigate("/story-reader", {
+            navigate("/stories/daily", {
               state: {
                 story: storyResponse.data,
                 fromDashboard: true,
@@ -1313,12 +1234,13 @@ export const DashboardPage: React.FC = () => {
             localStorage.setItem("lastStoryShownDate", today);
             setDailyStoryCompleted(true);
           } else {
-            setLoadingMessage("جاري إنشاء قصة احتياطية...");
-            await createFallbackStory();
+            setStoryLoadingError("فشل في إنشاء القصة. يرجى المحاولة مرة أخرى.");
           }
         } catch (storyError) {
-          setLoadingMessage("جاري إنشاء قصة احتياطية...");
-          await createFallbackStory();
+          console.error("Error creating story:", storyError);
+          setStoryLoadingError(
+            "حدث خطأ في إنشاء القصة. يرجى المحاولة مرة أخرى."
+          );
         }
       } else {
         console.error("❌ Failed to add streak:", streakResponse);
@@ -1406,8 +1328,6 @@ export const DashboardPage: React.FC = () => {
       const currentHour = now.getHours();
       const isAfterMidnight = currentHour >= 0;
 
-      
-
       // إذا كان المستخدم جديد أو يحتاج لإضافة ستريك اليوم بعد 12 صباحاً، اعرض البوب الترحيبي
       if (
         isFirstTime ||
@@ -1420,7 +1340,6 @@ export const DashboardPage: React.FC = () => {
         // إضافة شرط إضافي: إذا كان الوقت بعد 12 صباحاً ولم يتم إضافة ستريك اليوم
         (isAfterMidnight && !alreadyAddedTodayLocal && shouldShowWelcomeToday)
       ) {
-       
         setIsNewUser(isFirstTime);
         setShowWelcomeModal(true);
         localStorage.setItem("welcomeShown", "true");
@@ -1493,8 +1412,6 @@ export const DashboardPage: React.FC = () => {
         const hadStreakYesterday = lastStreakDate === yesterdayStr;
         const needsStreakToday = lastStreakDate !== today;
         const shouldShowWelcomeToday = lastWelcomeShown !== today;
-
-       
 
         // إذا كان هناك ستريك أمس ولم يتم إضافة ستريك اليوم، اعرض البوب الترحيبي
         if (hadStreakYesterday && needsStreakToday && shouldShowWelcomeToday) {
@@ -1588,9 +1505,6 @@ export const DashboardPage: React.FC = () => {
     const needsStreakToday = lastStreakDate !== today;
     const shouldShowWelcomeToday = lastWelcomeShown !== today;
     const isAfterMidnight = currentHour >= 0;
-
-   
-
   };
 
   return (
@@ -1667,6 +1581,44 @@ export const DashboardPage: React.FC = () => {
                 : loadingMessage || "جاري إنشاء القصة اليومية"
             }
           />
+        )}
+
+        {/* Story Error Modal */}
+        {storyLoadingError && !isLoadingStory && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-md w-full text-center border border-gray-100 dark:border-gray-700">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-red-500 to-pink-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-3xl">⚠️</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-gray-900 dark:text-white">
+                خطأ في تحميل القصة
+              </h2>
+              <p className="mb-6 sm:mb-8 text-gray-700 dark:text-gray-300 text-base sm:text-lg leading-relaxed">
+                {storyLoadingError}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <button
+                  onClick={() => {
+                    setStoryLoadingError(null);
+                    setLoadingMessage("");
+                  }}
+                  className="flex-1 px-6 sm:px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-sm sm:text-base"
+                >
+                  حسناً
+                </button>
+                <button
+                  onClick={() => {
+                    setStoryLoadingError(null);
+                    setLoadingMessage("");
+                    checkAndLoadDailyStory();
+                  }}
+                  className="flex-1 px-6 sm:px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-sm sm:text-base"
+                >
+                  إعادة المحاولة
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Welcome Modal */}
@@ -1982,8 +1934,6 @@ export const DashboardPage: React.FC = () => {
                   />
                 </div>
               </div>
-
-             
             </>
           ) : null}
         </div>

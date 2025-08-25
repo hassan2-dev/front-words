@@ -166,7 +166,6 @@ const Loading: React.FC<LoadingProps> = ({
           >
             {text}
           </p>
-        
         </div>
       )}
     </div>
@@ -190,7 +189,5 @@ const Loading: React.FC<LoadingProps> = ({
   // Return regular loading content
   return loadingContent;
 };
-
-
 
 export default Loading;

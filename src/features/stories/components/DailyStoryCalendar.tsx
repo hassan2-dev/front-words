@@ -79,7 +79,7 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
     days.push({ day: d, date, isToday, hasStory, isCompleted });
   }
 
-  const monthName = new Intl.DateTimeFormat("ar-SA", {
+  const monthName = new Intl.DateTimeFormat("en-US", {
     month: "long",
     year: "numeric",
   }).format(monthDate);

@@ -314,6 +314,10 @@ export const getUnknownWords = () =>
 export const getDailyStory = () =>
     apiClient.get<ApiResponse<DailyStory>>(API_ENDPOINTS.DAILY_STORIES.GET);
 
+
+export const getAllDailyStories = (studentId: string) =>
+    apiClient.get<ApiResponse<DailyStory[]>>(API_ENDPOINTS.DAILY_STORIES.GET_ALL_STORIES(studentId));
+
 // التحقق من وجود قصة لهذا اليوم
 export const checkDailyStory = () =>
     apiClient.get<ApiResponse<{ hasStory: boolean; canGenerate: boolean }>>(API_ENDPOINTS.DAILY_STORIES.CHECK);
@@ -393,7 +397,7 @@ export const submitDailyExam = (data: {
     level: string;
     points: number
 }) =>
-    apiClient.post<ApiResponse<any>>(API_ENDPOINTS.DAILY_STORIES.COMPLETE, data);
+        apiClient.post<ApiResponse<any>>(API_ENDPOINTS.DAILY_STORIES.COMPLETE, data);
 
 // --- LESSONS (Trainer) ---
 export const addLesson = (data: { title: string; content: string }) =>

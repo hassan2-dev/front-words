@@ -47,7 +47,7 @@ export const API_ENDPOINTS = {
     GET_STORY_WORDS: (storyId: string) => `/stories/daily/story/${storyId}/words`,
     // الطلبات المتبقية
     REMAINING: '/stories/daily/story/remaining',
-    GET_ALL_STORIES: (studentId?: string) => studentId ? `/stories/daily-stories/student/${studentId}` : '/stories/daily/story/all-stories',
+    GET_ALL_STORIES: (studentId: string) => `/daily/story/student/${studentId}`,
     // التفاعل مع الكلمات
     WORD_INTERACTION: '/stories/daily/story/word-interaction',
     // إحصائيات الكلمات

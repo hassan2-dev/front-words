@@ -882,16 +882,6 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
               </div>
             </div>
 
-            {/* Debug Button */}
-            <div className="mb-4 text-center">
-              <button
-                onClick={resetModalForTesting}
-                className="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600 transition-colors"
-              >
-                🔄 إعادة تعيين البوب للاختبار
-              </button>
-            </div>
-
             {/* Daily Words Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
               {wordsToShow.map((word, index) => {

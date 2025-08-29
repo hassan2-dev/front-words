@@ -262,7 +262,7 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
                 )}
 
                 {/* Debug info for development */}
-                {process.env.NODE_ENV === "development" && hasStory && (
+                {import.meta.env.MODE === "development" && hasStory && (
                   <div
                     className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full opacity-50"
                     title={`Story: ${getStoryForDate(item.date)?.title}`}

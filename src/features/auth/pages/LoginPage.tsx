@@ -6,6 +6,7 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTheme } from "../../../core/providers/ThemeProvider";
 import { Loading } from "../../../presentation/components";
 
+
 const LoginPage: React.FC = () => {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");

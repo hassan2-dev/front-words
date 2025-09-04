@@ -399,13 +399,13 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
       // تحقق من إكمال الكلمات اليومية (يجب أن تكون 7 كلمات على الأقل)
       if (completedDailyWords.length >= 7 && wordsToCheck.length > 0) {
         setDailyWordsCompleted(true);
-        setShowDailyWordsModal(false);
+        // لا نغلق البوب تلقائياً، نترك المستخدم يغلقه يدوياً
+        // setShowDailyWordsModal(false);
 
         // حفظ حالة إكمال الكلمات اليوم في localStorage
         const today = new Date().toISOString().split("T")[0];
         localStorage.setItem("dailyWordsCompletedDate", today);
 
-        // لا نغلق البوب تلقائياً، نترك المستخدم يغلقه يدوياً
         addNotification(
           "🎉 تم إكمال جميع الكلمات اليومية! يمكنك الآن قراءة القصة",
           "success"
@@ -680,18 +680,16 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
             (word: any) => word.status && word.status !== "NOT_LEARNED"
           );
 
-          // تحقق من عدد الكلمات المكتملة
+          // دائماً اعرض البوب للكلمات اليومية، حتى لو كانت مكتملة
+          setShowDailyWordsModal(true);
+          setDailyWordsCompleted(completedDailyWords.length >= 7);
+
+          // حفظ حالة عرض البوب اليوم
+          localStorage.setItem("dailyWordsModalShownDate", today);
+
           if (completedDailyWords.length >= 7) {
-            setDailyWordsCompleted(true);
-            setShowDailyWordsModal(false);
             // حفظ حالة إكمال الكلمات اليوم
             localStorage.setItem("dailyWordsCompletedDate", today);
-          } else {
-            // دائماً اعرض البوب إذا لم تكتمل الكلمات
-            setShowDailyWordsModal(true);
-            setDailyWordsCompleted(false);
-            // حفظ حالة عرض البوب اليوم
-            localStorage.setItem("dailyWordsModalShownDate", today);
           }
         } else {
           // إذا لم تكن هناك كلمات يومية محددة، اعرض أول 7 كلمات ككلمات يومية
@@ -702,17 +700,16 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
               (word: any) => word.status && word.status !== "NOT_LEARNED"
             );
 
+            // دائماً اعرض البوب للكلمات اليومية، حتى لو كانت مكتملة
+            setShowDailyWordsModal(true);
+            setDailyWordsCompleted(completedFirstWords.length >= 7);
+
+            // حفظ حالة عرض البوب اليوم
+            localStorage.setItem("dailyWordsModalShownDate", today);
+
             if (completedFirstWords.length >= 7) {
-              setDailyWordsCompleted(true);
-              setShowDailyWordsModal(false);
               // حفظ حالة إكمال الكلمات اليوم
               localStorage.setItem("dailyWordsCompletedDate", today);
-            } else {
-              // دائماً اعرض البوب إذا لم تكتمل الكلمات
-              setShowDailyWordsModal(true);
-              setDailyWordsCompleted(false);
-              // حفظ حالة عرض البوب اليوم
-              localStorage.setItem("dailyWordsModalShownDate", today);
             }
           } else {
             setDailyWordsCompleted(true);
@@ -850,36 +847,84 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-2 sm:p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 sm:p-6 md:p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto mx-2">
             <div className="text-center mb-8">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                <Target className="w-8 h-8 text-white" />
+              <div
+                className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                  dailyWordsCompleted
+                    ? "bg-gradient-to-br from-emerald-500 to-green-600"
+                    : "bg-gradient-to-br from-blue-500 to-indigo-600"
+                }`}
+              >
+                {dailyWordsCompleted ? (
+                  <Check className="w-8 h-8 text-white" />
+                ) : (
+                  <Target className="w-8 h-8 text-white" />
+                )}
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-3">
-                🎯 الكلمات اليومية
+                {dailyWordsCompleted
+                  ? "🎉 الكلمات اليومية مكتملة"
+                  : "🎯 الكلمات اليومية"}
               </h2>
               <p className="text-slate-600 dark:text-slate-400 text-base sm:text-lg mb-4 px-2">
-                يجب عليك التفاعل مع جميع الكلمات اليومية قبل قراءة القصة
+                {dailyWordsCompleted
+                  ? "🎉 تم إكمال جميع الكلمات اليومية! يمكنك الآن قراءة القصة أو مراجعتها مرة أخرى"
+                  : "يجب عليك التفاعل مع جميع الكلمات اليومية قبل قراءة القصة"}
               </p>
             </div>
 
             {/* Progress Bar */}
-            <div className="mb-8 p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+            <div
+              className={`mb-8 p-4 sm:p-6 rounded-xl border ${
+                dailyWordsCompleted
+                  ? "bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-emerald-200 dark:border-emerald-800"
+                  : "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800"
+              }`}
+            >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3">
-                  <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  <span className="text-blue-800 dark:text-blue-200 font-semibold text-sm sm:text-base">
+                  {dailyWordsCompleted ? (
+                    <Check className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  )}
+                  <span
+                    className={`font-semibold text-sm sm:text-base ${
+                      dailyWordsCompleted
+                        ? "text-emerald-800 dark:text-emerald-200"
+                        : "text-blue-800 dark:text-blue-200"
+                    }`}
+                  >
                     التقدم: {completedCount} من {wordsToShow.length} كلمة
                   </span>
                 </div>
-                <div className="text-xl sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
+                <div
+                  className={`text-xl sm:text-2xl font-bold ${
+                    dailyWordsCompleted
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-blue-600 dark:text-blue-400"
+                  }`}
+                >
                   {Math.round(progressPercentage)}%
                 </div>
               </div>
-              <div className="w-full h-3 bg-blue-200 dark:bg-blue-800 rounded-full overflow-hidden shadow-inner">
+              <div className="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500 ease-out shadow-sm"
+                  className={`h-full rounded-full transition-all duration-500 ease-out shadow-sm ${
+                    dailyWordsCompleted
+                      ? "bg-gradient-to-r from-emerald-500 to-green-600"
+                      : "bg-gradient-to-r from-blue-500 to-indigo-600"
+                  }`}
                   style={{ width: `${progressPercentage}%` }}
                 ></div>
               </div>
+              {dailyWordsCompleted && (
+                <div className="mt-3 text-center">
+                  <div className="inline-flex items-center gap-2 px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-sm font-medium">
+                    <Check className="w-4 h-4" />
+                    تم إكمال جميع الكلمات اليومية! 🎉
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Daily Words Grid */}
@@ -895,28 +940,46 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                     key={index}
                     className={`group p-4 sm:p-6 rounded-xl border-2 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
                       isCompleted
-                        ? "  shadow-emerald-100 dark:shadow-emerald-900/20"
-                        : "shadow-blue-100 dark:shadow-blue-900/20"
+                        ? dailyWordsCompleted
+                          ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 shadow-emerald-100 dark:shadow-emerald-900/20"
+                          : "border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 shadow-emerald-100 dark:shadow-emerald-900/20"
+                        : "border-blue-300 bg-blue-50 dark:bg-blue-900/20 shadow-blue-100 dark:shadow-blue-900/20"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      <h3
+                        className={`text-lg sm:text-xl font-bold transition-colors ${
+                          dailyWordsCompleted && isCompleted
+                            ? "text-emerald-700 dark:text-emerald-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400"
+                            : "text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                        }`}
+                      >
                         {word.word}
                       </h3>
                       <div className="flex items-center gap-3">
                         {isCompleted && (
-                          <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                              dailyWordsCompleted
+                                ? "bg-emerald-600"
+                                : "bg-emerald-500"
+                            }`}
+                          >
                             <Check className="w-5 h-5 text-white" />
                           </div>
                         )}
                         <div
                           className={`w-4 h-4 rounded-full shadow-sm ${
                             status === "KNOWN"
-                              ? "bg-emerald-500"
+                              ? dailyWordsCompleted
+                                ? "bg-emerald-600"
+                                : "bg-emerald-500"
                               : status === "PARTIALLY_KNOWN"
                               ? "bg-amber-500"
                               : status === "UNKNOWN"
                               ? "bg-rose-500"
+                              : dailyWordsCompleted
+                              ? "bg-emerald-600"
                               : "bg-blue-500"
                           }`}
                         ></div>
@@ -924,7 +987,13 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                     </div>
 
                     <div className="mb-4">
-                      <p className="text-slate-700 dark:text-slate-300 text-sm sm:text-base leading-relaxed mb-3">
+                      <p
+                        className={`text-sm sm:text-base leading-relaxed mb-3 ${
+                          dailyWordsCompleted && isCompleted
+                            ? "text-emerald-700 dark:text-emerald-300"
+                            : "text-slate-700 dark:text-slate-300"
+                        }`}
+                      >
                         {word.meaning}
                       </p>
                       {word.sentence && (
@@ -937,6 +1006,14 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                               "{word.sentence_ar}"
                             </p>
                           )}
+                        </div>
+                      )}
+                      {isCompleted && dailyWordsCompleted && (
+                        <div className="mt-3 text-center">
+                          <div className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-medium">
+                            <Check className="w-3 h-3" />
+                            مكتملة
+                          </div>
                         </div>
                       )}
                     </div>
@@ -966,7 +1043,9 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                           wordStatus[word.word] === option.status;
                         const colorClasses = {
                           emerald: isSelected
-                            ? "bg-emerald-500 text-white shadow-lg ring-2 ring-emerald-200 dark:ring-emerald-400"
+                            ? dailyWordsCompleted
+                              ? "bg-emerald-600 text-white shadow-lg ring-2 ring-emerald-300 dark:ring-emerald-500"
+                              : "bg-emerald-500 text-white shadow-lg ring-2 ring-emerald-200 dark:ring-emerald-400"
                             : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-800/50",
                           amber: isSelected
                             ? "bg-amber-500 text-white shadow-lg ring-2 ring-amber-200 dark:ring-amber-400"
@@ -985,10 +1064,15 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                                 option.status as any
                               )
                             }
+                            disabled={dailyWordsCompleted}
                             className={`flex-1 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center justify-center gap-1 sm:gap-2 transform hover:scale-105 ${
                               colorClasses[
                                 option.color as keyof typeof colorClasses
                               ]
+                            } ${
+                              dailyWordsCompleted
+                                ? "opacity-50 cursor-not-allowed"
+                                : ""
                             }`}
                           >
                             <option.icon className="w-3 h-3 sm:w-3 sm:h-3" />
@@ -1000,6 +1084,37 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                   </div>
                 );
               })}
+            </div>
+
+            {/* Close Button */}
+            <div className="flex justify-center mt-6 sm:mt-8">
+              {dailyWordsCompleted ? (
+                <div className="text-center space-y-4">
+                  <div className="text-emerald-600 dark:text-emerald-400 text-sm">
+                    🎉 يمكنك الآن قراءة القصة أو مراجعة الكلمات
+                  </div>
+                  <button
+                    onClick={() => setShowDailyWordsModal(false)}
+                    className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center gap-2 sm:gap-3 shadow-lg hover:shadow-xl font-medium text-sm sm:text-base"
+                  >
+                    <Check className="w-4 h-4 sm:w-5 sm:h-5" />
+                    متابعة القراءة
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center space-y-4">
+                  <div className="text-blue-600 dark:text-blue-400 text-sm">
+                    💡 أكمل جميع الكلمات اليومية لفتح القصة
+                  </div>
+                  <button
+                    onClick={() => setShowDailyWordsModal(false)}
+                    className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-xl hover:from-slate-600 hover:to-slate-700 transition-all duration-200 flex items-center gap-2 sm:gap-3 shadow-lg hover:shadow-xl font-medium text-sm sm:text-base"
+                  >
+                    <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                    إغلاق
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1065,6 +1180,35 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                 ) : (
                   <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowDailyWordsModal(true);
+                  setDailyWordsCompleted(false);
+                }}
+                className={`px-2 sm:px-3 py-2 sm:py-2.5 rounded-xl transition-all duration-200 flex items-center gap-1 sm:gap-2 shadow-lg hover:shadow-xl hover:scale-105 font-medium text-xs sm:text-sm ${
+                  dailyWordsCompleted
+                    ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:from-emerald-600 hover:to-green-700"
+                    : "bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700"
+                }`}
+                title={
+                  dailyWordsCompleted
+                    ? "مراجعة الكلمات اليومية المكتملة"
+                    : "إعادة فتح الكلمات اليومية"
+                }
+              >
+                {dailyWordsCompleted ? (
+                  <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                ) : (
+                  <Target className="w-3 h-3 sm:w-4 sm:h-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {dailyWordsCompleted ? "الكلمات المكتملة" : "الكلمات اليومية"}
+                </span>
+                <span className="sm:hidden">
+                  {dailyWordsCompleted ? "مكتملة" : "اليومية"}
+                </span>
               </button>
 
               <button
@@ -1481,18 +1625,9 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                 className="flex-1 px-6 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl font-medium"
               >
                 <Home className="w-4 h-4" />
-                القصص
+                 العودة الى القصص
               </button>
-              <button
-                onClick={() => {
-                  setShowCompletionModal(false);
-                  navigate("/story-exam", { state: { story: currentStory } });
-                }}
-                className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl font-medium"
-              >
-                <GraduationCap className="w-4 h-4" />
-                اختبار
-              </button>
+              
             </div>
           </div>
         </div>

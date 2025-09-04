@@ -380,92 +380,6 @@ export const StoriesPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Progress Summary */}
-        {(stories.length > 0 || stats.totalCount > 0 || !loading) && (
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-3xl shadow-xl p-6 sm:p-8 border border-white/20 dark:border-gray-700/50">
-            <div className="text-center mb-6">
-              <h2 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                📈 ملخص التقدم
-              </h2>
-              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-                تتبع إنجازاتك في القراءة
-              </p>
-            </div>
-
-            {stories.length === 0 && stats.totalCount === 0 ? (
-              <div className="text-center py-8">
-                <div className="text-6xl mb-4">📚</div>
-                <h3 className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-2">
-                  لا توجد قصص بعد
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-6">
-                  ابدأ رحلتك التعليمية بطلب قصة جديدة
-                </p>
-                <button
-                  onClick={async () => {
-                    try {
-                      setDailyStoryLoading(true);
-                      const response = await apiClient.post(
-                        API_ENDPOINTS.DAILY_STORIES.REQUEST,
-                        {}
-                      );
-                      if (response.success) {
-                        await fetchDailyStory();
-                        await fetchRemainingDailyRequests();
-                        await fetchAllDailyStories();
-                      }
-                    } catch (error) {
-                      console.error("Error requesting new story:", error);
-                    } finally {
-                      setDailyStoryLoading(false);
-                    }
-                  }}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105 shadow-lg"
-                >
-                  🚀 طلب قصة جديدة
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
-                <div className="text-center bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl p-4 sm:p-6">
-                  <div className="text-2xl sm:text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
-                    {stats.completedCount ||
-                      stories.filter((s) => s.isCompleted).length}
-                  </div>
-                  <p className="text-sm sm:text-base text-blue-700 dark:text-blue-300 font-medium">
-                    قصص مكتملة
-                  </p>
-                </div>
-                <div className="text-center bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 rounded-2xl p-4 sm:p-6">
-                  <div className="text-2xl sm:text-4xl font-bold text-orange-600 dark:text-orange-400 mb-2">
-                    {(stats.totalCount || stories.length) -
-                      (stats.completedCount ||
-                        stories.filter((s) => s.isCompleted).length)}
-                  </div>
-                  <p className="text-sm sm:text-base text-orange-700 dark:text-orange-300 font-medium">
-                    قصص متبقية
-                  </p>
-                </div>
-                <div className="text-center bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/30 rounded-2xl p-4 sm:p-6">
-                  <div className="text-2xl sm:text-4xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
-                    {(stats.totalCount || stories.length) > 0
-                      ? Math.round(
-                          ((stats.completedCount ||
-                            stories.filter((s) => s.isCompleted).length) /
-                            (stats.totalCount || stories.length)) *
-                            100
-                        )
-                      : 0}
-                    %
-                  </div>
-                  <p className="text-sm sm:text-base text-emerald-700 dark:text-emerald-300 font-medium">
-                    نسبة الإكمال
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

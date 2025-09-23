@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../../core/utils/api";
 import { API_ENDPOINTS } from "../../../core/config/api";
 import { Loading } from "../../../presentation/components";
@@ -104,6 +105,7 @@ const validateUserData = (
 };
 
 export const AdminUsersPage: React.FC = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1084,6 +1086,16 @@ export const AdminUsersPage: React.FC = () => {
                             <p className="text-sm text-gray-600 dark:text-gray-400">
                               {user.email}
                             </p>
+                            {user.role === "USER" && (
+                              <button
+                                onClick={() =>
+                                  navigate(`/admin/students/${user.id}`)
+                                }
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium mt-1"
+                              >
+                                عرض التفاصيل →
+                              </button>
+                            )}
                           </div>
                         </div>
                         <button
@@ -1275,6 +1287,16 @@ export const AdminUsersPage: React.FC = () => {
                                 <p className="text-sm text-gray-500 dark:text-gray-400">
                                   ID: {user.id.slice(0, 8)}...
                                 </p>
+                                {user.role === "USER" && (
+                                  <button
+                                    onClick={() =>
+                                      navigate(`/admin/students/${user.id}`)
+                                    }
+                                    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium mt-1"
+                                  >
+                                    عرض التفاصيل →
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -1748,7 +1770,7 @@ export const AdminUsersPage: React.FC = () => {
                         ))}
                       </select>
 
-                        <label className="block text-sm font-bold text-gray-700 dark:text-white">
+                      <label className="block text-sm font-bold text-gray-700 dark:text-white">
                         المدرب المسؤول <span className="text-red-500">*</span>
                       </label>
                       {isLoadingTrainers ? (
@@ -1898,7 +1920,7 @@ export const AdminUsersPage: React.FC = () => {
                       onChange={(e) =>
                         setEditingUser({ ...editingUser, name: e.target.value })
                       }
-                        className="w-full px-4 py-3  bg-black dark:bg-white border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
+                      className="w-full px-4 py-3  bg-black dark:bg-white border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 text-right shadow-inner"
                       placeholder="Enter user name (English only)"
                       required
                       minLength={2}
@@ -1928,7 +1950,7 @@ export const AdminUsersPage: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-700 dark:text-white">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       البريد الإلكتروني
                     </label>
                     <input
@@ -2007,7 +2029,7 @@ export const AdminUsersPage: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                      <label className="block text-sm font-bold text-gray-700 dark:text-white">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-white">
                       كلمة المرور الجديدة (اختياري)
                     </label>
                     <div className="relative">
@@ -2072,9 +2094,7 @@ export const AdminUsersPage: React.FC = () => {
                       </button>
                     </div>
                   </div>
-
                 </div>
-
 
                 <div className="flex gap-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-600">
                   <button

@@ -7,6 +7,7 @@ export const ROUTE_ACCESS = {
         ROUTES.ADMIN_DASHBOARD,
         ROUTES.ADMIN_OVERVIEW,
         ROUTES.ADMIN_USERS,
+        ROUTES.ADMIN_STUDENT_DETAILS,
         ROUTES.ADMIN_CONTENT,
         ROUTES.ADMIN_ACHIEVEMENTS,
         '/admin/*',
@@ -59,7 +60,7 @@ export const validateUser = (user: any): boolean => {
 
 // Strict authentication validation function
 export const validateAuthentication = (user: any, isAuthenticated: boolean): boolean => {
-    if (!isAuthenticated || !user) {    
+    if (!isAuthenticated || !user) {
         return false;
     }
 
@@ -140,7 +141,7 @@ export const validateRouteAccess = (currentPath: string, userRole: string | unde
 };
 
 // Get appropriate redirect path based on user role
-export const getRedirectPath = (userRole: string | undefined): string => {  
+export const getRedirectPath = (userRole: string | undefined): string => {
 
     switch (userRole) {
         case USER_ROLES.ADMIN:

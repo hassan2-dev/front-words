@@ -30,9 +30,9 @@ import { NotificationsPage } from "./features/notifications/pages/NotificationsP
 import { RoleBasedRoute } from "./core/guards/RoleBasedRoute";
 import { ProfilePage } from "./features/profile/pages/ProfilePage";
 import {
-
   AdminOverviewPage,
   AdminUsersPage,
+  AdminStudentDetailsPage,
   AdminContentPage,
 } from "./features/admin/pages";
 import { TrainerDashboard } from "./features/trainer/pages/TrainerDashboard";
@@ -125,7 +125,7 @@ const App: React.FC = () => {
                 />
 
                 {/* Admin Routes */}
-               
+
                 <Route
                   path="admin"
                   element={
@@ -139,6 +139,14 @@ const App: React.FC = () => {
                   element={
                     <RoleBasedRoute allowedRoles={["ADMIN"]}>
                       <AdminUsersPage />
+                    </RoleBasedRoute>
+                  }
+                />
+                <Route
+                  path="admin/students/:studentId"
+                  element={
+                    <RoleBasedRoute allowedRoles={["ADMIN"]}>
+                      <AdminStudentDetailsPage />
                     </RoleBasedRoute>
                   }
                 />
@@ -169,7 +177,7 @@ const App: React.FC = () => {
                     </RoleBasedRoute>
                   }
                 />
-                
+
                 <Route
                   path="trainer/students"
                   element={
@@ -194,7 +202,7 @@ const App: React.FC = () => {
                     </RoleBasedRoute>
                   }
                 />
-             
+
                 <Route
                   path="trainer/activities"
                   element={
@@ -202,7 +210,7 @@ const App: React.FC = () => {
                       <TrainerActivitiesPage />
                     </RoleBasedRoute>
                   }
-                />  
+                />
                 <Route
                   path="trainer/notifications"
                   element={

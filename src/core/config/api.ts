@@ -148,6 +148,13 @@ export const API_ENDPOINTS = {
       BULK_TOGGLE_STATUS: '/admin/users/bulk-toggle-status',
     },
 
+    // Student Details Management
+    STUDENT_STATS: (studentId: string) => `/admin/students/${studentId}/stats`,
+    STUDENT_STORIES: (studentId: string) => `/admin/students/${studentId}/stories`,
+    STUDENT_ACHIEVEMENTS: (studentId: string) => `/admin/students/${studentId}/achievements`,
+    STUDENT_WORDS: (studentId: string) => `/admin/students/${studentId}/words`,
+    UPGRADE_STUDENT: (studentId: string) => `/admin/students/${studentId}/upgrade`,
+
     // Content Management
     CONTENT: {
       WORDS: {

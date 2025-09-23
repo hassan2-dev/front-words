@@ -73,6 +73,7 @@ export const ROUTES = {
     ADMIN_DASHBOARD: '/admin',
     ADMIN_OVERVIEW: '/admin/overview',
     ADMIN_USERS: '/admin/users',
+    ADMIN_STUDENT_DETAILS: '/admin/students/:studentId',
     ADMIN_CONTENT: '/admin/content',
     ADMIN_ANALYTICS: '/admin/analytics',
     ADMIN_SETTINGS: '/admin/settings',

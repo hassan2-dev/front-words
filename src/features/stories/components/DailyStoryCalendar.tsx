@@ -9,15 +9,15 @@ const Loading = ({
 }) => {
   if (isOverlay) {
     return (
-      <div className="absolute inset-0 bg-black/20 rounded-xl flex items-center justify-center">
-        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+      <div className="absolute inset-0 bg-gray-50/80 rounded-lg flex items-center justify-center backdrop-blur-sm">
+        <div className="w-4 h-4 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
   return (
     <div className="flex items-center justify-center p-4">
-      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
-      <span className="text-sm text-gray-600">{text}</span>
+      <div className="w-5 h-5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+      <span className="text-sm text-gray-600 dark:text-gray-400">{text}</span>
     </div>
   );
 };
@@ -452,22 +452,22 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
   };
 
   const weekDays = [
-    { en: "Monday", ar: "الإثنين", short: "Mon" },
-    { en: "Tuesday", ar: "الثلاثاء", short: "Tue" },
-    { en: "Wednesday", ar: "الأربعاء", short: "Wed" },
-    { en: "Thursday", ar: "الخميس", short: "Thu" },
-    { en: "Friday", ar: "الجمعة", short: "Fri" },
-    { en: "Saturday", ar: "السبت", short: "Sat" },
-    { en: "Sunday", ar: "الأحد", short: "Sun" },
+    { en: "Monday", ar: "الإثنين", short: "M" },
+    { en: "Tuesday", ar: "الثلاثاء", short: "T" },
+    { en: "Wednesday", ar: "الأربعاء", short: "W" },
+    { en: "Thursday", ar: "الخميس", short: "T" },
+    { en: "Friday", ar: "الجمعة", short: "F" },
+    { en: "Saturday", ar: "السبت", short: "S" },
+    { en: "Sunday", ar: "الأحد", short: "S" },
   ];
 
   // عرض حالة التحميل أو الخطأ
   if (calendarLoading) {
     return (
-      <div className="w-full max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden">
-        <div className="p-8 text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">
+      <div className="w-full max-w-6xl mx-auto bg-white dark:bg-gray-900 rounded-lg shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700">
+        <div className="p-6 sm:p-8 text-center">
+          <div className="w-8 h-8 border-3 border-slate-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
             جاري تحميل التقويم...
           </p>
         </div>
@@ -477,11 +477,11 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
 
   if (calendarError) {
     return (
-      <div className="w-full max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden">
-        <div className="p-8 text-center">
-          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+      <div className="w-full max-w-6xl mx-auto bg-white dark:bg-gray-900 rounded-lg shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700">
+        <div className="p-6 sm:p-8 text-center">
+          <div className="w-12 h-12 bg-red-50 dark:bg-red-900/20 rounded-lg flex items-center justify-center mx-auto mb-4 border border-red-200 dark:border-red-800">
             <svg
-              className="w-8 h-8 text-red-500"
+              className="w-6 h-6 text-red-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -494,7 +494,7 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
               />
             </svg>
           </div>
-          <p className="text-red-600 dark:text-red-400 mb-2">
+          <p className="text-red-600 dark:text-red-400 mb-2 font-semibold">
             خطأ في تحميل التقويم
           </p>
           <p className="text-gray-600 dark:text-gray-400 text-sm">
@@ -506,113 +506,135 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden">
-      {/* Header Section with Gradient Background */}
-      <div className="relative bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-6 text-white">
-        <div className="absolute inset-0 bg-black/10 backdrop-blur-sm"></div>
-        <div className="relative z-10">
-          {/* Month Navigation with Arrows and Month Name */}
-          <div className="flex items-center justify-center gap-6 mb-6">
-            {/* Previous Month Arrow */}
-            <button
-              onClick={goToPreviousMonth}
-              disabled={!canGoToPreviousMonth()}
-              className={`
-                p-4 rounded-2xl transition-all duration-200 backdrop-blur-sm
-                ${
-                  canGoToPreviousMonth()
-                    ? "bg-white/20 hover:bg-white/30 text-white shadow-lg hover:shadow-xl transform hover:scale-105"
-                    : "bg-white/10 text-white/50 cursor-not-allowed"
-                }
-              `}
-              title="Previous Month"
+    <div className="w-full max-w-6xl mx-auto bg-white dark:bg-gray-900 rounded-lg shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700">
+      {/* Header Section - Professional Design */}
+      <div className="bg-slate-700 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-600">
+        {/* Month Navigation */}
+        <div className="flex items-center justify-between p-4 sm:p-6">
+          {/* Previous Month Button */}
+          <button
+            onClick={goToPreviousMonth}
+            disabled={!canGoToPreviousMonth()}
+            className={`
+              flex items-center justify-center w-10 h-10 rounded-lg border transition-all duration-200
+              ${
+                canGoToPreviousMonth()
+                  ? "border-slate-500 bg-slate-600 hover:bg-slate-500 text-white active:scale-95 shadow-sm"
+                  : "border-slate-600 bg-slate-700 text-slate-400 cursor-not-allowed"
+              }
+            `}
+            title="الشهر السابق"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
 
-            {/* Month Name and Stats */}
-            <div className="text-center">
-              <h2 className="text-3xl md:text-4xl font-bold mb-3">
-                {monthName}
-              </h2>
-              {monthStats.hasStories && (
-                <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-white/90">
-                  <span className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-blue-300 rounded-full"></div>
-                    {monthStats.totalStories} Stories
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-green-300 rounded-full"></div>
-                    {monthStats.completedStories} Completed
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-yellow-300 rounded-full"></div>
-                    {monthStats.averageProgress}% Progress
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Next Month Arrow */}
+          {/* Month Name and Year - Professional Typography */}
+          <div className="text-center flex-1 mx-4">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-white mb-2">
+              {monthName}
+            </h2>
+            {/* Today Button */}
             <button
-              onClick={goToNextMonth}
-              disabled={!canGoToNextMonth()}
-              className={`
-                p-4 rounded-2xl transition-all duration-200 backdrop-blur-sm
-                ${
-                  canGoToNextMonth()
-                    ? "bg-white/20 hover:bg-white/30 text-white shadow-lg hover:shadow-xl transform hover:scale-105"
-                    : "bg-white/10 text-white/50 cursor-not-allowed"
-                }
-              `}
-              title="Next Month"
+              onClick={goToToday}
+              className="text-slate-300 hover:text-white text-sm font-medium px-3 py-1 rounded-md hover:bg-slate-600 transition-colors duration-200 border border-slate-600 hover:border-slate-500"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+              اليوم
             </button>
           </div>
+
+          {/* Next Month Button */}
+          <button
+            onClick={goToNextMonth}
+            disabled={!canGoToNextMonth()}
+            className={`
+              flex items-center justify-center w-10 h-10 rounded-lg border transition-all duration-200
+              ${
+                canGoToNextMonth()
+                  ? "border-slate-500 bg-slate-600 hover:bg-slate-500 text-white active:scale-95 shadow-sm"
+                  : "border-slate-600 bg-slate-700 text-slate-400 cursor-not-allowed"
+              }
+            `}
+            title="الشهر التالي"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+          </button>
         </div>
+
+        {/* Month Statistics - Clean Card Design */}
+        {monthStats.hasStories && (
+          <div className="mx-4 sm:mx-6 mb-4 sm:mb-6">
+            <div className="bg-slate-600/50 backdrop-blur-sm rounded-lg p-3 sm:p-4 border border-slate-500/30">
+              <div className="grid grid-cols-3 gap-3 text-center text-white">
+                <div className="flex flex-col space-y-1">
+                  <span className="text-lg sm:text-xl font-bold">
+                    {monthStats.totalStories}
+                  </span>
+                  <span className="text-xs sm:text-sm text-slate-300 font-medium">
+                    إجمالي القصص
+                  </span>
+                </div>
+                <div className="flex flex-col space-y-1 border-x border-slate-500/30 px-2">
+                  <span className="text-lg sm:text-xl font-bold text-emerald-300">
+                    {monthStats.completedStories}
+                  </span>
+                  <span className="text-xs sm:text-sm text-slate-300 font-medium">
+                    مكتملة
+                  </span>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <span className="text-lg sm:text-xl font-bold text-amber-300">
+                    {monthStats.averageProgress}%
+                  </span>
+                  <span className="text-xs sm:text-sm text-slate-300 font-medium">
+                    متوسط التقدم
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Calendar Content */}
-      <div className="p-6">
-        {/* Week Header */}
-        <div className="grid grid-cols-7 mb-4">
+      <div className="p-4 sm:p-6">
+        {/* Week Header - Clean Typography */}
+        <div className="grid grid-cols-7 mb-4 border-b border-gray-200 dark:border-gray-700">
           {weekDays.map((day, idx) => (
             <div key={day.en} className="text-center py-3">
-              <div className="text-sm font-bold text-gray-700 dark:text-gray-300">
-                <span className="hidden sm:inline">{day.en}</span>
+              <div className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                <span className="hidden sm:block">{day.en.substring(0, 3)}</span>
                 <span className="sm:hidden">{day.short}</span>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Days Grid */}
-        <div className="grid grid-cols-7 gap-2 md:gap-3">
+        {/* Days Grid - Professional Clean Design */}
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {days.map((item, idx) => {
             if (!item) {
               return <div key={`empty-${idx}`} className="aspect-square" />;
@@ -629,74 +651,58 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
                   disabled={isDisabled || isLoading}
                   onClick={() => handleDateClick(item)}
                   className={`
-                    w-full aspect-square rounded-2xl flex flex-col items-center justify-center
-                    transition-all duration-300 ease-out relative overflow-hidden font-semibold
+                    w-full aspect-square rounded-lg flex flex-col items-center justify-center
+                    transition-all duration-200 ease-out relative overflow-hidden border
+                    text-sm sm:text-base font-medium
                     ${
                       isToday
-                        ? "bg-gradient-to-br from-emerald-500 via-teal-500 to-blue-500 text-white shadow-xl transform hover:scale-110 hover:shadow-2xl ring-4 ring-emerald-200"
+                        ? "bg-blue-600 text-white border-blue-700 shadow-md hover:bg-blue-700 hover:shadow-lg transform hover:scale-105"
                         : hasStory
                         ? isCompleted
-                          ? "bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg transform hover:scale-105 hover:shadow-xl"
-                          : "bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 text-white shadow-lg transform hover:scale-105 hover:shadow-xl"
+                          ? "bg-emerald-600 text-white border-emerald-700 shadow-sm hover:bg-emerald-700 hover:shadow-md transform hover:scale-105"
+                          : "bg-indigo-600 text-white border-indigo-700 shadow-sm hover:bg-indigo-700 hover:shadow-md transform hover:scale-105"
                         : isPastMonth
-                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600"
-                        : "bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 hover:shadow-md border border-gray-200 dark:border-gray-600"
+                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 border-gray-200 dark:border-gray-700"
+                        : "bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 border-gray-200 dark:border-gray-600"
                     }
                     ${
                       isDisabled
                         ? "opacity-50 cursor-not-allowed"
-                        : "cursor-pointer"
+                        : "cursor-pointer hover:shadow-md"
                     }
                   `}
                   title={
                     isToday
-                      ? "Today's Story - Click to Read"
+                      ? "قصة اليوم - اضغط للقراءة"
                       : hasStory
                       ? isCompleted
-                        ? `Completed Story (${progress}%) - Click to Re-read`
-                        : `Available Story (${progress}%) - Click to Read`
-                      : "No Story Available"
+                        ? `قصة مكتملة (${progress}%) - اضغط لإعادة القراءة`
+                        : `قصة متاحة (${progress}%) - اضغط للقراءة`
+                      : "لا توجد قصة متاحة"
                   }
                 >
-                  {/* Animated background for today */}
-                  {isToday && (
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
-                  )}
-
                   {/* Day number */}
-                  <span className={`text-lg md:text-xl font-bold z-10`}>
+                  <span className="font-semibold text-sm sm:text-base">
                     {item.day}
                   </span>
 
-                  {/* Story indicators */}
+                  {/* Story indicators - Clean Design */}
                   {hasStory && (
-                    <div className="mt-1 z-10 flex flex-col items-center">
+                    <div className="mt-1 flex flex-col items-center space-y-1">
                       {isLoading && isToday ? (
-                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                        <div className="w-2 h-2 sm:w-3 sm:h-3 border border-white border-t-transparent rounded-full animate-spin" />
                       ) : (
                         <>
-                          <div
-                            className={`px-2 py-1 rounded-lg text-xs font-bold ${
-                              isCompleted
-                                ? "bg-emerald-200/40 text-white"
-                                : "bg-white/30 text-white"
-                            }`}
-                          >
-                            <span className="hidden sm:inline">
-                              {isCompleted ? `✓ ${progress}%` : `${progress}%`}
-                            </span>
-                            <span className="sm:hidden">
-                              {isCompleted ? "✓" : `${progress}%`}
-                            </span>
+                          {/* Progress indicator - Simplified */}
+                          <div className="text-xs font-medium px-1.5 py-0.5 rounded bg-white/20 text-white">
+                            {isCompleted ? "✓" : `${progress}%`}
                           </div>
 
-                          {/* Progress bar */}
+                          {/* Progress bar - Subtle */}
                           {progress > 0 && (
-                            <div className="w-8 h-1 bg-white/30 rounded-full mt-1 overflow-hidden">
+                            <div className="hidden sm:block w-5 h-0.5 bg-white/30 rounded-full overflow-hidden">
                               <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  isCompleted ? "bg-white" : "bg-white/80"
-                                }`}
+                                className="h-full bg-white rounded-full transition-all duration-300"
                                 style={{ width: `${progress}%` }}
                               />
                             </div>
@@ -711,12 +717,12 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
                     <Loading variant="video" text="" isOverlay={true} />
                   )}
 
-                  {/* Status indicators */}
+                  {/* Completed indicator - Minimalist */}
                   {hasStory && isCompleted && (
-                    <div className="absolute top-2 right-2">
-                      <div className="w-3 h-3 bg-white rounded-full flex items-center justify-center">
+                    <div className="absolute top-1 right-1">
+                      <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-white/30 rounded-full flex items-center justify-center border border-white/50">
                         <svg
-                          className="w-2 h-2 text-green-500"
+                          className="w-1 h-1 sm:w-1.5 sm:h-1.5 text-white"
                           fill="currentColor"
                           viewBox="0 0 20 20"
                         >
@@ -730,37 +736,30 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
                     </div>
                   )}
                 </button>
-
-                {/* Hover effect */}
-                {(isToday || hasStory) && !isDisabled && (
-                  <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-2xl" />
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
 
-        {/* Legend */}
-        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-xl shadow-lg ring-2 ring-emerald-200" />
-              <span className="text-gray-700 dark:text-gray-300 font-semibold">
-                Today
+        {/* Legend - Professional Clean Design */}
+        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs sm:text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-blue-600 rounded border border-blue-700 shadow-sm" />
+              <span className="text-gray-700 dark:text-gray-300 font-medium">
+                اليوم
               </span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg" />
-              <span className="text-gray-700 dark:text-gray-300 font-semibold">
-                Available
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-indigo-600 rounded border border-indigo-700 shadow-sm" />
+              <span className="text-gray-700 dark:text-gray-300 font-medium">
+                متاحة
               </span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg flex items-center justify-center">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-emerald-600 rounded border border-emerald-700 shadow-sm flex items-center justify-center">
                 <svg
-                  className="w-3 h-3 text-white"
+                  className="w-2 h-2 text-white"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -771,14 +770,14 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
                   />
                 </svg>
               </div>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                Completed
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                مكتملة
               </span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-5 h-5 bg-gray-200 dark:bg-gray-600 rounded-xl shadow-lg" />
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-gray-200 dark:bg-gray-600 rounded border border-gray-300 dark:border-gray-500 shadow-sm" />
               <span className="text-gray-500 dark:text-gray-400 font-medium">
-                Coming Soon
+                قريباً
               </span>
             </div>
           </div>

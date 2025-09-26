@@ -397,7 +397,7 @@ export const submitDailyExam = (data: {
     level: string;
     points: number
 }) =>
-        apiClient.post<ApiResponse<any>>(API_ENDPOINTS.DAILY_STORIES.COMPLETE, data);
+    apiClient.post<ApiResponse<any>>(API_ENDPOINTS.DAILY_STORIES.COMPLETE, data);
 
 // --- LESSONS (Trainer) ---
 export const addLesson = (data: { title: string; content: string }) =>
@@ -670,4 +670,68 @@ export const isEmptyResponse = <T>(response: ApiResponse<T>): boolean => {
         !response.message &&
         response.achievements.length === 0 &&
         response.totalPoints === 0;
-}; 
+};
+
+// Stories Calendar API
+export const getStoriesCalendar = (studentId: string, year?: number) => {
+    const endpoint = API_ENDPOINTS.DAILY_STORIES.CALENDAR(studentId, year);
+    console.log("🔗 Generated endpoint:", endpoint);
+    console.log("📊 Student ID:", studentId, "Year:", year);
+    return apiClient.get<ApiResponse<{
+        year: number;
+        calendar: Array<{
+            month: number;
+            monthName: string;
+            days: Array<{
+                day: number;
+                date: string;
+                hasStory: boolean;
+                story?: {
+                    id: string;
+                    title: string;
+                    level: string;
+                    isCompleted: boolean;
+                    totalWords: number;
+                    learnedWords: number;
+                    progressPercentage: number;
+                };
+            }>;
+        }>;
+        statistics: {
+            totalStories: number;
+            completedStories: number;
+            totalWords: number;
+            learnedWords: number;
+            averageProgress: number;
+            readingStreak: number;
+        };
+    }>>(endpoint);
+};
+
+export const getStoryByDate = (studentId: string, date: string) => {
+    const endpoint = API_ENDPOINTS.DAILY_STORIES.STORY_BY_DATE(studentId, date);
+    console.log("🔗 Generated story by date endpoint:", endpoint);
+    console.log("📊 Student ID:", studentId, "Date:", date);
+    return apiClient.get<ApiResponse<{
+        hasStory: boolean;
+        story?: {
+            id: string;
+            title: string;
+            content: string;
+            translation: string;
+            level: string;
+            isCompleted: boolean;
+            totalWords: number;
+            learnedWords: number;
+            progressPercentage: number;
+            words: Array<{
+                word: string;
+                meaning: string;
+                status: string;
+                sentence: string;
+                sentence_ar: string;
+            }>;
+            date: string;
+        };
+    }>>(endpoint);
+};

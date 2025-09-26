@@ -325,6 +325,7 @@ export const StoriesPage: React.FC = () => {
                     {/* Calendar */}
                     <div className="bg-white dark:bg-gray-700 rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-200 dark:border-gray-600">
                       <DailyStoryCalendar
+                        studentId={user?.id || ""}
                         isLoading={dailyStoryLoading}
                         isCompleted={Boolean(dailyStory.isCompleted)}
                         onSelectToday={handleDailyStoryClick}
@@ -379,7 +380,6 @@ export const StoriesPage: React.FC = () => {
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );

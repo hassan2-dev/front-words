@@ -56,6 +56,11 @@ export const API_ENDPOINTS = {
     COMPLETE: '/stories/daily/story/complete',
     // التحقق من إمكانية المتابعة
     CAN_PROCEED: '/stories/daily/story/can-proceed',
+    // تقويم القصص للطالب
+    CALENDAR: (studentId: string, year?: number) =>
+      `/stories/calendar/${studentId}${year ? `?year=${year}` : ''}`,
+    STORY_BY_DATE: (studentId: string, date: string) =>
+      `/stories/calendar/${studentId}/story/${date}`,
   },
 
   // ===== AI =====

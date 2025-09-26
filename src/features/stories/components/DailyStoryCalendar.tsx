@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { RiArrowLeftLine, RiArrowRightLine } from "react-icons/ri";
+import { getStoriesCalendar, getStoryByDate } from "../../../core/utils/api";
 
 const Loading = ({
   variant = "default",
@@ -37,6 +38,7 @@ interface Story {
 }
 
 interface DailyStoryCalendarProps {
+  studentId: string;
   monthDate?: Date;
   isLoading?: boolean;
   isCompleted?: boolean;
@@ -47,6 +49,7 @@ interface DailyStoryCalendarProps {
 }
 
 export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
+  studentId,
   monthDate = new Date(),
   isLoading = false,
   isCompleted = false,
@@ -56,6 +59,70 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
   onMonthChange,
 }) => {
   const [currentMonth, setCurrentMonth] = useState(monthDate);
+  const [calendarData, setCalendarData] = useState<any>(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+
+  // جلب بيانات التقويم من API
+  useEffect(() => {
+    const fetchCalendarData = async () => {
+      // محاولة الحصول على studentId من localStorage إذا لم يتم تمريره
+      let actualStudentId = studentId;
+
+      if (!actualStudentId) {
+        try {
+          const userData = localStorage.getItem("letspeak_user_data");
+          if (userData) {
+            const parsed = JSON.parse(userData);
+            actualStudentId = parsed.user?.id;
+            console.log("🔍 Found studentId in localStorage:", actualStudentId);
+          }
+        } catch (error) {
+          console.error("❌ Error parsing user data from localStorage:", error);
+        }
+      }
+
+      if (!actualStudentId) {
+        console.log("❌ No studentId provided and not found in localStorage");
+        return;
+      }
+
+      console.log(
+        "🔄 Fetching calendar data for student:",
+        actualStudentId,
+        "year:",
+        currentMonth.getFullYear()
+      );
+      setCalendarLoading(true);
+      setCalendarError(null);
+
+      try {
+        const year = currentMonth.getFullYear();
+        console.log(
+          "📡 Making API call to:",
+          `/stories/calendar/${actualStudentId}?year=${year}`
+        );
+        const response = await getStoriesCalendar(actualStudentId, year);
+
+        console.log("📥 API Response:", response);
+
+        if (response.success && response.data) {
+          console.log("✅ Calendar data received:", response.data);
+          setCalendarData(response.data);
+        } else {
+          console.log("❌ API call failed:", response);
+          setCalendarError("فشل في جلب بيانات التقويم");
+        }
+      } catch (error) {
+        console.error("💥 Error fetching calendar data:", error);
+        setCalendarError("حدث خطأ في جلب بيانات التقويم");
+      } finally {
+        setCalendarLoading(false);
+      }
+    };
+
+    fetchCalendarData();
+  }, [studentId, currentMonth.getFullYear()]);
 
   // Baghdad timezone helper
   const getBaghdadDate = (date?: Date) => {
@@ -87,6 +154,33 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
   };
 
   const getStoryForDate = (date: Date): Story | undefined => {
+    // استخدام البيانات من التقويم فقط للعرض
+    if (calendarData && calendarData.calendar) {
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+
+      const monthData = calendarData.calendar.find(
+        (m: any) => m.month === month
+      );
+      if (monthData && monthData.days) {
+        const dayData = monthData.days.find((d: any) => d.day === day);
+        if (dayData && dayData.hasStory && dayData.story) {
+          return {
+            id: dayData.story.id,
+            title: dayData.story.title,
+            date: dayData.date,
+            isCompleted: dayData.story.isCompleted,
+            totalWords: dayData.story.totalWords,
+            knownWordsCount: dayData.story.learnedWords,
+            unknownWordsCount:
+              dayData.story.totalWords - dayData.story.learnedWords,
+            partiallyKnownWordsCount: 0,
+          };
+        }
+      }
+    }
+
+    // Fallback إلى البيانات القديمة
     const dateString = date.toISOString().split("T")[0];
     return stories.find((story) => {
       const storyDate = new Date(story.date);
@@ -98,13 +192,127 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
     });
   };
 
+  const fetchFullStoryForDate = async (
+    date: Date
+  ): Promise<Story | undefined> => {
+    try {
+      const dateString = date.toISOString().split("T")[0];
+      console.log("🔄 Fetching full story data for date:", dateString);
+
+      // التأكد من وجود studentId
+      let actualStudentId = studentId;
+      if (!actualStudentId) {
+        try {
+          const userData = localStorage.getItem("letspeak_user_data");
+          if (userData) {
+            const parsed = JSON.parse(userData);
+            actualStudentId = parsed.user?.id;
+            console.log("🔍 Found studentId in localStorage:", actualStudentId);
+          }
+        } catch (error) {
+          console.error("❌ Error parsing user data from localStorage:", error);
+        }
+      }
+
+      if (!actualStudentId) {
+        console.error("❌ No studentId available for fetching story");
+        return undefined;
+      }
+
+      console.log(
+        "📊 Using studentId:",
+        actualStudentId,
+        "for date:",
+        dateString
+      );
+      const response = await getStoryByDate(actualStudentId, dateString);
+      if (
+        response.success &&
+        response.data &&
+        (response.data as any).hasStory
+      ) {
+        console.log(
+          "✅ Full story data received:",
+          (response.data as any).story
+        );
+
+        const storyData = (response.data as any).story!;
+        return {
+          id: storyData.id,
+          title: storyData.title,
+          date: storyData.date,
+          isCompleted: storyData.isCompleted,
+          totalWords: storyData.totalWords,
+          knownWordsCount: storyData.learnedWords,
+          unknownWordsCount: storyData.totalWords - storyData.learnedWords,
+          partiallyKnownWordsCount: 0,
+          content: storyData.content,
+          translation: storyData.translation,
+          words: storyData.words || [],
+          dailyWords: storyData.words || [],
+        };
+      }
+    } catch (error) {
+      console.error("❌ Error fetching full story data:", error);
+    }
+    return undefined;
+  };
+
   const isDateCompleted = (date: Date): boolean => {
-    const story = getStoryForDate(date);
+    // استخدام البيانات من التقويم أولاً
+    if (calendarData && calendarData.calendar) {
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const monthData = calendarData.calendar.find(
+        (m: any) => m.month === month
+      );
+      if (monthData && monthData.days) {
+        const dayData = monthData.days.find((d: any) => d.day === day);
+        if (dayData && dayData.hasStory && dayData.story) {
+          return dayData.story.isCompleted || false;
+        }
+      }
+    }
+
+    // Fallback إلى البيانات القديمة
+    const dateString = date.toISOString().split("T")[0];
+    const story = stories.find((story) => {
+      const storyDate = new Date(story.date);
+      return (
+        storyDate.toDateString() === date.toDateString() ||
+        story.date === dateString ||
+        storyDate.toISOString().split("T")[0] === dateString
+      );
+    });
     return story?.isCompleted || false;
   };
 
   const getDateProgress = (date: Date): number => {
-    const story = getStoryForDate(date);
+    // استخدام البيانات من التقويم أولاً
+    if (calendarData && calendarData.calendar) {
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const monthData = calendarData.calendar.find(
+        (m: any) => m.month === month
+      );
+      if (monthData && monthData.days) {
+        const dayData = monthData.days.find((d: any) => d.day === day);
+        if (dayData && dayData.hasStory && dayData.story) {
+          return dayData.story.progressPercentage || 0;
+        }
+      }
+    }
+
+    // Fallback إلى البيانات القديمة
+    const dateString = date.toISOString().split("T")[0];
+    const story = stories.find((story) => {
+      const storyDate = new Date(story.date);
+      return (
+        storyDate.toDateString() === date.toDateString() ||
+        story.date === dateString ||
+        storyDate.toISOString().split("T")[0] === dateString
+      );
+    });
     return story ? calculateProgress(story) : 0;
   };
 
@@ -138,6 +346,35 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
   };
 
   const monthStats = useMemo(() => {
+    // استخدام البيانات من API الجديد إذا كانت متاحة
+    if (calendarData && calendarData.calendar) {
+      const monthData = calendarData.calendar.find(
+        (m: any) => m.month === month + 1
+      );
+      if (monthData) {
+        const monthStories = monthData.days.filter((d: any) => d.hasStory);
+        const completedStories = monthStories.filter(
+          (d: any) => d.story?.isCompleted
+        );
+        const totalProgress = monthStories.reduce(
+          (sum: number, d: any) => sum + (d.story?.progressPercentage || 0),
+          0
+        );
+        const averageProgress =
+          monthStories.length > 0
+            ? Math.round(totalProgress / monthStories.length)
+            : 0;
+
+        return {
+          totalStories: monthStories.length,
+          completedStories: completedStories.length,
+          averageProgress,
+          hasStories: monthStories.length > 0,
+        };
+      }
+    }
+
+    // Fallback إلى البيانات القديمة
     const monthStories = stories.filter((story) => {
       const storyDate = new Date(story.date);
       return storyDate.getFullYear() === year && storyDate.getMonth() === month;
@@ -159,7 +396,7 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
       averageProgress,
       hasStories: monthStories.length > 0,
     };
-  }, [stories, year, month]);
+  }, [calendarData, stories, year, month]);
 
   const days: Array<{
     day: number;
@@ -189,7 +426,7 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
     timeZone: "Asia/Baghdad",
   }).format(currentMonth);
 
-  const handleDateClick = (dayData: {
+  const handleDateClick = async (dayData: {
     day: number;
     date: Date;
     isToday: boolean;
@@ -200,8 +437,17 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
     if (dayData.isToday && onSelectToday) {
       onSelectToday();
     } else if (dayData.hasStory && onSelectDate) {
-      const story = getStoryForDate(dayData.date);
-      onSelectDate(dayData.date, story);
+      try {
+        console.log("🔄 Fetching full story for date:", dayData.date);
+        const story = await fetchFullStoryForDate(dayData.date);
+        console.log("📖 Full story data:", story);
+        onSelectDate(dayData.date, story);
+      } catch (error) {
+        console.error("❌ Error fetching story:", error);
+        // Fallback إلى البيانات الأساسية
+        const basicStory = getStoryForDate(dayData.date);
+        onSelectDate(dayData.date, basicStory);
+      }
     }
   };
 
@@ -215,14 +461,56 @@ export const DailyStoryCalendar: React.FC<DailyStoryCalendarProps> = ({
     { en: "Sunday", ar: "الأحد", short: "Sun" },
   ];
 
+  // عرض حالة التحميل أو الخطأ
+  if (calendarLoading) {
+    return (
+      <div className="w-full max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden">
+        <div className="p-8 text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">
+            جاري تحميل التقويم...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (calendarError) {
+    return (
+      <div className="w-full max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden">
+        <div className="p-8 text-center">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-8 h-8 text-red-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+          </div>
+          <p className="text-red-600 dark:text-red-400 mb-2">
+            خطأ في تحميل التقويم
+          </p>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            {calendarError}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden">
       {/* Header Section with Gradient Background */}
       <div className="relative bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-6 text-white">
         <div className="absolute inset-0 bg-black/10 backdrop-blur-sm"></div>
         <div className="relative z-10">
-        
-
           {/* Month Navigation with Arrows and Month Name */}
           <div className="flex items-center justify-center gap-6 mb-6">
             {/* Previous Month Arrow */}

@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { API_ENDPOINTS } from "../../../core/config/api";
 import {
   Play,
   Pause,
@@ -613,142 +614,196 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
     // التحقق من بداية يوم جديد أولاً
     checkAndResetForNewDay();
 
-    if (!currentStory && location.state?.story) {
-      try {
-        // التحقق من صحة البيانات قبل التحميل
-        const storyData = location.state.story;
+    const loadStoryData = async () => {
+      if (!currentStory && location.state?.story) {
+        try {
+          // التحقق من صحة البيانات قبل التحميل
+          const storyData = location.state.story;
 
-        if (
-          !storyData.content ||
-          !storyData.words ||
-          storyData.words.length === 0
-        ) {
-          console.error("Invalid story data received:", storyData);
-          setError("بيانات القصة غير صحيحة. يرجى العودة للصفحة السابقة.");
-          return;
-        }
+          // إذا كانت البيانات ناقصة، جلب البيانات الكاملة من API
+          if (
+            !storyData.content ||
+            !storyData.words ||
+            storyData.words.length === 0
+          ) {
+            console.log(
+              "📥 Story data incomplete, fetching full data for:",
+              storyData.id
+            );
+            console.log("📊 Current story data:", storyData);
 
-        // تنظيف الكلمات
-        const cleanedWords = cleanDuplicateWords(storyData.words || []);
+            try {
+              // جلب البيانات الكاملة من API
+              const response = await apiClient.get(
+                API_ENDPOINTS.DAILY_STORIES.GET
+              );
+              if (response.success && response.data) {
+                console.log("✅ Full story data fetched:", response.data);
 
-        const originalStory = {
-          ...storyData,
-          id: storyData.id || `story-${Date.now()}`,
-          title: storyData.title || "قصة اليوم",
-          content: storyData.content || "",
-          translation: storyData.translation || "",
-          words: cleanedWords,
-          totalWords: storyData.totalWords || storyData.words?.length || 0,
-          dailyWordsCount: storyData.dailyWordsCount || 0,
-          complementaryWordsCount: storyData.complementaryWordsCount || 0,
-          date: storyData.date || new Date().toISOString(),
-          isCompleted: storyData.isCompleted || false,
-          level: storyData.level || "L1",
-          createdAt: storyData.createdAt || new Date().toISOString(),
-          userId: storyData.userId || user?.id || "",
-          updatedAt: storyData.updatedAt || new Date().toISOString(),
-        } as unknown as DailyStory;
+                // دمج البيانات الأساسية مع البيانات الكاملة
+                const fullStoryData = {
+                  ...storyData,
+                  content: (response.data as any).content,
+                  translation: (response.data as any).translation,
+                  words: (response.data as any).words || [],
+                  dailyWords: (response.data as any).words || [],
+                };
 
-        // التحقق النهائي من صحة القصة
-        if (!originalStory.content || originalStory.words.length === 0) {
-          setError("القصة غير مكتملة. يرجى العودة للصفحة السابقة.");
-          return;
-        }
+                console.log("🔄 Merged story data:", fullStoryData);
 
-        setCurrentStory(originalStory);
-        setWordStatus({});
-        setWordsLearned(0);
-        setReadingProgress(0);
+                // تنظيف الكلمات
+                const cleanedWords = cleanDuplicateWords(
+                  fullStoryData.words || []
+                );
 
-        const dailyWords =
-          originalStory.words?.filter(
-            (word: any) => word.isDailyWord || word.type === "daily"
-          ) || [];
+                const originalStory = {
+                  ...fullStoryData,
+                  id: fullStoryData.id || `story-${Date.now()}`,
+                  title: fullStoryData.title || "قصة اليوم",
+                  content: fullStoryData.content || "",
+                  translation: fullStoryData.translation || "",
+                  words: cleanedWords,
+                  dailyWords: cleanedWords,
+                };
 
-        // التحقق من حالة البوب المحفوظة في localStorage
-        const today = new Date().toISOString().split("T")[0];
-        const dailyWordsModalShownToday = localStorage.getItem(
-          "dailyWordsModalShownDate"
-        );
-        const dailyWordsCompletedToday = localStorage.getItem(
-          "dailyWordsCompletedDate"
-        );
+                setCurrentStory(originalStory);
+                setIsLoading(false);
+                console.log("🎉 Story successfully loaded with complete data!");
+                return;
+              }
+            } catch (error) {
+              console.error("❌ Error fetching full story data:", error);
+            }
 
-        if (dailyWords.length > 0) {
-          // تحقق من عدد الكلمات المكتملة
-          const completedDailyWords = dailyWords.filter(
-            (word: any) => word.status && word.status !== "NOT_LEARNED"
+            console.error("Invalid story data received:", storyData);
+            setError("بيانات القصة غير صحيحة. يرجى العودة للصفحة السابقة.");
+            return;
+          }
+
+          // تنظيف الكلمات
+          const cleanedWords = cleanDuplicateWords(storyData.words || []);
+
+          const originalStory = {
+            ...storyData,
+            id: storyData.id || `story-${Date.now()}`,
+            title: storyData.title || "قصة اليوم",
+            content: storyData.content || "",
+            translation: storyData.translation || "",
+            words: cleanedWords,
+            totalWords: storyData.totalWords || storyData.words?.length || 0,
+            dailyWordsCount: storyData.dailyWordsCount || 0,
+            complementaryWordsCount: storyData.complementaryWordsCount || 0,
+            date: storyData.date || new Date().toISOString(),
+            isCompleted: storyData.isCompleted || false,
+            level: storyData.level || "L1",
+            createdAt: storyData.createdAt || new Date().toISOString(),
+            userId: storyData.userId || user?.id || "",
+            updatedAt: storyData.updatedAt || new Date().toISOString(),
+          } as unknown as DailyStory;
+
+          // التحقق النهائي من صحة القصة
+          if (!originalStory.content || originalStory.words.length === 0) {
+            setError("القصة غير مكتملة. يرجى العودة للصفحة السابقة.");
+            return;
+          }
+
+          setCurrentStory(originalStory);
+          setWordStatus({});
+          setWordsLearned(0);
+          setReadingProgress(0);
+
+          const dailyWords =
+            originalStory.words?.filter(
+              (word: any) => word.isDailyWord || word.type === "daily"
+            ) || [];
+
+          // التحقق من حالة البوب المحفوظة في localStorage
+          const today = new Date().toISOString().split("T")[0];
+          const dailyWordsModalShownToday = localStorage.getItem(
+            "dailyWordsModalShownDate"
+          );
+          const dailyWordsCompletedToday = localStorage.getItem(
+            "dailyWordsCompletedDate"
           );
 
-          // دائماً اعرض البوب للكلمات اليومية، حتى لو كانت مكتملة
-          setShowDailyWordsModal(true);
-          setDailyWordsCompleted(completedDailyWords.length >= 7);
-
-          // حفظ حالة عرض البوب اليوم
-          localStorage.setItem("dailyWordsModalShownDate", today);
-
-          if (completedDailyWords.length >= 7) {
-            // حفظ حالة إكمال الكلمات اليوم
-            localStorage.setItem("dailyWordsCompletedDate", today);
-          }
-        } else {
-          // إذا لم تكن هناك كلمات يومية محددة، اعرض أول 7 كلمات ككلمات يومية
-          const firstSevenWords = originalStory.words?.slice(0, 7) || [];
-          if (firstSevenWords.length > 0) {
+          if (dailyWords.length > 0) {
             // تحقق من عدد الكلمات المكتملة
-            const completedFirstWords = firstSevenWords.filter(
+            const completedDailyWords = dailyWords.filter(
               (word: any) => word.status && word.status !== "NOT_LEARNED"
             );
 
             // دائماً اعرض البوب للكلمات اليومية، حتى لو كانت مكتملة
             setShowDailyWordsModal(true);
-            setDailyWordsCompleted(completedFirstWords.length >= 7);
+            setDailyWordsCompleted(completedDailyWords.length >= 7);
 
             // حفظ حالة عرض البوب اليوم
             localStorage.setItem("dailyWordsModalShownDate", today);
 
-            if (completedFirstWords.length >= 7) {
+            if (completedDailyWords.length >= 7) {
               // حفظ حالة إكمال الكلمات اليوم
               localStorage.setItem("dailyWordsCompletedDate", today);
             }
           } else {
-            setDailyWordsCompleted(true);
-            setShowDailyWordsModal(false);
-          }
-        }
+            // إذا لم تكن هناك كلمات يومية محددة، اعرض أول 7 كلمات ككلمات يومية
+            const firstSevenWords = originalStory.words?.slice(0, 7) || [];
+            if (firstSevenWords.length > 0) {
+              // تحقق من عدد الكلمات المكتملة
+              const completedFirstWords = firstSevenWords.filter(
+                (word: any) => word.status && word.status !== "NOT_LEARNED"
+              );
 
-        // إضافة رسالة نجاح
-        addNotification("تم تحميل القصة بنجاح! 🎉", "success");
-      } catch (error) {
-        console.error("Error loading story:", error);
-        setError("حدث خطأ في تحميل القصة. يرجى المحاولة مرة أخرى.");
-      }
-    } else if (!currentStory && !location.state?.story) {
-      // إذا لم تكن هناك قصة في location state، حاول جلبها من API
-      const fetchStoryFromAPI = async () => {
-        setIsLoading(true);
-        try {
-          const response = await checkDailyStory();
-          if (response.success && response.data) {
-            // إعادة توجيه مع البيانات الجديدة
-            navigate("/stories/daily", {
-              state: { story: response.data, fromDashboard: false },
-              replace: true,
-            });
-          } else {
-            setError("لم يتم العثور على قصة. يرجى العودة للصفحة السابقة.");
+              // دائماً اعرض البوب للكلمات اليومية، حتى لو كانت مكتملة
+              setShowDailyWordsModal(true);
+              setDailyWordsCompleted(completedFirstWords.length >= 7);
+
+              // حفظ حالة عرض البوب اليوم
+              localStorage.setItem("dailyWordsModalShownDate", today);
+
+              if (completedFirstWords.length >= 7) {
+                // حفظ حالة إكمال الكلمات اليوم
+                localStorage.setItem("dailyWordsCompletedDate", today);
+              }
+            } else {
+              setDailyWordsCompleted(true);
+              setShowDailyWordsModal(false);
+            }
           }
+
+          // إضافة رسالة نجاح
+          addNotification("تم تحميل القصة بنجاح! 🎉", "success");
         } catch (error) {
-          console.error("Error fetching story from API:", error);
-          setError("حدث خطأ في جلب القصة. يرجى المحاولة مرة أخرى.");
-        } finally {
-          setIsLoading(false);
+          console.error("Error loading story:", error);
+          setError("حدث خطأ في تحميل القصة. يرجى المحاولة مرة أخرى.");
         }
-      };
+      } else if (!currentStory && !location.state?.story) {
+        // إذا لم تكن هناك قصة في location state، حاول جلبها من API
+        const fetchStoryFromAPI = async () => {
+          setIsLoading(true);
+          try {
+            const response = await checkDailyStory();
+            if (response.success && response.data) {
+              // إعادة توجيه مع البيانات الجديدة
+              navigate("/stories/daily", {
+                state: { story: response.data, fromDashboard: false },
+                replace: true,
+              });
+            } else {
+              setError("لم يتم العثور على قصة. يرجى العودة للصفحة السابقة.");
+            }
+          } catch (error) {
+            console.error("Error fetching story from API:", error);
+            setError("حدث خطأ في جلب القصة. يرجى المحاولة مرة أخرى.");
+          } finally {
+            setIsLoading(false);
+          }
+        };
 
-      fetchStoryFromAPI();
-    }
-  }, [location.state, currentStory, user?.id, navigate]);
+        fetchStoryFromAPI();
+      }
+    };
+
+    loadStoryData();
+  }, [location.state, currentStory, user?.id]);
 
   // Initialize word statuses
   useEffect(() => {
@@ -1625,9 +1680,8 @@ export const StoryReaderPage: React.FC<StoryReaderProps> = ({
                 className="flex-1 px-6 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl font-medium"
               >
                 <Home className="w-4 h-4" />
-                 العودة الى القصص
+                العودة الى القصص
               </button>
-              
             </div>
           </div>
         </div>
